@@ -1,10 +1,11 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
-import { betterAuth } from "better-auth";
+import type { Auth } from "better-auth";
+import { betterAuth } from "better-auth/minimal";
 import { nextCookies } from "better-auth/next-js";
 
 import { db } from "@repo/database";
 
-export const auth = betterAuth({
+const authConfig = {
   baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -25,4 +26,6 @@ export const auth = betterAuth({
     },
   },
   plugins: [nextCookies()],
-});
+};
+
+export const auth: Auth<typeof authConfig> = betterAuth(authConfig);
