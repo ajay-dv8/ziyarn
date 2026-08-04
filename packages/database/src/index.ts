@@ -11,8 +11,9 @@ import * as schema from "@repo/database/schema";
 // pick IPv6, which has no route on some machines, and every query times out.
 setDefaultResultOrder("ipv4first");
 
-const MAX_RETRIES = 5;
+const MAX_RETRIES = 10;
 const RETRY_DELAY_MS = 500;
+const MAX_DELAY_MS = 4000;
 
 // Transient network failures should be retried rather than surfaced to the
 // caller (flaky hotspots, AWS region blips, etc.).
@@ -40,7 +41,7 @@ const runWithRetry = async <T>(operation: () => Promise<T>): Promise<T> => {
       if (attempt >= MAX_RETRIES || !isTransientError(error)) {
         throw error;
       }
-      await sleep(RETRY_DELAY_MS * (attempt + 1));
+      await sleep(Math.min(RETRY_DELAY_MS * 2 ** attempt, MAX_DELAY_MS));
       attempt++;
     }
   }
