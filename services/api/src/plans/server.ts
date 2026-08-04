@@ -52,3 +52,17 @@ export function assertCanCreateDomain(
     );
   }
 }
+
+/** Throws if a domain already had its daily widget-conversation budget. */
+export function assertCanStartConversation(
+  limits: PlanLimits,
+  conversationsToday: number,
+): void {
+  if (conversationsToday >= limits.conversationsPerDay) {
+    throw new PlanLimitError(
+      429,
+      "CONVERSATION_LIMIT_EXCEEDED",
+      `Your plan allows ${limits.conversationsPerDay} widget conversations per day`,
+    );
+  }
+}

@@ -1,6 +1,7 @@
 export * from "@repo/database/schema/auth";
 export * from "@repo/database/schema/domains";
 
+import { domains } from "@repo/database/schema/domains";
 import {
   index,
   pgTable,
@@ -30,6 +31,9 @@ export const agents = pgTable(
   "agents",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    domainId: uuid("domain_id")
+      .notNull()
+      .references(() => domains.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description"),
     instructions: text("instructions"),
@@ -43,7 +47,10 @@ export const agents = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("agents_name_idx").on(table.name)],
+  (table) => [
+    index("agents_name_idx").on(table.name),
+    index("agents_domain_id_idx").on(table.domainId),
+  ],
 );
 
 export const conversations = pgTable(
@@ -56,7 +63,13 @@ export const conversations = pgTable(
     userId: uuid("user_id").references(() => users.id, {
       onDelete: "set null",
     }),
+    visitorId: text("visitor_id"),
     title: text("title"),
+    status: text("status", {
+      enum: ["active", "escalated", "resolved", "closed"],
+    })
+      .notNull()
+      .default("active"),
     metadata: text("metadata"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -68,6 +81,7 @@ export const conversations = pgTable(
   (table) => [
     index("conversations_agent_id_idx").on(table.agentId),
     index("conversations_user_id_idx").on(table.userId),
+    index("conversations_visitor_id_idx").on(table.visitorId),
   ],
 );
 

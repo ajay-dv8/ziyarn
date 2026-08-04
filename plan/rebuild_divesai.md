@@ -105,13 +105,22 @@ P2 Domains (done)
 - Done when: domain CRUD verified owner-only via curl + UI (done)
 
 P3 Agent pipeline (the core)
-- agents CRUD + agent config service
-- chat API route (public): domain secret + rate limit (in-memory/Redis)
+- agents CRUD + agent config service (done: services/api/agents, owner-scoped)
+- chat API route (public): domain secret + rate limit (done: /api/chat POST+GET,
+  x-embed-secret, in-memory sliding window per visitor, SSE streaming, 401/403/
+  404/429/503 error codes; E2E verified 14/14)
 - services/ai: openai chat completions, tool calling (capture_email,
   book_appointment, create_payment, escalate, answer_knowledge), streaming
-- messages persisted + context windowing (messages table)
+  (done: @repo/ai streamChat generator, tool loop up to 5 rounds; pending live
+  OpenAI key verification)
+- messages persisted + context windowing (done: conversations/messages, status
+  active/escalated/resolved/closed, visitor_id, 20-message context window)
 - knowledge base upload -> embeddings (pgvector or neon vector) + retrieval
-- widget (apps/widget iframe) with postMessage + streaming render
+  (pending: P3b)
+- widget: decision = Shadow DOM web component (NOT iframe) — works in WebViews
+  of mobile/desktop apps, not just browsers; chat API stays transport-agnostic
+  (REST + SSE) so native SDKs can call it directly (pending: P3c, after user
+  sign-off)
 - Done when: widget holds a full sales + helpdesk conversation,
   escalates, persists, and streaming renders
 
