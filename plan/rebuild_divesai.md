@@ -92,17 +92,17 @@ Widget                         apps/widget (new, iframe target) or
 Every phase ends verified: check-types + lint clean, feature exercised
 against the running dev server.
 
-P1 Platform foundation (in progress)
+P1 Platform foundation (done)
 - Better Auth on Drizzle/Neon (done), sign-in/sign-up/logout (done)
 - services/api auth service (done)
-- E2E verify auth flow (blocked by flaky Neon network; db retry wrapper done)
-- Done when: user can sign up, sign in, sign out against Neon
+- E2E verify auth flow (done)
 
-P2 Domains
-- domains table + CRUD services (zod schemas, owner-scoped)
-- plan limits service (single source for domain/credits limits)
-- settings UI: create/rename/delete domain, embed snippet
-- Done when: domain CRUD verified owner-only via curl + UI
+P2 Domains (done)
+- domains table + CRUD services (zod schemas, owner-scoped) (done)
+- plan limits service (single source for domain/credits limits) (done)
+- settings UI: create/rename/delete domain (done; embed snippet config endpoint
+  ready, full snippet UI ships with the P3 widget)
+- Done when: domain CRUD verified owner-only via curl + UI (done)
 
 P3 Agent pipeline (the core)
 - agents CRUD + agent config service
