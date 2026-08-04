@@ -11,6 +11,9 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.6.25",
+    "@repo/api": "workspace:*",
+    "@repo/database": "workspace:*",
     "@repo/ui": "workspace:*",
     "better-auth": "^1.6.25",
     "next": "16.2.0",
