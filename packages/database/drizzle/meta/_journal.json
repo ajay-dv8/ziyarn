@@ -8,6 +8,13 @@
       "when": 1785612832442,
       "tag": "0000_red_vargas",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785617587403,
+      "tag": "0001_natural_machine_man",
+      "breakpoints": true
     }
   ]
 }

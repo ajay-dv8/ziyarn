@@ -1,3 +1,5 @@
+export * from "@repo/database/schema/auth";
+
 import {
   index,
   pgTable,
