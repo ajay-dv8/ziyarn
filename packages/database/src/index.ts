@@ -11,8 +11,8 @@ import * as schema from "@repo/database/schema";
 // pick IPv6, which has no route on some machines, and every query times out.
 setDefaultResultOrder("ipv4first");
 
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 300;
+const MAX_RETRIES = 5;
+const RETRY_DELAY_MS = 500;
 
 // Transient network failures should be retried rather than surfaced to the
 // caller (flaky hotspots, AWS region blips, etc.).

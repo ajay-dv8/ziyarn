@@ -1,4 +1,5 @@
 export * from "@repo/database/schema/auth";
+export * from "@repo/database/schema/domains";
 
 import {
   index,
