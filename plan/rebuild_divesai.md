@@ -109,19 +109,22 @@ P3 Agent pipeline (the core)
 - chat API route (public): domain secret + rate limit (done: /api/chat POST+GET,
   x-embed-secret, in-memory sliding window per visitor, SSE streaming, 401/403/
   404/429/503 error codes; E2E verified 14/14)
-- services/ai: openai chat completions, tool calling (capture_email,
-  book_appointment, create_payment, escalate, answer_knowledge), streaming
-  (done: @repo/ai streamChat generator, tool loop up to 5 rounds; pending live
-  OpenAI key verification)
+- services/ai: multi-provider chat (Gemini primary, OpenRouter fallback),
+  tool calling (capture_email, book_appointment, create_payment, escalate,
+  answer_knowledge), streaming
+  (done: @repo/ai streamChat generator, tool loop up to 5 rounds; verified
+  live E2E 11/11 with gemini-3.6-flash + openai/gpt-oss-20b:free fallback)
 - messages persisted + context windowing (done: conversations/messages, status
   active/escalated/resolved/closed, visitor_id, 20-message context window)
 - knowledge base upload -> embeddings (pgvector or neon vector) + retrieval
   (done: P3b — embeddings.embedding vector(1536) + HNSW cosine index
-  (0004_knowledge_embeddings), services/ai embed() (text-embedding-3-small),
+  (0004_knowledge_embeddings), services/ai embed() (gemini-embedding-001,
+  1536-dim via matryoshka truncation, no OpenAI key needed),
   services/api knowledge service (upload/list/delete/query, owner-scoped,
   chunker 900 chars/120 overlap, `1 - (embedding <=> q)::vector` cosine
-  search), chat answer_knowledge tool wired to retrieval; E2E 13/13 +
-  pgvector verified on Neon; pending live OpenAI key for real embeddings)
+  search, default minScore 0.5 for matryoshka-truncated vectors), chat
+  answer_knowledge tool wired to retrieval; live E2E 11/11 verified on Neon
+  with real Gemini embeddings)
 - widget: decision = Shadow DOM web component (NOT iframe) — works in WebViews
   of mobile/desktop apps, not just browsers; chat API stays transport-agnostic
   (REST + SSE) so native SDKs can call it directly (pending: P3c, after user

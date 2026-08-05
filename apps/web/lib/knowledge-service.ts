@@ -9,4 +9,5 @@ export const knowledgeService = createKnowledgeService({
   db,
   getSession: (headers: Headers) => authService.getSession(headers),
   embed: (texts: string[]) => aiService.embed(texts),
+  embeddingModel: aiService.embeddingModel,
 });

@@ -10,8 +10,15 @@ export const AGENT_TOOLS = [
 
 export type AgentToolName = (typeof AGENT_TOOLS)[number];
 
-export const EMBEDDING_MODEL = "text-embedding-3-small";
-export const EMBEDDING_DIMENSIONS = 1536;
+export type AiProviderConfig = {
+  apiKey: string;
+  baseURL: string;
+  model: string;
+};
+
+export type EmbedProviderConfig = AiProviderConfig & {
+  dimensions: number;
+};
 
 export type ChatTurn = {
   role: "user" | "assistant";
@@ -115,25 +122,168 @@ const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
 
 const MAX_TOOL_ROUNDS = 5;
 
-export function createAiService(opts: { apiKey?: string; model?: string }) {
-  const client = opts.apiKey ? new OpenAI({ apiKey: opts.apiKey }) : null;
-  const model = opts.model ?? "gpt-4o-mini";
+type StreamInput = {
+  systemPrompt: string;
+  messages: ChatTurn[];
+  tools?: AgentToolName[];
+  executeTool: ToolExecutor;
+  signal?: AbortSignal;
+};
+
+async function* streamWith(
+  client: OpenAI,
+  model: string,
+  input: StreamInput,
+): AsyncGenerator<AiStreamEvent> {
+  const enabledTools =
+    input.tools && input.tools.length > 0
+      ? TOOL_DEFINITIONS.filter(
+          (def) =>
+            def.type === "function" &&
+            input.tools!.includes(def.function.name as AgentToolName),
+        )
+      : [];
+
+  const history: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+    { role: "system", content: input.systemPrompt },
+    ...input.messages.map((turn) => ({ ...turn })),
+  ];
+
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const stream = await client.chat.completions.create(
+      {
+        model,
+        messages: history,
+        ...(enabledTools.length > 0 ? { tools: enabledTools } : {}),
+        stream: true,
+      },
+      { signal: input.signal },
+    );
+
+    let content = "";
+    const calls: Record<
+      number,
+      { id: string; name: string; args: string; thoughtSignature?: string }
+    > = {};
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta;
+      if (delta?.content) {
+        content += delta.content;
+        yield { type: "text", delta: delta.content };
+      }
+      for (const toolCall of delta?.tool_calls ?? []) {
+        const entry = (calls[toolCall.index] ??= {
+          id: "",
+          name: "",
+          args: "",
+        });
+        if (toolCall.id) entry.id = toolCall.id;
+        if (toolCall.function?.name) entry.name += toolCall.function.name;
+        if (toolCall.function?.arguments) {
+          entry.args += toolCall.function.arguments;
+        }
+        const extra = (toolCall as { extra_content?: { google?: { thought_signature?: string } } }).extra_content;
+        if (extra?.google?.thought_signature) {
+          entry.thoughtSignature = extra.google.thought_signature;
+        }
+      }
+    }
+
+    const callList = Object.values(calls);
+
+    if (content) {
+      history.push({ role: "assistant", content });
+    }
+
+    if (callList.length === 0) return;
+
+    history.push({
+      role: "assistant",
+      content: content || null,
+      tool_calls: callList.map((c) => ({
+        id: c.id,
+        type: "function" as const,
+        function: { name: c.name, arguments: c.args || "{}" },
+        ...(c.thoughtSignature
+          ? {
+              extra_content: {
+                google: { thought_signature: c.thoughtSignature },
+              },
+            }
+          : {}),
+      })) as OpenAI.Chat.Completions.ChatCompletionMessageToolCall[],
+    });
+
+    for (const call of callList) {
+      let args: Record<string, unknown> = {};
+      try {
+        args = JSON.parse(call.args || "{}");
+      } catch {
+        args = {};
+      }
+      const name = call.name as AgentToolName;
+      const result = await input.executeTool(name, args);
+      history.push({
+        role: "tool",
+        name,
+        tool_call_id: call.id,
+        content: result,
+      } as OpenAI.Chat.Completions.ChatCompletionMessageParam);
+      yield { type: "tool", name };
+      if (name === "escalate") {
+        yield { type: "escalate" };
+      }
+    }
+  }
+}
+
+export function createAiService(opts: {
+  chat: AiProviderConfig;
+  fallback?: AiProviderConfig | null;
+  embed: EmbedProviderConfig;
+}) {
+  const chatClient = opts.chat.apiKey
+    ? new OpenAI({ apiKey: opts.chat.apiKey, baseURL: opts.chat.baseURL })
+    : null;
+  const fallbackClient = opts.fallback?.apiKey
+    ? new OpenAI({
+        apiKey: opts.fallback.apiKey,
+        baseURL: opts.fallback.baseURL,
+      })
+    : null;
+  const embedClient = opts.embed.apiKey
+    ? new OpenAI({ apiKey: opts.embed.apiKey, baseURL: opts.embed.baseURL })
+    : null;
+
+  const chatModels: Array<{ client: OpenAI; model: string }> = [];
+  if (chatClient) chatModels.push({ client: chatClient, model: opts.chat.model });
+  if (fallbackClient) {
+    chatModels.push({
+      client: fallbackClient,
+      model: opts.fallback!.model,
+    });
+  }
 
   return {
-    isConfigured: client !== null,
+    isConfigured: chatClient !== null && embedClient !== null,
+
+    embeddingModel: opts.embed.model,
+    embeddingDimensions: opts.embed.dimensions,
 
     /**
      * Embeds texts with the configured embedding model. Returns one vector
-     * per input, each with EMBEDDING_DIMENSIONS components.
+     * per input, each with `embeddingDimensions` components.
      */
     embed: async (texts: string[]): Promise<number[][]> => {
-      if (!client) {
+      if (!embedClient) {
         throw new Error("AI service is not configured (missing API key)");
       }
       if (texts.length === 0) return [];
-      const response = await client.embeddings.create({
-        model: EMBEDDING_MODEL,
+      const response = await embedClient.embeddings.create({
+        model: opts.embed.model,
         input: texts,
+        dimensions: opts.embed.dimensions,
       });
       return response.data.map((item) => item.embedding);
     },
@@ -141,106 +291,33 @@ export function createAiService(opts: { apiKey?: string; model?: string }) {
     /**
      * Streams an assistant reply with tool calling. Text deltas are yielded as
      * `text` events; completed tool invocations as `tool` events; escalation
-     * additionally as an `escalate` event.
+     * additionally as an `escalate` event. Falls back to the secondary chat
+     * provider if the primary fails before any event was yielded.
      */
-    async *streamChat(input: {
-      systemPrompt: string;
-      messages: ChatTurn[];
-      tools?: AgentToolName[];
-      executeTool: ToolExecutor;
-      signal?: AbortSignal;
-    }): AsyncGenerator<AiStreamEvent> {
-      if (!client) {
+    async *streamChat(
+      input: StreamInput,
+    ): AsyncGenerator<AiStreamEvent> {
+      if (chatModels.length === 0) {
         throw new Error("AI service is not configured (missing API key)");
       }
-
-      const enabledTools =
-        input.tools && input.tools.length > 0
-          ? TOOL_DEFINITIONS.filter(
-              (def) =>
-                def.type === "function" &&
-                input.tools!.includes(def.function.name as AgentToolName),
-            )
-          : [];
-
-      const history: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-        { role: "system", content: input.systemPrompt },
-        ...input.messages.map((turn) => ({ ...turn })),
-      ];
-
-      for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-        const stream = await client.chat.completions.create(
-          {
-            model,
-            messages: history,
-            ...(enabledTools.length > 0 ? { tools: enabledTools } : {}),
-            stream: true,
-          },
-          { signal: input.signal },
-        );
-
-        let content = "";
-        const calls: Record<number, { id: string; name: string; args: string }> =
-          {};
-
-        for await (const chunk of stream) {
-          const delta = chunk.choices[0]?.delta;
-          if (delta?.content) {
-            content += delta.content;
-            yield { type: "text", delta: delta.content };
+      let lastError: unknown = null;
+      for (const { client, model } of chatModels) {
+        let yielded = false;
+        try {
+          for await (const event of streamWith(client, model, input)) {
+            yielded = true;
+            yield event;
           }
-          for (const toolCall of delta?.tool_calls ?? []) {
-            const entry = (calls[toolCall.index] ??= {
-              id: "",
-              name: "",
-              args: "",
-            });
-            if (toolCall.id) entry.id = toolCall.id;
-            if (toolCall.function?.name) entry.name += toolCall.function.name;
-            if (toolCall.function?.arguments) {
-              entry.args += toolCall.function.arguments;
-            }
-          }
-        }
-
-        const callList = Object.values(calls);
-
-        if (content) {
-          history.push({ role: "assistant", content });
-        }
-
-        if (callList.length === 0) return;
-
-        history.push({
-          role: "assistant",
-          content: content || null,
-          tool_calls: callList.map((c) => ({
-            id: c.id,
-            type: "function" as const,
-            function: { name: c.name, arguments: c.args || "{}" },
-          })),
-        });
-
-        for (const call of callList) {
-          let args: Record<string, unknown> = {};
-          try {
-            args = JSON.parse(call.args || "{}");
-          } catch {
-            args = {};
-          }
-          const name = call.name as AgentToolName;
-          const result = await input.executeTool(name, args);
-          history.push({
-            role: "tool",
-            tool_call_id: call.id,
-            content: result,
-          });
-          yield { type: "tool", name };
-          if (name === "escalate") {
-            yield { type: "escalate" };
+          return;
+        } catch (error) {
+          lastError = error;
+          const last = chatModels[chatModels.length - 1];
+          if (yielded || !last || last.client === client) {
+            throw error;
           }
         }
       }
+      throw lastError;
     },
   };
 }

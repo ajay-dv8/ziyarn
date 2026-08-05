@@ -8,7 +8,6 @@ import {
   embeddings,
   knowledgeDocuments,
 } from "@repo/database/schema";
-import { EMBEDDING_MODEL } from "@repo/ai";
 
 import type { SessionWithUser } from "@repo/api/domains/server";
 import { chunkText } from "@repo/api/knowledge/chunker";
@@ -53,7 +52,7 @@ const aiNotConfigured = () =>
   );
 
 const vectorLiteral = (values: number[]) =>
-  sql`[${values.join(",")}]::vector`;
+  sql`${`[${values.join(",")}]`}::vector`;
 
 /**
  * Knowledge base: upload documents, embed their chunks, and search them with
@@ -64,8 +63,9 @@ export function createKnowledgeService(deps: {
   db: Database;
   getSession: (headers: Headers) => Promise<SessionWithUser>;
   embed: (texts: string[]) => Promise<number[][]>;
+  embeddingModel: string;
 }) {
-  const { db, getSession, embed } = deps;
+  const { db, getSession, embed, embeddingModel } = deps;
 
   const requireOwnedDomain = async (
     domainId: string,
@@ -174,7 +174,7 @@ export function createKnowledgeService(deps: {
       await db.insert(embeddings).values(
         insertedChunks.map((chunk, index) => ({
           chunkId: chunk.id,
-          model: EMBEDDING_MODEL,
+          model: embeddingModel,
           embedding: vectorLiteral(vectors[index] ?? []),
         })),
       );
@@ -263,7 +263,7 @@ export function createKnowledgeService(deps: {
       }
 
       const vector = vectorLiteral(queryVector);
-      const minScore = body.minScore ?? 0.7;
+      const minScore = body.minScore ?? 0.5;
       const results = await db
         .select({
           text: documentChunks.text,
