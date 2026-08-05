@@ -16,7 +16,9 @@
     "./knowledge": "./src/knowledge/index.ts",
     "./knowledge/*": "./src/knowledge/*.ts",
     "./plans": "./src/plans/index.ts",
-    "./plans/*": "./src/plans/*.ts"
+    "./plans/*": "./src/plans/*.ts",
+    "./portal": "./src/portal/index.ts",
+    "./portal/*": "./src/portal/*.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit",
@@ -27,6 +29,7 @@
     "@repo/database": "workspace:*",
     "better-auth": "^1.6.25",
     "drizzle-orm": "^0.44.7",
+    "stripe": "^18.3.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
