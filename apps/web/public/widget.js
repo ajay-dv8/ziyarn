@@ -131,6 +131,8 @@
       animation: zy-in 0.16s ease;
     }
     .zy-msg-agent { background: #fff; border: 1px solid var(--zy-border); border-bottom-left-radius: 5px; align-self: flex-start; }
+    .zy-msg-owner { background: #fff; border: 1px solid var(--zy-color); border-bottom-left-radius: 5px; align-self: flex-start; }
+    .zy-msg-owner::before { content: "Owner"; display: block; font-size: 11px; font-weight: 600; color: var(--zy-color); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
     .zy-msg-user { background: var(--zy-color); color: #fff; border-bottom-right-radius: 5px; align-self: flex-end; }
     .zy-msg-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; align-self: center; font-size: 13px; }
     .zy-msg-typing { color: var(--zy-muted); font-size: 13.5px; }
@@ -305,6 +307,9 @@
         this._saveStore("visitor", this._visitorId);
       }
       this._conversationId = this._loadStore("conversation") || null;
+      this._lastMsgAt = null;
+      this._deltaActive = false;
+      this._deltaTimer = null;
 
       this._launcher.addEventListener("click", this._toggle.bind(this));
       this._input.addEventListener("keydown", this._onKey.bind(this));
@@ -331,7 +336,7 @@
 
     _init() {
       var self = this;
-      this._fetch(this._apiBase + "/api/chat/config", {
+      this._fetch(this._apiBase + "/api/chat", {
         method: "GET",
         headers: { "x-embed-secret": this._secret },
       })
@@ -366,11 +371,24 @@
         .then(function (data) {
           if (data && Array.isArray(data.messages)) {
             self._messages.textContent = "";
+            var latest = null;
             data.messages.forEach(function (m) {
-              if (m.role === "user") self._appendMessage("user", m.content);
+              if (m.sender === "owner") self._appendMessage("owner", m.content);
+              else if (m.role === "user") self._appendMessage("user", m.content);
               else if (m.role === "assistant")
                 self._appendMessage("agent", m.content);
+              if (m.createdAt) latest = m.createdAt;
             });
+            if (latest) {
+              var t = Date.parse(latest);
+              if (!isNaN(t)) self._lastMsgAt = new Date(t);
+            }
+            if (
+              data.conversation &&
+              data.conversation.status === "escalated"
+            ) {
+              self._startDelta();
+            }
           }
         })
         .catch(function () {
@@ -505,11 +523,14 @@
           typingNode.textContent =
             "I've asked a human teammate to take over — they'll join this chat shortly.";
           self._scrollToBottom();
+          self._startDelta();
         } else if (event.type === "done") {
           if (event.conversationId) {
             self._conversationId = event.conversationId;
             self._saveStore("conversation", event.conversationId);
           }
+          self._lastMsgAt = new Date(event.serverTime || Date.now());
+          self._startDelta();
         } else if (event.type === "error") {
           typingNode.classList.remove("zy-msg-typing");
           typingNode.textContent = event.message || "Something went wrong";
@@ -552,6 +573,104 @@
         }
         return response.json();
       });
+    }
+
+    /**
+     * Realtime delta loop: holds an SSE stream to /api/chat?since&stream=1;
+     * the server pushes new messages (owner replies) and closes; we
+     * reconnect immediately. Runs while the widget exists.
+     */
+    _startDelta() {
+      var self = this;
+      if (this._deltaActive || !this._conversationId || !this._lastMsgAt) {
+        return;
+      }
+      this._deltaActive = true;
+      var url =
+        this._apiBase +
+        "/api/chat?conversationId=" +
+        encodeURIComponent(this._conversationId) +
+        "&since=" +
+        encodeURIComponent(this._lastMsgAt.toISOString()) +
+        "&stream=1";
+      fetch(url, {
+        method: "GET",
+        headers: { "x-embed-secret": this._secret },
+      })
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error("delta request failed (" + response.status + ")");
+          }
+          return self._readDelta(response.body);
+        })
+        .catch(function () {
+          self._deltaActive = false;
+          self._scheduleDelta(2500);
+        });
+    }
+
+    _scheduleDelta(delay) {
+      var self = this;
+      clearTimeout(this._deltaTimer);
+      this._deltaTimer = setTimeout(function () {
+        if (self._conversationId) self._startDelta();
+      }, delay);
+    }
+
+    _readDelta(stream) {
+      var self = this;
+      var reader = stream.getReader();
+      var decoder = new TextDecoder();
+      var buffer = "";
+
+      function handleEvent(data) {
+        var event;
+        try {
+          event = JSON.parse(data);
+        } catch (_) {
+          return;
+        }
+        if (event.type === "message" && event.message) {
+          var m = event.message;
+          if (m.sender === "owner" && m.content) {
+            self._appendMessage("owner", m.content);
+          }
+          if (m.createdAt) {
+            var t = Date.parse(m.createdAt);
+            if (!isNaN(t)) self._lastMsgAt = new Date(t);
+          }
+        } else if (event.type === "done") {
+          self._deltaActive = false;
+          if (event.serverTime) {
+            var t = Date.parse(event.serverTime);
+            if (!isNaN(t)) self._lastMsgAt = new Date(t);
+          }
+          self._scheduleDelta(200);
+        } else if (event.type === "error") {
+          self._deltaActive = false;
+          self._scheduleDelta(2000);
+        }
+      }
+
+      function pump(result) {
+        if (result.done) {
+          self._deltaActive = false;
+          self._scheduleDelta(200);
+          return;
+        }
+        buffer += decoder.decode(result.value, { stream: true });
+        var parts = buffer.split("\n\n");
+        buffer = parts.pop();
+        parts.forEach(function (chunk) {
+          var line = chunk.split("\n")[0];
+          if (line.indexOf("data:") === 0) {
+            handleEvent(line.slice(5).trim());
+          }
+        });
+        return reader.read().then(pump);
+      }
+
+      return reader.read().then(pump);
     }
   }
 
