@@ -4,4 +4,5 @@ export const APP_ROUTES = {
   SIGN_UP: "/sign-up",
   DASHBOARD: "/dashboard",
   DASHBOARD_DOMAINS: "/dashboard/domains",
+  DASHBOARD_CONVERSATIONS: "/dashboard/conversations",
 } as const;
