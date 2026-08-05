@@ -1,10 +1,26 @@
 import { headers } from "next/headers";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { LogoutButton } from "@/components/auth/logout-button";
+import { getPlanLimits, type Plan } from "@repo/api/plans";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@repo/ui/components/sidebar";
+import { Separator } from "@repo/ui/components/separator";
+
+import { UserMenu } from "@/components/dashboard/user-menu";
+import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/lib/auth-service";
+import { domainsService } from "@/lib/domains-service";
+
+const PLAN_RANK: Record<Plan, number> = {
+  free: 0,
+  standard: 1,
+  pro: 2,
+  ultimate: 3,
+};
 
 export default async function DashboardLayout({
   children,
@@ -16,30 +32,31 @@ export default async function DashboardLayout({
     redirect(APP_ROUTES.SIGN_IN);
   }
 
+  const domains = await domainsService.listDomains(await headers());
+  const plan = domains.reduce<Plan>(
+    (best, domain) =>
+      PLAN_RANK[domain.plan] > PLAN_RANK[best] ? domain.plan : best,
+    "free",
+  );
+  const limits = getPlanLimits(plan);
+
   return (
-    <div className="min-h-svh">
-      <header className="border-b">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-          <nav className="flex items-center gap-6">
-            <Link href={APP_ROUTES.HOME} className="font-semibold">
-              Ziyarn
-            </Link>
-            <Link
-              href={APP_ROUTES.DASHBOARD_DOMAINS}
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              Domains
-            </Link>
-          </nav>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
-              {session.user.email}
-            </span>
-            <LogoutButton />
+    <SidebarProvider>
+      <AppSidebar
+        plan={plan}
+        domainCount={domains.length}
+        maxDomains={limits.maxDomains}
+      />
+      <SidebarInset>
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="h-4" />
+          <div className="ml-auto">
+            <UserMenu email={session.user.email} />
           </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
-    </div>
+        </header>
+        <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
