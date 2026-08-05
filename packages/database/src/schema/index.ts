@@ -1,5 +1,6 @@
 export * from "@repo/database/schema/auth";
 export * from "@repo/database/schema/domains";
+export * from "@repo/database/schema/portal";
 
 import { domains } from "@repo/database/schema/domains";
 import {

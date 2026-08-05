@@ -43,6 +43,13 @@
       "when": 1785945995085,
       "tag": "0005_p4_realtime",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786049200000,
+      "tag": "0006_p5_portal",
+      "breakpoints": true
     }
   ]
 }
