@@ -11,12 +11,11 @@ import { Button } from "@repo/ui/components/button"
 import { Input } from "@repo/ui/components/input"
 import { Separator } from "@repo/ui/components/separator"
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@repo/ui/components/sheet"
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerTitle,
+} from "@repo/ui/components/drawer"
 import { Skeleton } from "@repo/ui/components/skeleton"
 import {
   Tooltip,
@@ -181,27 +180,30 @@ function Sidebar({
 
   if (isMobile) {
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
-        <SheetContent
-          dir={dir}
+      <Drawer
+        open={openMobile}
+        onOpenChange={setOpenMobile}
+        swipeDirection={side === "right" ? "right" : "left"}
+        {...props}
+      >
+        <DrawerContent
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&_[data-slot=drawer-swipe-handle]]:hidden"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
             } as React.CSSProperties
           }
-          side={side}
         >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Sidebar</SheetTitle>
-            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
-          </SheetHeader>
+          <DrawerTitle className="sr-only">Sidebar</DrawerTitle>
+          <DrawerDescription className="sr-only">
+            Displays the mobile sidebar.
+          </DrawerDescription>
           <div className="flex h-full w-full flex-col">{children}</div>
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     )
   }
 
