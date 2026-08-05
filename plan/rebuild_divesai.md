@@ -116,7 +116,12 @@ P3 Agent pipeline (the core)
 - messages persisted + context windowing (done: conversations/messages, status
   active/escalated/resolved/closed, visitor_id, 20-message context window)
 - knowledge base upload -> embeddings (pgvector or neon vector) + retrieval
-  (pending: P3b)
+  (done: P3b — embeddings.embedding vector(1536) + HNSW cosine index
+  (0004_knowledge_embeddings), services/ai embed() (text-embedding-3-small),
+  services/api knowledge service (upload/list/delete/query, owner-scoped,
+  chunker 900 chars/120 overlap, `1 - (embedding <=> q)::vector` cosine
+  search), chat answer_knowledge tool wired to retrieval; E2E 13/13 +
+  pgvector verified on Neon; pending live OpenAI key for real embeddings)
 - widget: decision = Shadow DOM web component (NOT iframe) — works in WebViews
   of mobile/desktop apps, not just browsers; chat API stays transport-agnostic
   (REST + SSE) so native SDKs can call it directly (pending: P3c, after user

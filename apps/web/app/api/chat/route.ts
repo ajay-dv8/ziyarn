@@ -8,6 +8,7 @@ import { leads } from "@repo/database/schema";
 import type { AgentToolName } from "@repo/ai";
 
 import { aiService, chatService, logger } from "@/lib/chat-service";
+import { knowledgeService } from "@/lib/knowledge-service";
 import { chatRateLimiter } from "@/lib/rate-limit";
 
 const DEFAULT_SYSTEM_PROMPT = `You are a friendly sales and support assistant for this business.
@@ -159,8 +160,27 @@ export async function POST(request: Request) {
           await chatService.setConversationStatus(conversationId, "escalated");
           logger.info({ conversationId }, "conversation_escalated");
           return "The visitor has been connected to a human agent.";
-        case "answer_knowledge":
-          return "No knowledge base entry found for this question. Answer generally or offer to escalate.";
+        case "answer_knowledge": {
+          const query =
+            typeof args.query === "string" ? args.query.trim().slice(0, 1000) : "";
+          if (!query) {
+            return "No question was provided. Ask the visitor what they would like to know.";
+          }
+          const hits = await knowledgeService.queryKnowledge({
+            agentId: agent.id,
+            query,
+            limit: 5,
+          });
+          if (hits.length === 0) {
+            return "No knowledge base entry found for this question. Answer generally or offer to escalate.";
+          }
+          return (
+            "Relevant knowledge base entries:\n" +
+            hits
+              .map((hit, index) => `[${index + 1}] ${hit.text}`)
+              .join("\n")
+          );
+        }
       }
     };
 

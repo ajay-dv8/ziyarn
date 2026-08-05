@@ -10,6 +10,9 @@ export const AGENT_TOOLS = [
 
 export type AgentToolName = (typeof AGENT_TOOLS)[number];
 
+export const EMBEDDING_MODEL = "text-embedding-3-small";
+export const EMBEDDING_DIMENSIONS = 1536;
+
 export type ChatTurn = {
   role: "user" | "assistant";
   content: string;
@@ -118,6 +121,22 @@ export function createAiService(opts: { apiKey?: string; model?: string }) {
 
   return {
     isConfigured: client !== null,
+
+    /**
+     * Embeds texts with the configured embedding model. Returns one vector
+     * per input, each with EMBEDDING_DIMENSIONS components.
+     */
+    embed: async (texts: string[]): Promise<number[][]> => {
+      if (!client) {
+        throw new Error("AI service is not configured (missing API key)");
+      }
+      if (texts.length === 0) return [];
+      const response = await client.embeddings.create({
+        model: EMBEDDING_MODEL,
+        input: texts,
+      });
+      return response.data.map((item) => item.embedding);
+    },
 
     /**
      * Streams an assistant reply with tool calling. Text deltas are yielded as

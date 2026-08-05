@@ -9,6 +9,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  vector,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable(
@@ -170,7 +171,7 @@ export const embeddings = pgTable(
       .notNull()
       .references(() => documentChunks.id, { onDelete: "cascade" }),
     model: text("model").notNull(),
-    vector: text("vector").notNull(),
+    embedding: vector("embedding", { dimensions: 1536 }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

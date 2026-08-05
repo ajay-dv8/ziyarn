@@ -13,6 +13,8 @@
     "./chat/*": "./src/chat/*.ts",
     "./domains": "./src/domains/index.ts",
     "./domains/*": "./src/domains/*.ts",
+    "./knowledge": "./src/knowledge/index.ts",
+    "./knowledge/*": "./src/knowledge/*.ts",
     "./plans": "./src/plans/index.ts",
     "./plans/*": "./src/plans/*.ts"
   },
@@ -21,6 +23,7 @@
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
+    "@repo/ai": "workspace:*",
     "@repo/database": "workspace:*",
     "better-auth": "^1.6.25",
     "drizzle-orm": "^0.44.7",
