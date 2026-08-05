@@ -172,7 +172,7 @@ export function createDomainsService(deps: {
     },
 
     /**
-     * Owner-only embed configuration: the widget URL plus the domain
+     * Owner-only embed configuration: the widget script URL plus the domain
      * secret used by the (P3) public chat endpoint.
      */
     getEmbedConfig: async (id: string, headers: Headers) => {
@@ -181,7 +181,7 @@ export function createDomainsService(deps: {
 
       return {
         slug: domain.slug,
-        widgetUrl: `${baseUrl}/widget/${domain.slug}`,
+        widgetUrl: `${baseUrl}/widget.js`,
         secret: domain.embedSecret,
       };
     },
