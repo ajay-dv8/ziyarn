@@ -71,6 +71,9 @@ export const conversations = pgTable(
     })
       .notNull()
       .default("active"),
+    ownerSeenAt: timestamp("owner_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     metadata: text("metadata"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -116,6 +119,11 @@ export const messages = pgTable(
     role: text("role", {
       enum: ["user", "assistant", "system", "tool"],
     }).notNull(),
+    sender: text("sender", {
+      enum: ["visitor", "owner", "assistant"],
+    })
+      .notNull()
+      .default("assistant"),
     content: text("content").notNull(),
     toolCallId: uuid("tool_call_id").references(() => toolCalls.id, {
       onDelete: "set null",
