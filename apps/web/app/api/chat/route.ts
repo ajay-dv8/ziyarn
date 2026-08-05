@@ -8,6 +8,7 @@ import { leads } from "@repo/database/schema";
 import type { AgentToolName } from "@repo/ai";
 
 import { aiService, chatService, logger } from "@/lib/chat-service";
+import { authService } from "@/lib/auth-service";
 import { knowledgeService } from "@/lib/knowledge-service";
 import { chatRateLimiter } from "@/lib/rate-limit";
 
@@ -225,7 +226,11 @@ export async function POST(request: Request) {
             metadata: JSON.stringify({ streamed: true }),
           });
 
-          send({ type: "done", conversationId });
+          send({
+            type: "done",
+            conversationId,
+            serverTime: new Date().toISOString(),
+          });
           logger.info({ conversationId, chars: fullReply.length }, "chat_completed");
         } catch (error) {
           logger.error({ err: error }, "chat_stream_failed");
@@ -264,10 +269,11 @@ export async function POST(request: Request) {
 /** Message history (conversationId) or widget config (no conversationId), authenticated by embed secret. */
 export async function GET(request: Request) {
   const secret = request.headers.get("x-embed-secret");
-  if (!secret) return jsonError(401, "MISSING_SECRET", "Missing embed secret");
+  const url = new URL(request.url);
+  const conversationId = url.searchParams.get("conversationId");
 
-  const conversationId = new URL(request.url).searchParams.get("conversationId");
   if (!conversationId) {
+    if (!secret) return jsonError(401, "MISSING_SECRET", "Missing embed secret");
     try {
       const domain = await chatService.resolveDomainBySecret(secret);
       const agent = await chatService.defaultAgentForDomain(domain.id);
@@ -292,15 +298,69 @@ export async function GET(request: Request) {
     }
   }
 
+  const sinceRaw = url.searchParams.get("since");
+  const since = sinceRaw && !Number.isNaN(Date.parse(sinceRaw))
+    ? new Date(sinceRaw)
+    : null;
+
   try {
-    const domain = await chatService.resolveDomainBySecret(secret);
-    const conversation = await chatService.getConversationForDomain(
-      conversationId,
-      domain.id,
-    );
-    const messages = await chatService.listMessages(conversation.id);
+    let resolvedId: string;
+    let conversation: { id: string; status: string };
+    let senderFilter: "owner" | undefined;
+    let mode: "visitor" | "owner";
+
+    if (secret) {
+      const domain = await chatService.resolveDomainBySecret(secret);
+      conversation = await chatService.getConversationForDomain(
+        conversationId,
+        domain.id,
+      );
+      resolvedId = conversation.id;
+      mode = "visitor";
+      senderFilter = "owner";
+    } else {
+      const session = await authService.getSession(request.headers);
+      if (!session?.user) {
+        return jsonError(401, "UNAUTHORIZED", "Sign in to view conversations");
+      }
+      conversation = await chatService.getConversationForOwner(
+        conversationId,
+        session.user.id,
+      );
+      resolvedId = conversation.id;
+      mode = "owner";
+    }
+
+    if (since) {
+      if (url.searchParams.get("stream") === "1") {
+        return streamDelta(resolvedId, since, senderFilter);
+      }
+      const messages = await chatService.listMessagesSince(
+        resolvedId,
+        since,
+        senderFilter,
+      );
+      return Response.json(
+        {
+          conversationId: resolvedId,
+          mode,
+          conversation,
+          serverTime: new Date().toISOString(),
+          messages,
+        },
+        { headers: CORS_HEADERS },
+      );
+    }
+
+    const messages = await chatService.listMessages(resolvedId);
     return Response.json(
-      { conversation, messages },
+      {
+        conversationId: resolvedId,
+        mode,
+        conversation,
+        serverTime: new Date().toISOString(),
+        messages,
+      },
       { headers: CORS_HEADERS },
     );
   } catch (error) {
@@ -310,4 +370,75 @@ export async function GET(request: Request) {
     logger.error({ err: error }, "chat_history_failed");
     return jsonError(500, "INTERNAL_ERROR", "Something went wrong");
   }
+}
+
+const DELTA_INTERVAL_MS = 1000;
+const DELTA_MAX_WAIT_MS = 8000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * SSE delta stream: waits (server-side Postgres poll) for new messages after
+ * `since` and pushes them, then closes. Serverless-safe: each request holds at
+ * most ~8s; clients reconnect immediately. No broker needed.
+ */
+function streamDelta(
+  conversationId: string,
+  since: Date,
+  senderFilter: "owner" | undefined,
+) {
+  const stream = new ReadableStream({
+    async start(controller) {
+      const encoder = new TextEncoder();
+      const send = (payload: unknown) =>
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify(payload)}\n\n`),
+        );
+
+      const start = Date.now();
+      try {
+        for (;;) {
+          if (Date.now() - start >= DELTA_MAX_WAIT_MS) {
+            send({
+              type: "done",
+              conversationId,
+              serverTime: new Date().toISOString(),
+            });
+            break;
+          }
+          const rows = await chatService.listMessagesSince(
+            conversationId,
+            since,
+            senderFilter,
+          );
+          if (rows.length > 0) {
+            for (const message of rows) {
+              send({ type: "message", message });
+            }
+            send({
+              type: "done",
+              conversationId,
+              serverTime: new Date().toISOString(),
+            });
+            break;
+          }
+          await sleep(DELTA_INTERVAL_MS);
+        }
+      } catch (error) {
+        logger.error({ err: error }, "delta_stream_failed");
+        send({ type: "error", code: "DELTA_ERROR", message: "Delta stream failed" });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      connection: "keep-alive",
+      ...CORS_HEADERS,
+    },
+  });
 }
