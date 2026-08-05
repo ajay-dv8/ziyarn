@@ -169,6 +169,37 @@ P5 Customer portal
 - product checkout (Stripe PaymentElement on connected account) + webhook
   to confirm payment, create leads + bookings atomically
 - Done when: full booking + payment path verified end-to-end
+- decision (done): chat-driven booking + confirm page — agent collects
+  date/time/topic, creates pending booking, returns signed URL; visitor
+  reviews + confirms on /portal/booking. No calendar/date-picker UI in P5.
+- decision (done): build without Stripe keys first — graceful degradation
+  (PAYMENTS_NOT_CONFIGURED/CONNECTED_ACCOUNT_REQUIRED → "link by email"
+  message) until STRIPE_* env vars + Connect accounts exist
+- schema (done): bookings + payments + stripe_accounts (migration
+  0006_p5_portal, CHECK constraints on status, FKs, indexes)
+- portal service (done): HMAC-SHA256 signed tokens (base64url payload
+  {type,id,domainId,exp}, 7d TTL, PORTAL_URL_SECRET ?? BETTER_AUTH_SECRET),
+  createBooking (slot uniqueness 409 SLOT_UNAVAILABLE), confirmBooking
+  (idempotent), getBookingByToken/getPaymentByToken, createPaymentRequest,
+  createPaymentIntent (dynamic stripe import, connected account +
+  application_fee_amount), handleStripeWebhook (payment_intent.succeeded →
+  tx marks paid + confirms linked booking + upserts lead)
+- API (done): POST /api/portal/booking (confirm), GET/POST /api/portal/pay
+  (info / intent), POST /api/webhooks/stripe (raw body + signature)
+- chat wiring (done): book_appointment + create_payment tool executors
+  return real signed URLs; SLOT_UNAVAILABLE handled with an offer prompt
+- portal pages (done): /portal/booking (summary + confirm, confirmed state),
+  /portal/pay (amount/status, graceful no-keys message, paid state)
+- env (done): STRIPE_SECRET_KEY/PUBLISHABLE_KEY/WEBHOOK_SECRET/
+  APP_FEE_BASIS_POINTS + PORTAL_URL_SECRET/BASE in turbo.json globalEnv;
+  stripe dep added to @repo/api; PORTAL_URL_BASE ?? BETTER_AUTH_URL
+- E2E (done): real signed token → /portal/booking renders (date/time/topic/
+  domain) → confirm API idempotent (confirmed twice) → /portal/pay renders
+  ($99.00, pending) → intent API 501 PAYMENTS_NOT_CONFIGURED (no keys) →
+  invalid token 404; SLOT_UNAVAILABLE + token expiry verified via service;
+  web + @repo/api typecheck/lint green. LLM-driven booking not E2E'd: free
+  Gemini + OpenRouter quotas exhausted (429 free-models-per-day) — rerun
+  with credits/paid key. Test rows cleaned up.
 
 P6 Billing + email marketing + integrations
 - Stripe Checkout subscription for plans (STANDARD/PRO/ULTIMATE),
