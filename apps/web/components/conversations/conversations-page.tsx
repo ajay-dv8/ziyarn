@@ -355,7 +355,7 @@ function MessageBubble({ message }: { message: MessageRow }) {
             You
           </p>
         )}
-        <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        <p className="whitespace-pre-wrap wrap-break-word">{message.content}</p>
         <p className="mt-1 text-[10px] opacity-60">
           {new Date(message.createdAt).toLocaleTimeString([], {
             hour: "2-digit",
