@@ -3,6 +3,11 @@ import {
   ConversationServiceError,
   sendMessageSchema,
 } from "@repo/api/chat";
+import { PortalServiceError } from "@repo/api/portal";
+import {
+  createBookingSchema,
+  createPaymentRequestSchema,
+} from "@repo/api/portal/schemas";
 import { db } from "@repo/database";
 import { leads } from "@repo/database/schema";
 import type { AgentToolName } from "@repo/ai";
@@ -10,6 +15,7 @@ import type { AgentToolName } from "@repo/ai";
 import { aiService, chatService, logger } from "@/lib/chat-service";
 import { authService } from "@/lib/auth-service";
 import { knowledgeService } from "@/lib/knowledge-service";
+import { portalService } from "@/lib/portal-service";
 import { chatRateLimiter } from "@/lib/rate-limit";
 
 const DEFAULT_SYSTEM_PROMPT = `You are a friendly sales and support assistant for this business.
@@ -164,10 +170,49 @@ export async function POST(request: Request) {
             ? `Email ${email} captured for follow-up.`
             : "No email was provided.";
         }
-        case "book_appointment":
-          return "Appointment booking is not available yet. Tell the visitor a human will follow up to schedule, and escalate if they insist.";
-        case "create_payment":
-          return "Payments are not available yet. Tell the visitor a payment link will be sent by email.";
+        case "book_appointment": {
+          const parsed = createBookingSchema.safeParse({
+            domainId: domain.id,
+            conversationId,
+            date: args.date,
+            time: args.time,
+            topic: typeof args.topic === "string" ? args.topic : undefined,
+            email: typeof args.email === "string" ? args.email : undefined,
+          });
+          if (!parsed.success) {
+            return `The appointment details were invalid (${parsed.error.issues[0]?.message ?? "bad input"}). Ask the visitor for a preferred date and time again.`;
+          }
+          try {
+            const { booking, url } = await portalService.createBooking(parsed.data);
+            logger.info({ bookingId: booking.id }, "appointment_requested");
+            return `Appointment request created for ${booking.date} at ${booking.time}. Ask the visitor to confirm by opening this link: ${url}`;
+          } catch (error) {
+            if (error instanceof PortalServiceError && error.code === "SLOT_UNAVAILABLE") {
+              return "That time slot is already booked. Offer the visitor a different date or time.";
+            }
+            throw error;
+          }
+        }
+        case "create_payment": {
+          const amount =
+            typeof args.amount === "number" && Number.isFinite(args.amount) && args.amount > 0
+              ? Math.round(args.amount * 100)
+              : 0;
+          const parsed = createPaymentRequestSchema.safeParse({
+            domainId: domain.id,
+            conversationId,
+            amountMinor: amount,
+            currency: args.currency,
+            description:
+              typeof args.description === "string" ? args.description : undefined,
+          });
+          if (!parsed.success) {
+            return `The payment details were invalid (${parsed.error.issues[0]?.message ?? "bad input"}). Ask the visitor to confirm the amount and currency again.`;
+          }
+          const { payment, url } = await portalService.createPaymentRequest(parsed.data);
+          logger.info({ paymentId: payment.id }, "payment_requested");
+          return `Payment request created for ${(payment.amountMinor / 100).toFixed(2)} ${payment.currency}${payment.description ? ` (${payment.description})` : ""}. Share this secure payment link with the visitor: ${url}`;
+        }
         case "escalate":
           await chatService.setConversationStatus(conversationId, "escalated");
           logger.info({ conversationId }, "conversation_escalated");
