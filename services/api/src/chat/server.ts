@@ -42,6 +42,21 @@ export function createChatService(deps: { db: Database }) {
     return conversation;
   };
 
+  /** Ownership guard for owner-side operations. */
+  const requireOwnedConversation = async (id: string, ownerId: string) => {
+    const [row] = await db
+      .select({ conversation: conversations })
+      .from(conversations)
+      .innerJoin(agents, eq(conversations.agentId, agents.id))
+      .innerJoin(domains, eq(agents.domainId, domains.id))
+      .where(
+        and(eq(conversations.id, id), eq(domains.ownerId, ownerId)),
+      )
+      .limit(1);
+    if (!row) throw notFound();
+    return row.conversation;
+  };
+
   return {
     /** Resolves a domain by its embed secret (public widget auth). */
     resolveDomainBySecret: async (secret: string) => {
@@ -117,6 +132,170 @@ export function createChatService(deps: { db: Database }) {
       return row.conversation;
     },
 
+    /** A conversation only if it belongs to a domain owned by `ownerId`. */
+    getConversationForOwner: async (id: string, ownerId: string) => {
+      const [row] = await db
+        .select({
+          conversation: conversations,
+          agentName: agents.name,
+          domainSlug: domains.slug,
+          domainName: domains.name,
+        })
+        .from(conversations)
+        .innerJoin(agents, eq(conversations.agentId, agents.id))
+        .innerJoin(domains, eq(agents.domainId, domains.id))
+        .where(
+          and(eq(conversations.id, id), eq(domains.ownerId, ownerId)),
+        )
+        .limit(1);
+
+      if (!row) throw notFound();
+      return {
+        ...row.conversation,
+        agentName: row.agentName,
+        domainSlug: row.domainSlug,
+        domainName: row.domainName,
+      };
+    },
+
+    /** Conversations across all domains of an owner, newest activity first. */
+    listConversationsForOwner: async (ownerId: string, limit = 100) => {
+      const rows = await db
+        .select({
+          conversation: conversations,
+          agentName: agents.name,
+          domainSlug: domains.slug,
+          domainName: domains.name,
+        })
+        .from(conversations)
+        .innerJoin(agents, eq(conversations.agentId, agents.id))
+        .innerJoin(domains, eq(agents.domainId, domains.id))
+        .where(eq(domains.ownerId, ownerId))
+        .orderBy(desc(conversations.updatedAt))
+        .limit(limit);
+
+      const ids = rows.map((row) => row.conversation.id);
+      let allMessages: typeof messages.$inferSelect[] = [];
+      if (ids.length > 0) {
+        allMessages = await db
+          .select()
+          .from(messages)
+          .where(inArray(messages.conversationId, ids))
+          .orderBy(messages.createdAt);
+      }
+      const byConversation = new Map<string, typeof allMessages>();
+      for (const message of allMessages) {
+        const list = byConversation.get(message.conversationId) ?? [];
+        list.push(message);
+        byConversation.set(message.conversationId, list);
+      }
+
+      return rows.map(({ conversation, agentName, domainSlug, domainName }) => {
+        const msgs = byConversation.get(conversation.id) ?? [];
+        const last = msgs[msgs.length - 1] ?? null;
+        const unread = msgs.filter(
+          (m) =>
+            m.sender !== "owner" &&
+            m.createdAt.getTime() > conversation.ownerSeenAt.getTime(),
+        ).length;
+        return {
+          ...conversation,
+          agentName,
+          domainSlug,
+          domainName,
+          lastMessage: last
+            ? {
+                content: last.content,
+                sender: last.sender,
+                createdAt: last.createdAt,
+              }
+            : null,
+          unread,
+        };
+      });
+    },
+
+    /** Messages created after `since`, optionally restricted to a sender. */
+    listMessagesSince: async (
+      id: string,
+      since: Date,
+      sender?: "visitor" | "owner" | "assistant",
+    ) => {
+      await requireConversation(id);
+      const filters = [
+        eq(messages.conversationId, id),
+        gte(messages.createdAt, since),
+      ];
+      if (sender) filters.push(eq(messages.sender, sender));
+      const rows = await db
+        .select()
+        .from(messages)
+        .where(and(...filters))
+        .orderBy(messages.createdAt);
+      return rows;
+    },
+
+    /** Owner replies to a conversation; rejects closed/resolved ones. */
+    appendOwnerMessage: async (
+      id: string,
+      ownerId: string,
+      content: string,
+    ) => {
+      const conversation = await requireOwnedConversation(id, ownerId);
+      if (
+        conversation.status === "resolved" ||
+        conversation.status === "closed"
+      ) {
+        throw new ConversationServiceError(
+          409,
+          "CONVERSATION_CLOSED",
+          "This conversation is closed; reopen it to reply",
+        );
+      }
+      const message = await db
+        .insert(messages)
+        .values({
+          conversationId: id,
+          role: "user",
+          sender: "owner",
+          content,
+        })
+        .returning();
+      const created = message[0];
+      if (!created) {
+        throw new Error("Failed to insert message");
+      }
+      await db
+        .update(conversations)
+        .set({ updatedAt: new Date() })
+        .where(eq(conversations.id, id));
+      return created;
+    },
+
+    /** Marks the conversation as seen by the owner (clears unread). */
+    markConversationSeen: async (id: string, ownerId: string) => {
+      await requireOwnedConversation(id, ownerId);
+      await db
+        .update(conversations)
+        .set({ ownerSeenAt: new Date(), updatedAt: new Date() })
+        .where(eq(conversations.id, id));
+    },
+
+    /** Status change scoped to the owner (resolve/close/reopen/…). */
+    setConversationStatusForOwner: async (
+      id: string,
+      ownerId: string,
+      status: "active" | "escalated" | "resolved" | "closed",
+    ) => {
+      await requireOwnedConversation(id, ownerId);
+      const [updated] = await db
+        .update(conversations)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(conversations.id, id))
+        .returning();
+      return updated;
+    },
+
     /** Conversation count for a domain since local midnight (plan limit). */
     countDomainConversationsToday: async (domainId: string) => {
       const startOfDay = new Date();
@@ -181,16 +360,20 @@ export function createChatService(deps: { db: Database }) {
         content: string;
         toolCallId?: string;
         metadata?: string;
+        sender?: "visitor" | "owner" | "assistant";
       },
     ) => {
       const body = appendMessageSchema.parse(input);
       await requireConversation(conversationId);
 
+      const sender =
+        body.sender ?? (body.role === "user" ? "visitor" : "assistant");
       const [row] = await db
         .insert(messages)
         .values({
           conversationId,
           role: body.role,
+          sender,
           content: body.content,
           ...(body.toolCallId ? { toolCallId: body.toolCallId } : {}),
           ...(body.metadata ? { metadata: body.metadata } : {}),
