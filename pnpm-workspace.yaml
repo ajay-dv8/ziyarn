@@ -8,3 +8,5 @@ allowBuilds:
 onlyBuiltDependencies:
   - esbuild
   - sharp
+overrides:
+  csstype: 3.2.3
