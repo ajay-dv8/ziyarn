@@ -18,8 +18,19 @@ If a visitor asks for a human, is frustrated, or the request is out of scope, es
 
 export const runtime = "nodejs";
 
+/** The widget runs inside arbitrary host pages, so the public API must be cross-origin friendly. */
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "content-type, x-embed-secret",
+};
+
+export function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
 function jsonError(status: number, code: string, message: string) {
-  return Response.json({ error: { code, message } }, { status });
+  return Response.json({ error: { code, message } }, { status, headers: CORS_HEADERS });
 }
 
 function systemPromptFor(domain: { slug: string }, agent: {
@@ -235,6 +246,7 @@ export async function POST(request: Request) {
         "content-type": "text/event-stream; charset=utf-8",
         "cache-control": "no-cache, no-transform",
         connection: "keep-alive",
+        ...CORS_HEADERS,
       },
     });
   } catch (error) {
@@ -249,14 +261,35 @@ export async function POST(request: Request) {
   }
 }
 
-/** Message history for a conversation, authenticated by embed secret. */
+/** Message history (conversationId) or widget config (no conversationId), authenticated by embed secret. */
 export async function GET(request: Request) {
   const secret = request.headers.get("x-embed-secret");
   if (!secret) return jsonError(401, "MISSING_SECRET", "Missing embed secret");
 
   const conversationId = new URL(request.url).searchParams.get("conversationId");
   if (!conversationId) {
-    return jsonError(400, "MISSING_CONVERSATION", "conversationId is required");
+    try {
+      const domain = await chatService.resolveDomainBySecret(secret);
+      const agent = await chatService.defaultAgentForDomain(domain.id);
+      return Response.json(
+        {
+          domain: { slug: domain.slug },
+          agent: agent
+            ? {
+                name: agent.name,
+                description: agent.description,
+              }
+            : null,
+        },
+        { headers: CORS_HEADERS },
+      );
+    } catch (error) {
+      if (error instanceof ConversationServiceError) {
+        return jsonError(error.status, error.code, error.message);
+      }
+      logger.error({ err: error }, "chat_config_failed");
+      return jsonError(500, "INTERNAL_ERROR", "Something went wrong");
+    }
   }
 
   try {
@@ -266,7 +299,10 @@ export async function GET(request: Request) {
       domain.id,
     );
     const messages = await chatService.listMessages(conversation.id);
-    return Response.json({ conversation, messages });
+    return Response.json(
+      { conversation, messages },
+      { headers: CORS_HEADERS },
+    );
   } catch (error) {
     if (error instanceof ConversationServiceError) {
       return jsonError(error.status, error.code, error.message);
