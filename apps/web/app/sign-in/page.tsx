@@ -11,6 +11,7 @@ import {
 } from "@repo/ui/components/card";
 
 import { SignInForm } from "@/components/auth/sign-in-form";
+import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/lib/auth-service";
 
 export const metadata: Metadata = {
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
 export default async function SignInPage() {
   const session = await authService.getSession(await headers());
   if (session) {
-    redirect("/");
+    redirect(APP_ROUTES.DASHBOARD);
   }
 
   const socialProviders = {

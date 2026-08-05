@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { Button } from "@repo/ui/components/button";
 
 import { LogoutButton } from "@/components/auth/logout-button";
+import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/lib/auth-service";
 
 export default async function HomePage() {
@@ -23,10 +24,10 @@ export default async function HomePage() {
             </>
           ) : (
             <>
-              <Button variant="ghost" render={<Link href="/sign-in" />}>
+              <Button variant="ghost" render={<Link href={APP_ROUTES.SIGN_IN} />}>
                 Sign in
               </Button>
-              <Button render={<Link href="/sign-up" />}>Sign up</Button>
+              <Button render={<Link href={APP_ROUTES.SIGN_UP} />}>Sign up</Button>
             </>
           )}
         </nav>
@@ -41,7 +42,7 @@ export default async function HomePage() {
           qualify leads, and resolve tickets around the clock.
         </p>
         {!session && (
-          <Button size="lg" className="mt-2" render={<Link href="/sign-up" />}>
+          <Button size="lg" className="mt-2" render={<Link href={APP_ROUTES.SIGN_UP} />}>
             Get started
           </Button>
         )}

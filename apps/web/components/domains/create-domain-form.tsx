@@ -8,6 +8,7 @@ import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 
 import { createDomainAction, type ActionResult } from "@/lib/actions/domains";
+import { APP_ROUTES } from "@/constants/routes";
 
 export function CreateDomainForm() {
   const router = useRouter();
@@ -36,7 +37,7 @@ export function CreateDomainForm() {
       return;
     }
 
-    router.push("/dashboard/domains");
+    router.push(APP_ROUTES.DASHBOARD_DOMAINS);
     router.refresh();
   };
 

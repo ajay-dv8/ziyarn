@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { LogoutButton } from "@/components/auth/logout-button";
+import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/lib/auth-service";
 
 export default async function DashboardLayout({
@@ -12,7 +13,7 @@ export default async function DashboardLayout({
 }) {
   const session = await authService.getSession(await headers());
   if (!session) {
-    redirect("/sign-in");
+    redirect(APP_ROUTES.SIGN_IN);
   }
 
   return (
@@ -20,11 +21,11 @@ export default async function DashboardLayout({
       <header className="border-b">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <nav className="flex items-center gap-6">
-            <Link href="/" className="font-semibold">
+            <Link href={APP_ROUTES.HOME} className="font-semibold">
               Ziyarn
             </Link>
             <Link
-              href="/dashboard/domains"
+              href={APP_ROUTES.DASHBOARD_DOMAINS}
               className="text-sm text-muted-foreground hover:text-foreground"
             >
               Domains

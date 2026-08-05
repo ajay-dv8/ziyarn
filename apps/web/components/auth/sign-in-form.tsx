@@ -9,6 +9,7 @@ import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 
 import { authClientService } from "./auth-client";
+import { APP_ROUTES } from "@/constants/routes";
 
 export function SignInForm({
   socialProviders,
@@ -40,7 +41,7 @@ export function SignInForm({
       return;
     }
 
-    router.push("/");
+    router.push(APP_ROUTES.DASHBOARD);
     router.refresh();
   };
 
@@ -107,7 +108,7 @@ export function SignInForm({
                 type="button"
                 variant="outline"
                 className="w-full"
-                onClick={() => authClientService.signInWithGoogle("/")}
+                onClick={() => authClientService.signInWithGoogle(APP_ROUTES.DASHBOARD)}
               >
                 Google
               </Button>
@@ -117,7 +118,7 @@ export function SignInForm({
                 type="button"
                 variant="outline"
                 className="w-full"
-                onClick={() => authClientService.signInWithLinkedIn("/")}
+                onClick={() => authClientService.signInWithLinkedIn(APP_ROUTES.DASHBOARD)}
               >
                 LinkedIn
               </Button>
@@ -128,7 +129,7 @@ export function SignInForm({
 
       <p className="text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}
-        <Link href="/sign-up" className="font-medium text-primary hover:underline">
+        <Link href={APP_ROUTES.SIGN_UP} className="font-medium text-primary hover:underline">
           Sign up
         </Link>
       </p>

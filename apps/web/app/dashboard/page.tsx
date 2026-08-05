@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 
+import { APP_ROUTES } from "@/constants/routes";
+
 export default function DashboardPage() {
-  redirect("/dashboard/domains");
+  redirect(APP_ROUTES.DASHBOARD_DOMAINS);
 }

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@repo/ui/components/button";
 
 import { authClientService } from "./auth-client";
+import { APP_ROUTES } from "@/constants/routes";
 
 export function LogoutButton() {
   const router = useRouter();
@@ -18,7 +19,7 @@ export function LogoutButton() {
       setPending(false);
       return;
     }
-    router.push("/sign-in");
+    router.push(APP_ROUTES.SIGN_IN);
     router.refresh();
   };
 
