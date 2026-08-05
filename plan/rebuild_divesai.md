@@ -136,11 +136,32 @@ P3 Agent pipeline (the core)
   escalates, persists, and streaming renders (done — API E2E 14/14 earlier,
   widget path verified live on urban-plus)
 
-P4 Realtime escalation + owner messenger
-- decision: private Pusher channels with auth endpoint vs SSE
-- dashboard conversations page (list, unread, messenger)
-- realtime toggle from agent tool call, owner reply
-- Done when: owner replies stream to widget in realtime
+P4 Realtime escalation + owner messenger (done)
+- decision (done): SSE delta-stream over Postgres — no broker. /api/chat
+  GET with `since`+`stream=1` holds up to ~8s polling Neon for new messages,
+  pushes `message` events, closes; clients reconnect immediately
+  (serverless-safe, ~1s latency, zero new deps). Pusher is a transport
+  swap behind the same endpoint later.
+- schema (done): messages.sender (visitor/owner/assistant) + backfill,
+  conversations.owner_seen_at (migration 0005_p4_realtime)
+- chat service (done): owner-scoped listConversationsForOwner (last message
+  + unread), getConversationForOwner, listMessagesSince, appendOwnerMessage
+  (ownership + closed guard), markConversationSeen, setConversationStatus
+  ForOwner; appendMessage now records sender
+- API (done): GET /api/chat auth modes (embed secret = visitor, session =
+  owner), delta SSE stream, `since` JSON fallback
+- widget (done): delta listener after escalate/done + on escalated history,
+  "Owner" bubbles, config URL fixed (/api/chat not /api/chat/config)
+- dashboard conversations page (done): list + unread badge + messenger with
+  EventSource delta, reply action, resolve/close/reopen, 10s list poll
+- realtime toggle from agent tool call (done: escalate tool already flips
+  status; widget enters human mode on the escalate event)
+- clock skew (done): cursors come from serverTime in done/history responses,
+  never client Date.now() — Neon server clock trails local
+- E2E (done): node harness delivered mid-stream owner insert (message event);
+  headless Chrome with the real widget confirmed real SSE fetch → parse →
+  owner bubble render + serverTime cursor advance (15 events in one stream);
+  history renders owner bubbles; web + @repo/api typecheck/lint green
 
 P5 Customer portal
 - signed portal URLs (token in query, expires)
