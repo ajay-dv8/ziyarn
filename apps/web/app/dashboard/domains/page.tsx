@@ -11,7 +11,9 @@ import {
 
 import { CreateDomainForm } from "@/components/domains/create-domain-form";
 import { DeleteDomainButton } from "@/components/domains/delete-domain-button";
+import { EmbedSnippet } from "@/components/domains/embed-snippet";
 import { RenameDomainForm } from "@/components/domains/rename-domain-form";
+import { ZyWidget } from "@/components/widget/zy-widget";
 import { domainsService } from "@/lib/domains-service";
 
 export const metadata: Metadata = {
@@ -20,6 +22,15 @@ export const metadata: Metadata = {
 
 export default async function DomainsPage() {
   const domains = await domainsService.listDomains(await headers());
+  const embedConfigs = await Promise.all(
+    domains.map(async (domain) =>
+      domainsService
+        .getEmbedConfig(domain.id, await headers())
+        .catch(() => null),
+    ),
+  );
+  const previewDomain = domains[0];
+  const preview = previewDomain ? embedConfigs[0] : null;
 
   return (
     <div className="space-y-8">
@@ -44,13 +55,11 @@ export default async function DomainsPage() {
       </Card>
 
       <div className="space-y-4">
-        {domains.map((domain) => (
+        {domains.map((domain, index) => (
           <Card key={domain.id}>
             <CardHeader>
               <CardTitle>{domain.name}</CardTitle>
-              <CardDescription>
-                ziyarn.vercel.app/widget/{domain.slug} · {domain.plan} plan
-              </CardDescription>
+              <CardDescription>{domain.plan} plan</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <RenameDomainForm
@@ -58,6 +67,13 @@ export default async function DomainsPage() {
                 currentName={domain.name}
               />
               <DeleteDomainButton domainId={domain.id} />
+              {embedConfigs[index] && (
+                <EmbedSnippet
+                  widgetUrl={embedConfigs[index].widgetUrl}
+                  slug={embedConfigs[index].slug}
+                  secret={embedConfigs[index].secret}
+                />
+              )}
             </CardContent>
           </Card>
         ))}
@@ -67,6 +83,26 @@ export default async function DomainsPage() {
           </p>
         )}
       </div>
+
+      {preview && previewDomain && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Live preview</CardTitle>
+            <CardDescription>
+              This is the widget visitors see — try a message with the{" "}
+              {previewDomain.name} agent.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ZyWidget
+              slug={preview.slug}
+              secret={preview.secret}
+              title={previewDomain.name}
+              subtitle="Preview agent"
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
