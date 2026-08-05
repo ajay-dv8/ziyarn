@@ -32,7 +32,6 @@ import { APP_ROUTES } from "@/constants/routes";
 
 const COMING_SOON = [
   { title: "Agents", icon: Bot },
-  { title: "Conversations", icon: MessagesSquare },
   { title: "Knowledge Base", icon: BookOpen },
   { title: "Settings", icon: Settings },
 ];
@@ -86,6 +85,16 @@ export function AppSidebar({
               >
                 <Globe />
                 <span>Domains</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === APP_ROUTES.DASHBOARD_CONVERSATIONS}
+                tooltip="Conversations"
+                render={<Link href={APP_ROUTES.DASHBOARD_CONVERSATIONS} />}
+              >
+                <MessagesSquare />
+                <span>Conversations</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
