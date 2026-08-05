@@ -101,7 +101,7 @@ P2 Domains (done)
 - domains table + CRUD services (zod schemas, owner-scoped) (done)
 - plan limits service (single source for domain/credits limits) (done)
 - settings UI: create/rename/delete domain (done; embed snippet config endpoint
-  ready, full snippet UI ships with the P3 widget)
+  + snippet/copy UI shipped with the P3 widget)
 - Done when: domain CRUD verified owner-only via curl + UI (done)
 
 P3 Agent pipeline (the core)
@@ -125,12 +125,16 @@ P3 Agent pipeline (the core)
   search, default minScore 0.5 for matryoshka-truncated vectors), chat
   answer_knowledge tool wired to retrieval; live E2E 11/11 verified on Neon
   with real Gemini embeddings)
-- widget: decision = Shadow DOM web component (NOT iframe) — works in WebViews
-  of mobile/desktop apps, not just browsers; chat API stays transport-agnostic
-  (REST + SSE) so native SDKs can call it directly (pending: P3c, after user
-  sign-off)
+- widget (done: P3c — Shadow DOM web component (NOT iframe), works in
+  WebViews of mobile/desktop apps, not just browsers; chat API stays
+  transport-agnostic (REST + SSE) so native SDKs can call it directly;
+  /widget.js <zy-widget> with launcher, panel, SSE streaming, history restore
+  + conversation persistence, escalation banner; CORS + public config on
+  /api/chat; embed snippet UI + live preview on the Domains page; verified via
+  curl: preflight 204, config, SSE stream, history)
 - Done when: widget holds a full sales + helpdesk conversation,
-  escalates, persists, and streaming renders
+  escalates, persists, and streaming renders (done — API E2E 14/14 earlier,
+  widget path verified live on urban-plus)
 
 P4 Realtime escalation + owner messenger
 - decision: private Pusher channels with auth endpoint vs SSE
