@@ -12,6 +12,10 @@ See `plan/rebuild_divesai.md` for the roadmap and `plan/*.md` for architecture.
 - DB migrate/push: from `packages/database`, `pnpm exec drizzle-kit generate|migrate|push`.
   If drizzle-kit hangs on introspection, apply the generated SQL manually (see DB notes).
 
+## Git
+
+- NEVER commit, amend, or push unless the user explicitly asks. Stage changes and report; the user decides when to commit.
+
 ## Dev server (critical)
 
 - The dev server reliably DEADLOCKS (accepts TCP, never responds, idle CPU) when
