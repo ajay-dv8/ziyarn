@@ -2,10 +2,12 @@ export * from "@repo/database/schema/auth";
 export * from "@repo/database/schema/billing";
 export * from "@repo/database/schema/domains";
 export * from "@repo/database/schema/portal";
+export * from "@repo/database/schema/products";
 
 import { domains } from "@repo/database/schema/domains";
 import {
   index,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -43,6 +45,7 @@ export const agents = pgTable(
     systemPrompt: text("system_prompt"),
     tools: text("tools").array().default([]),
     knowledgeSourceIds: uuid("knowledge_source_ids").array().default([]),
+    filterQuestions: jsonb("filter_questions"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -225,6 +228,7 @@ export const leads = pgTable(
     email: text("email"),
     company: text("company"),
     interest: text("interest"),
+    answers: jsonb("answers"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
