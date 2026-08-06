@@ -10,6 +10,7 @@ import {
 
 import { user } from "@repo/database/schema/auth";
 import { domains } from "@repo/database/schema/domains";
+import { products } from "@repo/database/schema/products";
 import { conversations } from "@repo/database/schema/index";
 
 export const bookings = pgTable(
@@ -55,6 +56,9 @@ export const payments = pgTable(
       { onDelete: "set null" },
     ),
     bookingId: uuid("booking_id").references(() => bookings.id, {
+      onDelete: "set null",
+    }),
+    productId: uuid("product_id").references(() => products.id, {
       onDelete: "set null",
     }),
     email: text("email"),
