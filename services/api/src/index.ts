@@ -1,5 +1,6 @@
 export * from "@repo/api/auth";
 export * from "@repo/api/agents";
+export * from "@repo/api/analytics";
 export * from "@repo/api/billing";
 export * from "@repo/api/chat";
 export * from "@repo/api/domains";
