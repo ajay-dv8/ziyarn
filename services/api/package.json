@@ -33,6 +33,7 @@
     "@repo/database": "workspace:*",
     "better-auth": "^1.6.25",
     "drizzle-orm": "^0.44.7",
+    "nodemailer": "^9.0.4",
     "stripe": "^18.3.0",
     "zod": "^4.4.3"
   },
@@ -40,6 +41,7 @@
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
+    "@types/nodemailer": "^8.0.1",
     "eslint": "^9.39.1",
     "typescript": "5.9.2"
   }
