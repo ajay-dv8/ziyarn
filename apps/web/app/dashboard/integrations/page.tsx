@@ -31,8 +31,8 @@ export default async function IntegrationsPage() {
     .from(stripeAccounts)
     .where(eq(stripeAccounts.ownerId, session.user.id))
     .limit(1);
-  const resendConfigured = Boolean(
-    process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL,
+  const smtpConfigured = Boolean(
+    process.env.SMTP_HOST && process.env.SMTP_FROM,
   );
 
   return (
@@ -73,8 +73,8 @@ export default async function IntegrationsPage() {
           <CardHeader>
             <div className="flex items-start justify-between gap-2">
               <CardTitle>Email delivery</CardTitle>
-              <Badge variant={resendConfigured ? "default" : "secondary"}>
-                {resendConfigured ? "Connected" : "Not configured"}
+              <Badge variant={smtpConfigured ? "default" : "secondary"}>
+                {smtpConfigured ? "Connected" : "Not configured"}
               </Badge>
             </div>
             <CardDescription>
@@ -84,9 +84,9 @@ export default async function IntegrationsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              {resendConfigured
-                ? "Resend is ready — create a campaign to start sending."
-                : "Set RESEND_API_KEY and RESEND_FROM_EMAIL in your environment to enable sending."}
+              {smtpConfigured
+                ? "SMTP is ready — create a campaign to start sending."
+                : "Set SMTP_HOST and SMTP_FROM in your environment to enable sending."}
             </p>
           </CardContent>
         </Card>
