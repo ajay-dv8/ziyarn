@@ -3,6 +3,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 
 import { getPlanLimits, type Plan } from "@repo/api/plans";
+import { formatMoney } from "@repo/money";
 import { Badge } from "@repo/ui/components/badge";
 import {
   Card,
@@ -28,12 +29,6 @@ const PLAN_RANK: Record<Plan, number> = {
   standard: 1,
   pro: 2,
   ultimate: 3,
-};
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  usd: "$",
-  eur: "€",
-  gbp: "£",
 };
 
 export default async function ProductsPage({
@@ -143,8 +138,10 @@ export default async function ProductsPage({
               </CardHeader>
               <CardContent className="flex items-center justify-between gap-3">
                 <span className="text-lg font-semibold">
-                  {CURRENCY_SYMBOLS[product.currency] ?? ""}
-                  {(product.priceCents / 100).toFixed(2)}{" "}
+                  {formatMoney({
+                    amountMinor: product.priceCents,
+                    currency: product.currency,
+                  })}{" "}
                   <span className="text-sm font-normal text-muted-foreground uppercase">
                     {product.currency}
                   </span>
