@@ -15,6 +15,7 @@
     "@repo/ai": "workspace:*",
     "@repo/api": "workspace:*",
     "@repo/database": "workspace:*",
+    "@repo/money": "workspace:*",
     "@repo/ui": "workspace:*",
     "better-auth": "^1.6.25",
     "drizzle-orm": "^0.44.7",
