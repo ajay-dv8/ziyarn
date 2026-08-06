@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { CURRENCY_CODES, DEFAULT_CURRENCY, type CurrencyCode } from "@repo/money";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
@@ -15,7 +16,7 @@ import {
   SheetTrigger,
 } from "@repo/ui/components/sheet";
 
-const CURRENCIES = ["usd", "eur", "gbp"] as const;
+const CURRENCIES = CURRENCY_CODES;
 
 export function CreateProductButton({
   domains,
@@ -32,7 +33,7 @@ export function CreateProductButton({
     name: "",
     description: "",
     price: "",
-    currency: "usd" as (typeof CURRENCIES)[number],
+    currency: DEFAULT_CURRENCY as CurrencyCode,
   });
 
   async function create() {
@@ -69,7 +70,7 @@ export function CreateProductButton({
         name: "",
         description: "",
         price: "",
-        currency: "usd",
+        currency: DEFAULT_CURRENCY,
       });
       window.location.reload();
     } catch {
@@ -149,7 +150,7 @@ export function CreateProductButton({
                 onChange={(event) =>
                   setForm({
                     ...form,
-                    currency: event.target.value as (typeof CURRENCIES)[number],
+                    currency: event.target.value as CurrencyCode,
                   })
                 }
                 className="w-24 rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm uppercase outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
