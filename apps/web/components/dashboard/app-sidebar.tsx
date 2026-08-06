@@ -22,6 +22,7 @@ import {
   BookOpen,
   Bot,
   CreditCard,
+  Gauge,
   Globe,
   LayoutDashboard,
   Mail,
@@ -119,6 +120,16 @@ export function AppSidebar({
               >
                 <BarChart3 />
                 <span>Analytics</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === APP_ROUTES.DASHBOARD_USAGE}
+                tooltip="Usage"
+                render={<Link href={APP_ROUTES.DASHBOARD_USAGE} />}
+              >
+                <Gauge />
+                <span>Usage</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
