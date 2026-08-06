@@ -337,9 +337,31 @@ P10 Transactional email — booking confirmation + payment receipt
   delivery not testable here (no real SMTP creds verifiable) — same caveat as
   P6 campaign send.
 
-(Deferred but tracked — candidates for P11+)
-- credit ledger usage metering (conversations/messages/emails per month, usage
-  page) — deferred from P6 intentionally
+P11 Credit ledger / usage metering — conversations, AI messages, emails
+per month + a Usage page.
+- Goal: make monthly consumption visible against plan limits (conversations,
+  AI support messages, marketing emails), completing the P6 deferral note.
+- service (services/api/src/usage): owner-scoped, zod-validated, aggregates
+  LIVE from source tables (no ledger drift, no migration): conversations +
+  messages via domains → agents → conversations/messages in [month start,
+  month end); emails = sum(campaigns.sentCount + failedCount) of sent
+  campaigns in month (same semantics as emailsSentThisMonth). Plan + limits
+  from getPlanLimits. Exported as "@repo/api/usage".
+- API route /api/usage (period param YYYY-MM, owner-guarded) + web singleton.
+- owner UI: /dashboard/usage page — meter cards (used/limit + color-coded
+  bars: Widget conversations × conversationsPerDay*30, AI messages ×
+  creditsPerMonth, Marketing emails × emailsPerMonth) + current-plan card;
+  sidebar link + route constant.
+- no new gating: existing limits (conversationsPerDay at chat POST,
+  emailsPerMonth in sendCampaign) already enforced; this makes consumption
+  visible for owners.
+- Status (done): @repo/api + web typecheck/lint green. Live E2E: seeded
+  temp owner + 1 domain + 1 conversation + 2 messages → /api/usage returns
+  {period 2026-08, plan free, conversations 1, messages 2, emails 0};
+  /dashboard/usage renders all cards (1 / 2 / 0 + / 3,000 / 100 / 0).
+  Fixtures cleaned up from Neon.
+
+(Deferred but tracked — candidates for P12+)
 - campaign scheduling + drag-and-drop HTML template editor (P6 deferred the
   Resend template editor; now SMTP-based)
 - native chat SDKs (mobile/desktop) — transport-agnostic API is ready for it
