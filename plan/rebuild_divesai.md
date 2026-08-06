@@ -58,7 +58,7 @@ Correctness:
 - credits going negative — checked before decrement, atomic.
 - Plan limits inconsistent across UI/actions — single source in plan service.
 - Hardcoded divesai.vercel.app URLs — all URLs from env (BETTER_AUTH_URL etc).
-- Currency inconsistencies (GHS vs $) — single money config per tenant.
+- Currency inconsistencies (GHS vs $) — fixed in P9 via @repo/money + registry.
 
 AI quality:
 - Tool calling for structured actions (book, pay, escalate, capture email).
@@ -274,10 +274,51 @@ P7 status (done, committed + pushed):
   → webhook → payment marked paid with productId (PaymentButton degrades
   gracefully with PAYMENTS_NOT_CONFIGURED message).
 
-(Deferred but tracked — candidates for P8/P9)
+P8 Owner analytics (conversations/leads/bookings/payments/campaigns over time)
+- Goal: aggregated owner-facing insight — totals + trends across products,
+  payments (revenue), leads, conversations, bookings over a selectable range.
+- schema: none new — reads conversations/leads/bookings/payments/products
+- analytics service (services/api/analytics): owner-scoped, zod-validated
+  aggregates over a range (totals: revenueByCurrency, paidPayments,
+  conversations, leads, messages; revenueSeries per day; topProducts; KPI
+  series for the overview chart); exported via "@repo/api/analytics"
+- API route apps/web/app/api/analytics (owner + domain-scoped) + thin web
+  wrapper (services/analytics-service.ts)
+- owner UI: /dashboard/analytics page (range selector 7/30/90, KPI cards,
+  dependency-free div/Tailwind charts: revenue + volume over time, top
+  products) + sidebar link; revenue rendered per-currency with currency symbols
+- Status (done, committed + pushed): 11 commits (schemas → service → exports →
+  route → charts → page → sidebar). Verified live: seeded paid product →
+  totals + revenueByCurrency sum correctly across mixed currencies; dashboard
+  page renders; fixtures cleaned up. Typecheck/lint green on web + @repo/api.
+  Revenue display later unified via @repo/money (P9).
+
+P9 Money config — single money library (dinero.js) with a currency
+registry so amounts render consistently (GHS default).
+- Goal: fix "Currency inconsistencies (GHS vs $)" from the divesai defect
+  list — one money layer used everywhere, GHS default, scalable registry.
+- packages/money (new): currency registry (ghs/usd/eur/gbp, DEFAULT_CURRENCY
+  "ghs", CURRENCY_CODES) + dinero.js helpers (formatMoney, formatDecimal,
+  currencyCode, addMoney, sumMoneyByCurrency); raw TS export via exports map
+- database (migration 0010): products.currency default usd→ghs + check
+  constraint IN ('ghs','usd','eur','gbp'); payments.currency normalized to
+  lowercase + same constraint + default 'ghs'; schema files updated (portal.ts
+  default "ghs", products.ts enum)
+- api: products create/update + portal create_payment derive currency codes
+  from CURRENCY_CODES, portal normalizes input (trim/lowercase) + defaults ghs
+- web: products/analytics/pay pages render via formatMoney; product-actions
+  edit sheet price via formatDecimal; create-product-button currency select
+  from registry (GHS first); chat catalog + payment strings via
+  formatDecimal/currencyCode
+- Status (done, committed + pushed): 13 commits. Verified live: creating a
+  product with no currency → currency "ghs"; /dashboard/products renders
+  GH₵750.00; /dashboard/analytics revenue GH₵2,500.00 + revenueByCurrency
+  [{ghs, minor}]; /portal/pay renders GH₵2,500.00; fixtures cleaned.
+  Typecheck/lint green on money + database + api + web.
+
+(Deferred but tracked — candidates for P10/P11)
 - credit ledger usage metering (conversations/messages/emails per month, usage
   page) — deferred from P6 intentionally
-- owner analytics (conversations/leads/bookings/payments/campaigns over time)
 - campaign scheduling + drag-and-drop HTML template editor (P6 deferred the
   Resend template editor; now SMTP-based)
 - transactional email on nodemailer: booking confirmation + payment receipt
