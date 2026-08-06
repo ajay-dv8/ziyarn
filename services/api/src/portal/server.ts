@@ -25,6 +25,12 @@ import {
   type PortalTokenPayload,
 } from "@repo/api/portal/schemas";
 
+import {
+  bookingConfirmationTemplate,
+  paymentReceiptTemplate,
+} from "@repo/api/email/templates";
+import type { SendTransactional } from "@repo/api/email";
+
 export class PortalServiceError extends Error {
   constructor(
     public readonly status: number,
@@ -79,8 +85,11 @@ export type PortalContext = {
   payment: Payment & { domainName: string };
 };
 
-export function createPortalService(deps: { db: Database }) {
-  const { db } = deps;
+export function createPortalService(deps: {
+  db: Database;
+  sendTransactional?: SendTransactional;
+}) {
+  const { db, sendTransactional = null } = deps;
   const secret: string = (() => {
     const value = process.env.PORTAL_URL_SECRET ?? process.env.BETTER_AUTH_SECRET;
     if (!value) {
@@ -183,11 +192,14 @@ export function createPortalService(deps: { db: Database }) {
       if (payload.type !== "booking") {
         throw new PortalServiceError(400, "WRONG_TOKEN_TYPE", "This link is not a booking link");
       }
-      const [booking] = await db
-        .select()
+      const [row] = await db
+        .select({ booking: bookings, domainName: domains.name })
         .from(bookings)
+        .innerJoin(domains, eq(domains.id, bookings.domainId))
         .where(and(eq(bookings.id, payload.id), eq(bookings.domainId, payload.domainId)))
         .limit(1);
+      const booking = row?.booking;
+      const domainName = row?.domainName ?? "";
       if (!booking) {
         throw new PortalServiceError(404, "NOT_FOUND", "Booking not found");
       }
@@ -204,6 +216,23 @@ export function createPortalService(deps: { db: Database }) {
         .returning();
       if (!updated) {
         throw new PortalServiceError(500, "UPDATE_FAILED", "Failed to confirm booking");
+      }
+      if (sendTransactional && updated.email) {
+        const template = bookingConfirmationTemplate({
+          domainName,
+          booking: {
+            name: updated.name,
+            date: updated.date,
+            time: updated.time,
+            topic: updated.topic,
+          },
+        });
+        await sendTransactional({
+          to: updated.email,
+          subject: template.subject,
+          text: template.text,
+          html: template.html,
+        });
       }
       return updated;
     },
@@ -399,6 +428,28 @@ export function createPortalService(deps: { db: Database }) {
           }
         }
       });
+      if (sendTransactional && payment.email) {
+        const [domain] = await db
+          .select({ name: domains.name })
+          .from(domains)
+          .where(eq(domains.id, payment.domainId))
+          .limit(1);
+        const template = paymentReceiptTemplate({
+          domainName: domain?.name ?? "",
+          payment: {
+            amountMinor: payment.amountMinor,
+            currency: payment.currency,
+            description: payment.description,
+            id: payment.id,
+          },
+        });
+        await sendTransactional({
+          to: payment.email,
+          subject: template.subject,
+          text: template.text,
+          html: template.html,
+        });
+      }
       return { handled: true };
     },
   };
