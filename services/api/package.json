@@ -22,7 +22,9 @@
     "./plans": "./src/plans/index.ts",
     "./plans/*": "./src/plans/*.ts",
     "./portal": "./src/portal/index.ts",
-    "./portal/*": "./src/portal/*.ts"
+    "./portal/*": "./src/portal/*.ts",
+    "./products": "./src/products/index.ts",
+    "./products/*": "./src/products/*.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit",
