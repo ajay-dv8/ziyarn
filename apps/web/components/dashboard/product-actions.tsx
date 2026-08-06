@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { formatDecimal } from "@repo/money";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
@@ -37,7 +38,7 @@ export function ProductActions({
   const [form, setForm] = useState({
     name: product.name,
     description: product.description ?? "",
-    price: (product.priceCents / 100).toFixed(2),
+    price: formatDecimal({ amountMinor: product.priceCents, currency: product.currency }),
     currency: product.currency,
   });
 
