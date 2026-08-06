@@ -240,6 +240,7 @@ export function createPortalService(deps: { db: Database }) {
           domainId: data.domainId,
           conversationId: data.conversationId ?? null,
           bookingId: data.bookingId ?? null,
+          productId: data.productId ?? null,
           email: data.email ?? null,
           description: data.description ?? null,
           amountMinor: data.amountMinor,
