@@ -1,3 +1,4 @@
+import { and, eq } from "drizzle-orm";
 import { getPlanLimits, PlanLimitError } from "@repo/api/plans";
 import {
   ConversationServiceError,
@@ -9,7 +10,7 @@ import {
   createPaymentRequestSchema,
 } from "@repo/api/portal/schemas";
 import { db } from "@repo/database";
-import { leads } from "@repo/database/schema";
+import { leads, products } from "@repo/database/schema";
 import type { AgentToolName } from "@repo/ai";
 
 import { aiService, chatService, logger } from "@/services/chat-service";
@@ -46,7 +47,19 @@ function systemPromptFor(domain: { slug: string }, agent: {
   instructions: string | null;
   systemPrompt: string | null;
   tools: string[] | null;
-}): string {
+  filterQuestions: unknown;
+}, catalog: { name: string; priceCents: number; currency: string }[]): string {
+  const filterQuestions = Array.isArray(agent.filterQuestions)
+    ? agent.filterQuestions.filter((q): q is string => typeof q === "string" && q.trim().length > 0)
+    : [];
+  const catalogLine = catalog.length > 0
+    ? `Product catalog (sell ONLY from this list, using sell_product; never invent prices):\n${catalog
+        .map((p) => `- ${p.name} — ${(p.priceCents / 100).toFixed(2)} ${p.currency.toUpperCase()}`)
+        .join("\n")}`
+    : "There are no products in the catalog yet. Direct purchase interest to create_payment for a custom amount, or offer to escalate.";
+  const filterLine = filterQuestions.length > 0
+    ? `Before capturing an email or offering to sell, ask these filter questions one at a time (do not dump them all at once):\n${filterQuestions.map((q) => `- ${q}`).join("\n")}\nWhen the visitor has answered, call capture_email and include the answers in its answers argument.`
+    : "";
   const parts = [
     agent.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
     agent.description ? `About this business: ${agent.description}` : "",
@@ -55,7 +68,9 @@ function systemPromptFor(domain: { slug: string }, agent: {
       ? `Available tools: ${agent.tools.join(", ")}`
       : "",
     `You are the assistant of the business on domain "${domain.slug}".`,
-    "Booking and payments are not available yet: tell visitors a human will follow up, and only escalate when they insist or ask for a human.",
+    "Appointments and payments are live: use book_appointment to schedule calls and create_payment (or sell_product) for purchases. Never create either without the visitor's agreement.",
+    filterLine,
+    catalogLine,
   ];
   return parts.filter(Boolean).join("\n\n");
 }
@@ -150,6 +165,19 @@ export async function POST(request: Request) {
     }
 
     const context = await chatService.contextMessages(conversationId);
+    const catalog = await db
+      .select({
+        name: products.name,
+        priceCents: products.priceCents,
+        currency: products.currency,
+      })
+      .from(products)
+      .where(
+        and(
+          eq(products.domainId, domain.id),
+          eq(products.active, true),
+        ),
+      );
     const toolExecutor = async (
       name: AgentToolName,
       args: Record<string, unknown>,
@@ -157,13 +185,60 @@ export async function POST(request: Request) {
       switch (name) {
         case "capture_email": {
           const email = typeof args.email === "string" ? args.email : "";
-          if (email) {
-            await db.insert(leads).values({
-              conversationId,
-              email,
-              interest:
-                typeof args.purpose === "string" ? args.purpose : null,
-            });
+          const answers = Array.isArray(args.answers)
+            ? args.answers
+                .filter(
+                  (a): a is { question?: unknown; answer?: unknown } =>
+                    typeof a === "object" && a !== null,
+                )
+                .map((a) => ({
+                  question:
+                    typeof a.question === "string"
+                      ? a.question.trim().slice(0, 300)
+                      : "",
+                  answer:
+                    typeof a.answer === "string"
+                      ? a.answer.trim().slice(0, 1000)
+                      : "",
+                }))
+                .filter((a) => a.question && a.answer)
+            : [];
+          if (email || answers.length > 0) {
+            const [existing] = await db
+              .select()
+              .from(leads)
+              .where(eq(leads.conversationId, conversationId))
+              .limit(1);
+            const merged = new Map<string, { question: string; answer: string }>();
+            for (const prior of Array.isArray(existing?.answers)
+              ? (existing.answers as { question: string; answer: string }[])
+              : []) {
+              merged.set(prior.question, prior);
+            }
+            for (const answer of answers) {
+              merged.set(answer.question, answer);
+            }
+            if (existing) {
+              await db
+                .update(leads)
+                .set({
+                  email: email || existing.email,
+                  interest:
+                    typeof args.purpose === "string"
+                      ? args.purpose
+                      : existing.interest,
+                  answers: merged.size > 0 ? [...merged.values()] : null,
+                })
+                .where(eq(leads.id, existing.id));
+            } else {
+              await db.insert(leads).values({
+                conversationId,
+                email: email || null,
+                interest:
+                  typeof args.purpose === "string" ? args.purpose : null,
+                answers: merged.size > 0 ? [...merged.values()] : null,
+              });
+            }
             logger.info({ conversationId, email }, "lead_captured");
           }
           return email
@@ -213,6 +288,57 @@ export async function POST(request: Request) {
           logger.info({ paymentId: payment.id }, "payment_requested");
           return `Payment request created for ${(payment.amountMinor / 100).toFixed(2)} ${payment.currency}${payment.description ? ` (${payment.description})` : ""}. Share this secure payment link with the visitor: ${url}`;
         }
+        case "sell_product": {
+          const productName =
+            typeof args.product === "string" ? args.product.trim() : "";
+          if (!productName) {
+            return "No product name was provided. Ask the visitor which catalog product they want, then call sell_product with its exact name.";
+          }
+          const catalog = await db
+            .select()
+            .from(products)
+            .where(
+              and(
+                eq(products.domainId, domain.id),
+                eq(products.active, true),
+              ),
+            );
+          const product = catalog.find(
+            (p) => p.name.toLowerCase() === productName.toLowerCase(),
+          );
+          if (!product) {
+            const names = catalog.map((p) => p.name).join(", ") ||
+              "no products configured";
+            return `"${productName}" is not in this business's catalog. Available catalog products: ${names}. Ask the visitor to pick one of those, or use create_payment for a custom amount.`;
+          }
+          const quantity =
+            typeof args.quantity === "number" &&
+            Number.isFinite(args.quantity) &&
+            args.quantity >= 1 &&
+            args.quantity <= 100
+              ? Math.floor(args.quantity)
+              : 1;
+          const parsed = createPaymentRequestSchema.safeParse({
+            domainId: domain.id,
+            conversationId,
+            productId: product.id,
+            amountMinor: product.priceCents * quantity,
+            currency: product.currency,
+            description:
+              quantity > 1
+                ? `${product.name} x${quantity}`
+                : product.name,
+          });
+          if (!parsed.success) {
+            return `The payment could not be created (${parsed.error.issues[0]?.message ?? "bad input"}). Try again.`;
+          }
+          const { payment, url } = await portalService.createPaymentRequest(parsed.data);
+          logger.info(
+            { paymentId: payment.id, productId: product.id },
+            "catalog_product_sold",
+          );
+          return `Payment request created for ${product.name} (${(payment.amountMinor / 100).toFixed(2)} ${payment.currency})${quantity > 1 ? ` x${quantity}` : ""}. Share this secure payment link with the visitor: ${url}`;
+        }
         case "escalate":
           await chatService.setConversationStatus(conversationId, "escalated");
           logger.info({ conversationId }, "conversation_escalated");
@@ -252,7 +378,7 @@ export async function POST(request: Request) {
         let fullReply = "";
         try {
           for await (const event of aiService.streamChat({
-            systemPrompt: systemPromptFor(domain, agent),
+            systemPrompt: systemPromptFor(domain, agent, catalog),
             messages: context,
             tools: agent.tools as AgentToolName[] | undefined,
             executeTool: toolExecutor,
