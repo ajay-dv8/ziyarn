@@ -4,6 +4,7 @@ export const AGENT_TOOLS = [
   "capture_email",
   "book_appointment",
   "create_payment",
+  "sell_product",
   "escalate",
   "answer_knowledge",
 ] as const;
@@ -47,7 +48,7 @@ const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: "capture_email",
       description:
-        "Capture the visitor's email when they want a quote, a callback, or info sent to them. Use it exactly once per need.",
+        "Capture the visitor's email when they want a quote, a callback, or info sent to them. Use it exactly once per need. Include answers to the business's filter questions (from the system prompt) when they have been collected.",
       parameters: toolParameters(
         {
           email: { type: "string", description: "The visitor's email address" },
@@ -55,6 +56,18 @@ const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
             type: "string",
             enum: ["quote", "callback", "info", "other"],
             description: "Why the email is being captured",
+          },
+          answers: {
+            type: "array",
+            description: "Answers to the business's filter questions, if any were asked",
+            items: {
+              type: "object",
+              properties: {
+                question: { type: "string" },
+                answer: { type: "string" },
+              },
+              required: ["question", "answer"],
+            },
           },
         },
         ["email", "purpose"],
@@ -94,6 +107,27 @@ const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           description: { type: "string", description: "What is being paid for" },
         },
         ["amount", "currency"],
+      ),
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "sell_product",
+      description:
+        "Sell an item already in the business's product catalog once the visitor agrees to buy it. The catalog (names + prices) is listed in the system prompt; never invent a product that is not there. Call create_payment instead for custom/one-off amounts not in the catalog.",
+      parameters: toolParameters(
+        {
+          product: {
+            type: "string",
+            description: "Name of the catalog product the visitor wants to buy",
+          },
+          quantity: {
+            type: "number",
+            description: "Optional quantity, defaults to 1",
+          },
+        },
+        ["product"],
       ),
     },
   },
@@ -161,10 +195,13 @@ async function* streamWith(
     );
 
     let content = "";
-    const calls: Record<
-      number,
-      { id: string; name: string; args: string; thoughtSignature?: string }
-    > = {};
+    const entries: {
+      id: string;
+      name: string;
+      args: string;
+      thoughtSignature?: string;
+    }[] = [];
+    const entryByIndex = new Map<number, (typeof entries)[number]>();
 
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta;
@@ -173,13 +210,24 @@ async function* streamWith(
         yield { type: "text", delta: delta.content };
       }
       for (const toolCall of delta?.tool_calls ?? []) {
-        const entry = (calls[toolCall.index] ??= {
-          id: "",
-          name: "",
-          args: "",
-        });
+        let entry = entryByIndex.get(toolCall.index);
+        if (
+          !entry ||
+          (toolCall.id && entry.id && toolCall.id !== entry.id)
+        ) {
+          entry = { id: "", name: "", args: "" };
+          entryByIndex.set(toolCall.index, entry);
+          entries.push(entry);
+        }
+        // Providers differ: OpenAI fragments both name and args across chunks
+        // for one call (append), Gemini repeats the full name+id per chunk and
+        // may emit several calls all under the same index (never re-append an
+        // already-seen full name, and rotate on a new id above).
         if (toolCall.id) entry.id = toolCall.id;
-        if (toolCall.function?.name) entry.name += toolCall.function.name;
+        if (toolCall.function?.name) {
+          const name = toolCall.function.name;
+          if (!entry.name.endsWith(name)) entry.name += name;
+        }
         if (toolCall.function?.arguments) {
           entry.args += toolCall.function.arguments;
         }
@@ -190,7 +238,7 @@ async function* streamWith(
       }
     }
 
-    const callList = Object.values(calls);
+    const callList = entries;
 
     if (content) {
       history.push({ role: "assistant", content });
