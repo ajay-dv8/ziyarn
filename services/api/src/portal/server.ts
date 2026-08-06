@@ -52,7 +52,7 @@ function safeEqual(a: Buffer, b: Buffer): boolean {
 
 function parseDomainUrl(): string {
   return (
-    process.env.PORTAL_URL_BASE ??
+    process.env.BASE_APP_URL ??
     process.env.BETTER_AUTH_URL ??
     "http://localhost:3000"
   );
