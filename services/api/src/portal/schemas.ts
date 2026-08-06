@@ -23,6 +23,7 @@ export const createPaymentRequestSchema = z.object({
   domainId: z.string().uuid(),
   conversationId: z.string().uuid().nullish(),
   bookingId: z.string().uuid().nullish(),
+  productId: z.string().uuid().nullish(),
   email: z.string().trim().email().optional(),
   description: z.string().trim().max(500).optional(),
   amountMinor: z.number().int().positive().max(100_000_000),
