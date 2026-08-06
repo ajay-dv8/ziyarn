@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { formatMoney } from "@repo/money";
 import { PortalServiceError } from "@repo/api/portal";
 
 import { PaymentButton } from "@/components/portal/payment-button";
@@ -9,13 +10,6 @@ import { portalService } from "@/services/portal-service";
 export const metadata: Metadata = {
   title: "Secure payment",
 };
-
-function formatAmount(amountMinor: number, currency: string): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-  }).format(amountMinor / 100);
-}
 
 export default async function PortalPayPage({
   searchParams,
@@ -49,7 +43,7 @@ export default async function PortalPayPage({
           <div className="flex justify-between gap-4">
             <dt className="text-zinc-500">Amount</dt>
             <dd className="text-lg font-semibold text-zinc-900">
-              {formatAmount(payment.amountMinor, payment.currency)}
+              {formatMoney({ amountMinor: payment.amountMinor, currency: payment.currency })}
             </dd>
           </div>
           {payment.description ? (
