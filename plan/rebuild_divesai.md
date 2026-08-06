@@ -223,6 +223,65 @@ P6 Billing + email marketing + integrations
   → webhook → plan/domain application, campaign send + delivery
   webhooks. Work uncommitted.
 
+P7 Owner sales config: products + filter questions (capture → sell)
+- Goal: close the two biggest gaps vs. divesai's original product — the
+  lead-capture "filter questions" flow and a real product catalog that the
+  agent sells (instead of a hardcoded test amount).
+- schema (migration 0008): `products` (domain FK cascade, name, description,
+  price_cents, currency default usd, active, timestamps, owner-scoped via
+  domain) + `leads.answers jsonb` column for captured filter answers
+- products service (services/api/products): owner-scoped CRUD (create/list/
+  update/deactivate), zod-validated, plan.gateable (products.toggle on
+  STANDARD+, count caps from PLAN_LIMITS)
+- chat wiring: new `sell_product` tool (agent picks owner catalog product →
+  creates real-amount payment request); create_payment falls back to
+  catalog-aware amounts; portal /pay + booking stores productId + amount
+  from the catalog, never agent-asserted
+- filter questions (agents.filter_questions jsonb): agent asks at
+  conversation start, answers persisted to leads.answers + surfaced in the
+  dashboard conversation side panel; widget prompt flow updated so
+  questions precede any hand-off
+- owner UI: Products page (dashboard) list/create/edit/deactivate + embed
+  money display; filter-question editor on the agent settings page
+- Done when: E2E — owner creates product → chat sell_product → portal pay
+  shows the real cents amount → payment_intent webhook marks paid with
+  productId; a conversation with filter questions ends with lead.answers
+  populated and visible in the dashboard; web + @repo/api typecheck/lint green
+
+P7 status (in progress, work uncommitted):
+- schema: migration 0008 (products table, leads.answers, agents.filter_questions)
+  + 0009 (payments.product_id FK set null) both applied to Neon and verified
+- products service: owner-scoped CRUD (no DELETE; deactivate via active flag),
+  plan-gated (free→429 PLAN_LIMIT_EXCEEDED), caps 0/50/500/5000
+- chat: sell_product tool (case-insensitive catalog match, quantity 1-100,
+  creates payment with product_id + price_cents*qty), capture_email upserts
+  lead and merges answers into leads.answers
+- agents: filter_questions editor (≤20) in dashboard; tools default to full
+  AGENT_TOOLS set on create (was: [] → Gemini returned empty completions,
+  found during E2E); agentToolsSchema gained sell_product
+- owner UI: /dashboard/products (chips, create/edit/deactivate, plan-gated
+  empty state), /dashboard/agents (filter question editor), sidebar entries,
+  conversations lead panel renders captured answers
+- E2E verified live: agent asked filter question + quoted catalog price
+  ($149.99) on turn 1; turn 2 fired capture_email AND sell_product (fixed
+  Gemini multi-tool stream bug: per-index accumulators concat names →
+  entryByIndex map + id rotation), lead row has email + 3 answers, payment
+  row product_id/amount_minor 14999 created; payment link streamed; dashboard
+  pages 200. web + @repo/{api,ai,database} typecheck/lint green.
+- remaining: portal pay page visual check for the real cents amount, cleanup
+  of P7 test fixtures, commit when user asks.
+
+(Deferred but tracked — candidates for P8/P9)
+- credit ledger usage metering (conversations/messages/emails per month, usage
+  page) — deferred from P6 intentionally
+- owner analytics (conversations/leads/bookings/payments/campaigns over time)
+- campaign scheduling + drag-and-drop HTML template editor (P6 deferred the
+  Resend template editor; now SMTP-based)
+- transactional email on nodemailer: booking confirmation + payment receipt
+- native chat SDKs (mobile/desktop) — transport-agnostic API is ready for it
+- knowledge file uploads (app-owned storage, local dev / S3 or Blob in prod)
+- Sentry/observability hardening (pino exists; section 7 non-negotiable)
+
 # 7 Non-negotiables
 
 - Zod validation on every boundary (actions + API + services)
