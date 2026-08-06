@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { CURRENCY_CODES, DEFAULT_CURRENCY } from "@repo/money";
+
 export const portalTokenSchema = z.object({
   type: z.enum(["booking", "payment"]),
   id: z.string().uuid(),
@@ -27,7 +29,15 @@ export const createPaymentRequestSchema = z.object({
   email: z.string().trim().email().optional(),
   description: z.string().trim().max(500).optional(),
   amountMinor: z.number().int().positive().max(100_000_000),
-  currency: z.string().length(3).toUpperCase(),
+  currency: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .refine(
+      (value) => (CURRENCY_CODES as readonly string[]).includes(value),
+      { message: "Unsupported currency code" },
+    )
+    .default(DEFAULT_CURRENCY),
 });
 
 export const confirmBookingSchema = z.object({
