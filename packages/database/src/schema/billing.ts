@@ -55,10 +55,11 @@ export const campaigns = pgTable(
     subject: text("subject").notNull(),
     body: text("body").notNull(),
     status: text("status", {
-      enum: ["draft", "sending", "sent", "cancelled"],
+      enum: ["draft", "scheduled", "sending", "sent", "cancelled"],
     })
       .notNull()
       .default("draft"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     sentCount: integer("sent_count").notNull().default(0),
     deliveredCount: integer("delivered_count").notNull().default(0),
     failedCount: integer("failed_count").notNull().default(0),
