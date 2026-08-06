@@ -21,10 +21,10 @@ export const products = pgTable(
     description: text("description"),
     priceCents: integer("price_cents").notNull(),
     currency: text("currency", {
-      enum: ["usd", "eur", "gbp"],
+      enum: ["ghs", "usd", "eur", "gbp"],
     })
       .notNull()
-      .default("usd"),
+      .default("ghs"),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
