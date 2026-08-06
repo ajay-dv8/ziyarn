@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 
 import { ConversationsPage } from "@/components/conversations/conversations-page";
 import { APP_ROUTES } from "@/constants/routes";
-import { authService } from "@/lib/auth-service";
-import { chatService } from "@/lib/chat-service";
+import { authService } from "@/services/auth-service";
+import { chatService } from "@/services/chat-service";
 
 export const metadata: Metadata = {
   title: "Conversations",

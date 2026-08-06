@@ -12,10 +12,10 @@ import { db } from "@repo/database";
 import { leads } from "@repo/database/schema";
 import type { AgentToolName } from "@repo/ai";
 
-import { aiService, chatService, logger } from "@/lib/chat-service";
-import { authService } from "@/lib/auth-service";
-import { knowledgeService } from "@/lib/knowledge-service";
-import { portalService } from "@/lib/portal-service";
+import { aiService, chatService, logger } from "@/services/chat-service";
+import { authService } from "@/services/auth-service";
+import { knowledgeService } from "@/services/knowledge-service";
+import { portalService } from "@/services/portal-service";
 import { chatRateLimiter } from "@/lib/rate-limit";
 
 const DEFAULT_SYSTEM_PROMPT = `You are a friendly sales and support assistant for this business.

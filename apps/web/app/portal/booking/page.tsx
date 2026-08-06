@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { PortalServiceError } from "@repo/api/portal";
 
 import { BookingConfirmButton } from "@/components/portal/booking-confirm-button";
-import { portalService } from "@/lib/portal-service";
+import { portalService } from "@/services/portal-service";
 
 export const metadata: Metadata = {
   title: "Confirm your appointment",

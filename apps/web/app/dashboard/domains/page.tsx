@@ -14,7 +14,7 @@ import { DeleteDomainButton } from "@/components/domains/delete-domain-button";
 import { EmbedSnippet } from "@/components/domains/embed-snippet";
 import { RenameDomainForm } from "@/components/domains/rename-domain-form";
 import { ZyWidget } from "@/components/widget/zy-widget";
-import { domainsService } from "@/lib/domains-service";
+import { domainsService } from "@/services/domains-service";
 
 export const metadata: Metadata = {
   title: "Domains",

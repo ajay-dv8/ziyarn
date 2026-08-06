@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { PortalServiceError } from "@repo/api/portal";
 
 import { PaymentButton } from "@/components/portal/payment-button";
-import { portalService } from "@/lib/portal-service";
+import { portalService } from "@/services/portal-service";
 
 export const metadata: Metadata = {
   title: "Secure payment",

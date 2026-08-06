@@ -11,7 +11,7 @@ import {
 } from "@repo/api/domains";
 import { DomainServiceError, PlanLimitError } from "@repo/api";
 
-import { domainsService } from "@/lib/domains-service";
+import { domainsService } from "@/services/domains-service";
 
 export type ActionResult =
   | { ok: true }

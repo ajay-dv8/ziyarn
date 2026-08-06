@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { Button } from "@repo/ui/components/button";
 
 import { APP_ROUTES } from "@/constants/routes";
-import { authService } from "@/lib/auth-service";
+import { authService } from "@/services/auth-service";
 
 const NAV_LINKS = [
   { label: "Features", href: APP_ROUTES.FEATURES },

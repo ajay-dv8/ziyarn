@@ -9,8 +9,8 @@ import {
   ownerReplySchema,
 } from "@repo/api/chat";
 
-import { authService } from "@/lib/auth-service";
-import { chatService } from "@/lib/chat-service";
+import { authService } from "@/services/auth-service";
+import { chatService } from "@/services/chat-service";
 
 import type { ActionResult } from "./domains";
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { PortalServiceError } from "@repo/api/portal";
 
-import { portalService } from "@/lib/portal-service";
+import { portalService } from "@/services/portal-service";
 
 export const runtime = "nodejs";
 

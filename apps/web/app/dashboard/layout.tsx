@@ -12,8 +12,8 @@ import { Separator } from "@repo/ui/components/separator";
 import { UserMenu } from "@/components/dashboard/user-menu";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { APP_ROUTES } from "@/constants/routes";
-import { authService } from "@/lib/auth-service";
-import { domainsService } from "@/lib/domains-service";
+import { authService } from "@/services/auth-service";
+import { domainsService } from "@/services/domains-service";
 
 const PLAN_RANK: Record<Plan, number> = {
   free: 0,

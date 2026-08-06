@@ -6,7 +6,7 @@ import { Button } from "@repo/ui/components/button";
 
 import { LandingHeader } from "@/components/landing/landing-header";
 import { APP_ROUTES } from "@/constants/routes";
-import { authService } from "@/lib/auth-service";
+import { authService } from "@/services/auth-service";
 
 export default async function HomePage() {
   const session = await authService.getSession(await headers());

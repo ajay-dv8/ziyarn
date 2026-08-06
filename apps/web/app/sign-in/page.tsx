@@ -12,7 +12,7 @@ import {
 
 import { SignInForm } from "@/components/auth/sign-in-form";
 import { APP_ROUTES } from "@/constants/routes";
-import { authService } from "@/lib/auth-service";
+import { authService } from "@/services/auth-service";
 
 export const metadata: Metadata = {
   title: "Sign in",

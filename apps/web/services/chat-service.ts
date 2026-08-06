@@ -3,7 +3,7 @@ import { createChatService } from "@repo/api/chat";
 
 import { db } from "@repo/database";
 
-import { logger } from "./logger";
+import { logger } from "../lib/logger";
 
 export const chatService = createChatService({ db });
 
