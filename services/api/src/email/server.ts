@@ -1,6 +1,8 @@
 import { randomBytes, createHmac, timingSafeEqual } from "node:crypto";
 
 import { and, desc, eq, gte, sql } from "drizzle-orm";
+import nodemailer from "nodemailer";
+import type { Transporter } from "nodemailer";
 
 import { getPlanLimits } from "@repo/api/plans";
 import type { Plan } from "@repo/api/plans/schemas";
@@ -40,6 +42,29 @@ function emailNotConfiguredError() {
   );
 }
 
+type SmtpConfig = {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+  from: string;
+};
+
+function smtpConfig(): SmtpConfig | null {
+  const host = process.env.SMTP_HOST;
+  const from = process.env.SMTP_FROM;
+  if (!host || !from) {
+    return null;
+  }
+  return {
+    host,
+    port: Number(process.env.SMTP_PORT ?? 587),
+    user: process.env.SMTP_USER ?? "",
+    pass: process.env.SMTP_PASS ?? "",
+    from,
+  };
+}
+
 function parseDomainUrl(): string {
   return (
     process.env.BASE_APP_URL ??
@@ -60,7 +85,31 @@ type ResendWebhookPayload = {
   };
 };
 
-export type EmailService = ReturnType<typeof createEmailService>;
+async function sendOne(
+  transport: Transporter,
+  fromEmail: string,
+  campaign: Campaign,
+  recipient: CampaignRecipient,
+): Promise<{ ok: true; id: string } | { ok: false }> {
+  const url = `${parseDomainUrl()}/unsubscribe?t=${encodeURIComponent(recipient.unsubscribeToken)}`;
+  const html = `${campaign.body}${UNSUBSCRIBE_FOOTER(url)}`;
+  const text = `${campaign.body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}\n\nUnsubscribe: ${url}`;
+  try {
+    const info = await transport.sendMail({
+      from: fromEmail,
+      to: recipient.email,
+      subject: campaign.subject,
+      text,
+      html,
+    });
+    if (!info.messageId) {
+      return { ok: false };
+    }
+    return { ok: true, id: info.messageId };
+  } catch {
+    return { ok: false };
+  }
+}
 
 export function createEmailService(deps: { db: Database }) {
   const { db } = deps;
@@ -122,15 +171,15 @@ export function createEmailService(deps: { db: Database }) {
     /**
      * Sends a campaign to all leads of the owner's domains. Enforces the
      * plan's monthly email budget, skips unsubscribed emails, and records
-     * every recipient. Gracefully rejects when Resend is not configured.
+     * every recipient. Delivers via SMTP through Nodemailer. Gracefully
+     * rejects when SMTP is not configured.
      */
     async sendCampaign(
       ownerId: string,
       campaignId: string,
     ): Promise<{ recipients: number }> {
-      const apiKey = process.env.RESEND_API_KEY;
-      const fromEmail = process.env.RESEND_FROM_EMAIL;
-      if (!apiKey || !fromEmail) {
+      const config = smtpConfig();
+      if (!config) {
         throw emailNotConfiguredError();
       }
       const campaign = await this.getCampaign(ownerId, campaignId);
@@ -179,12 +228,19 @@ export function createEmailService(deps: { db: Database }) {
         )
         .returning();
 
+      const transport = nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        secure: config.port === 465,
+        auth: config.user ? { user: config.user, pass: config.pass } : undefined,
+      });
+
       let sent = 0;
       let failed = 0;
       for (const recipient of inserted) {
-        const result = await this.sendOne(
-          apiKey,
-          fromEmail,
+        const result = await sendOne(
+          transport,
+          config.from,
           campaign,
           recipient,
         );
@@ -400,42 +456,6 @@ export function createEmailService(deps: { db: Database }) {
       return [...byEmail.values()].filter(
         (r) => !suppressedSet.has(r.email.toLowerCase()),
       );
-    },
-
-    async sendOne(
-      apiKey: string,
-      fromEmail: string,
-      campaign: Campaign,
-      recipient: CampaignRecipient,
-    ): Promise<{ ok: true; id: string } | { ok: false }> {
-      const url = `${parseDomainUrl()}/unsubscribe?t=${encodeURIComponent(recipient.unsubscribeToken)}`;
-      const html = `${campaign.body}${UNSUBSCRIBE_FOOTER(url)}`;
-      try {
-        const response = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            from: fromEmail,
-            to: [recipient.email],
-            subject: campaign.subject,
-            html,
-          }),
-          signal: AbortSignal.timeout(15000),
-        });
-        if (!response.ok) {
-          return { ok: false };
-        }
-        const body = (await response.json()) as { id?: string };
-        if (!body.id) {
-          return { ok: false };
-        }
-        return { ok: true, id: body.id };
-      } catch {
-        return { ok: false };
-      }
     },
   };
 }
