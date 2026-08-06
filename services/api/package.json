@@ -26,7 +26,9 @@
     "./portal": "./src/portal/index.ts",
     "./portal/*": "./src/portal/*.ts",
     "./products": "./src/products/index.ts",
-    "./products/*": "./src/products/*.ts"
+    "./products/*": "./src/products/*.ts",
+    "./usage": "./src/usage/index.ts",
+    "./usage/*": "./src/usage/*.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit",
