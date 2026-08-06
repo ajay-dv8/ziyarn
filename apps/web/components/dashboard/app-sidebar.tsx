@@ -27,6 +27,7 @@ import {
   MessagesSquare,
   Plug,
   Settings,
+  ShoppingBag,
   Sparkles,
 } from "lucide-react";
 
@@ -34,7 +35,6 @@ import { ZiyarnLogo } from "@/assets/logo/ziyarn-logo";
 import { APP_ROUTES } from "@/constants/routes";
 
 const COMING_SOON = [
-  { title: "Agents", icon: Bot },
   { title: "Knowledge Base", icon: BookOpen },
   { title: "Settings", icon: Settings },
 ];
@@ -102,12 +102,32 @@ export function AppSidebar({
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
+                isActive={pathname === APP_ROUTES.DASHBOARD_AGENTS}
+                tooltip="Agents"
+                render={<Link href={APP_ROUTES.DASHBOARD_AGENTS} />}
+              >
+                <Bot />
+                <span>Agents</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
                 isActive={pathname === APP_ROUTES.DASHBOARD_CAMPAIGNS}
                 tooltip="Campaigns"
                 render={<Link href={APP_ROUTES.DASHBOARD_CAMPAIGNS} />}
               >
                 <Mail />
                 <span>Campaigns</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === APP_ROUTES.DASHBOARD_PRODUCTS}
+                tooltip="Products"
+                render={<Link href={APP_ROUTES.DASHBOARD_PRODUCTS} />}
+              >
+                <ShoppingBag />
+                <span>Products</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
