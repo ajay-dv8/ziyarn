@@ -203,11 +203,25 @@ P5 Customer portal
 
 P6 Billing + email marketing + integrations
 - Stripe Checkout subscription for plans (STANDARD/PRO/ULTIMATE),
-  webhook-verified, credits updated atomically
-- email marketing: campaigns, Resend template editor, send with
-  credit check + decrement, unsubscribe + delivery webhooks
+  webhook-verified, per-owner (one subscription upgrades all of the
+  owner's domains); credit ledger deferred — credits stay plan-derived
+  from PLAN_LIMITS (incl. emailsPerMonth: 0/500/5000/50000)
+- email marketing: campaigns, Resend send with per-campaign budget
+  check, unsubscribe + delivery webhooks (Svix-scheme verification)
 - integrations page (Stripe Connect first, extensible list)
 - Done when: upgrade/downgrade + credits + campaign send verified
+- Status: migration 0007 (subscriptions, campaigns, campaign_recipients,
+  unsubscribed_emails) applied to Neon; @repo/api billing + email
+  services (typecheck/lint green); web routes /api/billing/{checkout,
+  portal}, /api/campaigns(+/[id]/send), /api/webhooks/{stripe,resend},
+  /api/integrations/stripe-connect; pages dashboard/billing, campaigns,
+  integrations, /unsubscribe. Verified locally w/ temp user: pages 200,
+  checkout INVALID_INPUT → fixed → BILLING_NOT_CONFIGURED (no keys),
+  campaign create + send 501 EMAIL_NOT_CONFIGURED, unsubscribe renders;
+  web + @repo/api typecheck/lint green. Test user/rows cleaned up.
+  NOT yet verified with real Stripe/Resend keys (not set): full checkout
+  → webhook → plan/domain application, campaign send + delivery
+  webhooks. Work uncommitted.
 
 # 7 Non-negotiables
 
