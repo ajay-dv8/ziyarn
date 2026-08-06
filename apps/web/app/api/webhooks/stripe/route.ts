@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
+import { BillingServiceError } from "@repo/api/billing";
 import { PortalServiceError } from "@repo/api/portal";
 
-import { portalService } from "@/lib/portal-service";
+import { billingService } from "@/services/billing-service";
+import { portalService } from "@/services/portal-service";
 
 export const runtime = "nodejs";
 
@@ -16,10 +18,20 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const { handled } = await portalService.handleStripeWebhook(rawBody, signature);
+    let handled = false;
+    try {
+      ({ handled } = await portalService.handleStripeWebhook(rawBody, signature));
+    } catch (error) {
+      if (error instanceof PortalServiceError && error.status !== 400) {
+        throw error;
+      }
+    }
+    if (!handled) {
+      ({ handled } = await billingService.handleStripeWebhook(rawBody, signature));
+    }
     return NextResponse.json({ received: true, handled });
   } catch (error) {
-    if (error instanceof PortalServiceError) {
+    if (error instanceof PortalServiceError || error instanceof BillingServiceError) {
       return NextResponse.json(
         { error: { code: error.code, message: error.message } },
         { status: error.status },
