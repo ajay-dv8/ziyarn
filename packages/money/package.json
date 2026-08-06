@@ -1,0 +1,24 @@
+{
+  "name": "@repo/money",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./currencies": "./src/currencies.ts",
+    "./money": "./src/money.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0"
+  },
+  "dependencies": {
+    "dinero.js": "^2.0.2"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.2"
+  }
+}
