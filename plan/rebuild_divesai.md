@@ -248,7 +248,7 @@ P7 Owner sales config: products + filter questions (capture → sell)
   productId; a conversation with filter questions ends with lead.answers
   populated and visible in the dashboard; web + @repo/api typecheck/lint green
 
-P7 status (in progress, work uncommitted):
+P7 status (done, committed + pushed):
 - schema: migration 0008 (products table, leads.answers, agents.filter_questions)
   + 0009 (payments.product_id FK set null) both applied to Neon and verified
 - products service: owner-scoped CRUD (no DELETE; deactivate via active flag),
@@ -267,9 +267,12 @@ P7 status (in progress, work uncommitted):
   Gemini multi-tool stream bug: per-index accumulators concat names →
   entryByIndex map + id rotation), lead row has email + 3 answers, payment
   row product_id/amount_minor 14999 created; payment link streamed; dashboard
-  pages 200. web + @repo/{api,ai,database} typecheck/lint green.
-- remaining: portal pay page visual check for the real cents amount, cleanup
-  of P7 test fixtures, commit when user asks.
+  pages 200. Portal /pay page renders the real amount ($149.99) + product
+  name from the token link. web + @repo/{api,ai,database} typecheck/lint
+  green. P7 fixtures cleaned up from Neon.
+- not testable without real Stripe keys (deferred, same as P6): checkout
+  → webhook → payment marked paid with productId (PaymentButton degrades
+  gracefully with PAYMENTS_NOT_CONFIGURED message).
 
 (Deferred but tracked — candidates for P8/P9)
 - credit ledger usage metering (conversations/messages/emails per month, usage
