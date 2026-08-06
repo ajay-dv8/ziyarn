@@ -31,6 +31,15 @@ const forbidden = () =>
 const domainNotFound = () =>
   new AgentServiceError(404, "DOMAIN_NOT_FOUND", "Domain not found");
 
+const DEFAULT_AGENT_TOOLS = [
+  "capture_email",
+  "book_appointment",
+  "create_payment",
+  "sell_product",
+  "escalate",
+  "answer_knowledge",
+] as const;
+
 const agentNotFound = () =>
   new AgentServiceError(404, "AGENT_NOT_FOUND", "Agent not found");
 
@@ -118,7 +127,8 @@ export function createAgentsService(deps: {
           description: body.description,
           instructions: body.instructions,
           systemPrompt: body.systemPrompt,
-          tools: body.tools ?? [],
+          tools: body.tools ?? [...DEFAULT_AGENT_TOOLS],
+          filterQuestions: body.filterQuestions ?? null,
         })
         .returning();
 
@@ -149,6 +159,9 @@ export function createAgentsService(deps: {
             ? { systemPrompt: body.systemPrompt }
             : {}),
           ...(body.tools !== undefined ? { tools: body.tools } : {}),
+          ...(body.filterQuestions !== undefined
+            ? { filterQuestions: body.filterQuestions }
+            : {}),
           updatedAt: new Date(),
         })
         .where(eq(agents.id, agent.id))
