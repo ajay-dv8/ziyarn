@@ -65,6 +65,15 @@ function smtpConfig(): SmtpConfig | null {
   };
 }
 
+function createTransport(config: SmtpConfig): Transporter {
+  return nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.port === 465,
+    auth: config.user ? { user: config.user, pass: config.pass } : undefined,
+  });
+}
+
 function parseDomainUrl(): string {
   return (
     process.env.BASE_APP_URL ??
@@ -84,6 +93,41 @@ type ResendWebhookPayload = {
     subject?: string;
   };
 };
+
+export type SendTransactionalInput = {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+};
+
+export type SendTransactional = (
+  input: SendTransactionalInput,
+) => Promise<{ ok: boolean }>;
+
+/** Best-effort transactional send. Returns ok:false when SMTP is unset or the
+ * send fails — callers must not fail their flow on email delivery. */
+export async function sendTransactional(
+  input: SendTransactionalInput,
+): Promise<{ ok: boolean }> {
+  const config = smtpConfig();
+  if (!config) {
+    return { ok: false };
+  }
+  try {
+    const transport = createTransport(config);
+    const info = await transport.sendMail({
+      from: config.from,
+      to: input.to,
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
+    });
+    return { ok: Boolean(info.messageId) };
+  } catch {
+    return { ok: false };
+  }
+}
 
 async function sendOne(
   transport: Transporter,
@@ -228,12 +272,7 @@ export function createEmailService(deps: { db: Database }) {
         )
         .returning();
 
-      const transport = nodemailer.createTransport({
-        host: config.host,
-        port: config.port,
-        secure: config.port === 465,
-        auth: config.user ? { user: config.user, pass: config.pass } : undefined,
-      });
+      const transport = createTransport(config);
 
       let sent = 0;
       let failed = 0;
