@@ -7,6 +7,8 @@ export type PlanLimits = {
   creditsPerMonth: number;
   /** Max widget conversations per domain per day. */
   conversationsPerDay: number;
+  /** Max marketing emails an owner can send per month. */
+  emailsPerMonth: number;
 };
 
 /**
@@ -14,13 +16,29 @@ export type PlanLimits = {
  * read from here — never re-declare limits elsewhere.
  */
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
-  free: { maxDomains: 1, creditsPerMonth: 100, conversationsPerDay: 100 },
-  standard: { maxDomains: 5, creditsPerMonth: 1000, conversationsPerDay: 1000 },
-  pro: { maxDomains: 20, creditsPerMonth: 10000, conversationsPerDay: 5000 },
+  free: {
+    maxDomains: 1,
+    creditsPerMonth: 100,
+    conversationsPerDay: 100,
+    emailsPerMonth: 0,
+  },
+  standard: {
+    maxDomains: 5,
+    creditsPerMonth: 1000,
+    conversationsPerDay: 1000,
+    emailsPerMonth: 500,
+  },
+  pro: {
+    maxDomains: 20,
+    creditsPerMonth: 10000,
+    conversationsPerDay: 5000,
+    emailsPerMonth: 5000,
+  },
   ultimate: {
     maxDomains: 100,
     creditsPerMonth: 100000,
     conversationsPerDay: 50000,
+    emailsPerMonth: 50000,
   },
 };
 
