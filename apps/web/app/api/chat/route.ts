@@ -12,6 +12,7 @@ import {
 import { db } from "@repo/database";
 import { leads, products } from "@repo/database/schema";
 import type { AgentToolName } from "@repo/ai";
+import { currencyCode, formatDecimal } from "@repo/money";
 
 import { aiService, chatService, logger } from "@/services/chat-service";
 import { authService } from "@/services/auth-service";
@@ -54,7 +55,7 @@ function systemPromptFor(domain: { slug: string }, agent: {
     : [];
   const catalogLine = catalog.length > 0
     ? `Product catalog (sell ONLY from this list, using sell_product; never invent prices):\n${catalog
-        .map((p) => `- ${p.name} — ${(p.priceCents / 100).toFixed(2)} ${p.currency.toUpperCase()}`)
+        .map((p) => `- ${p.name} — ${formatDecimal({ amountMinor: p.priceCents, currency: p.currency })} ${currencyCode({ amountMinor: p.priceCents, currency: p.currency })}`)
         .join("\n")}`
     : "There are no products in the catalog yet. Direct purchase interest to create_payment for a custom amount, or offer to escalate.";
   const filterLine = filterQuestions.length > 0
@@ -286,7 +287,7 @@ export async function POST(request: Request) {
           }
           const { payment, url } = await portalService.createPaymentRequest(parsed.data);
           logger.info({ paymentId: payment.id }, "payment_requested");
-          return `Payment request created for ${(payment.amountMinor / 100).toFixed(2)} ${payment.currency}${payment.description ? ` (${payment.description})` : ""}. Share this secure payment link with the visitor: ${url}`;
+          return `Payment request created for ${formatDecimal({ amountMinor: payment.amountMinor, currency: payment.currency })} ${currencyCode({ amountMinor: payment.amountMinor, currency: payment.currency })}${payment.description ? ` (${payment.description})` : ""}. Share this secure payment link with the visitor: ${url}`;
         }
         case "sell_product": {
           const productName =
@@ -337,7 +338,7 @@ export async function POST(request: Request) {
             { paymentId: payment.id, productId: product.id },
             "catalog_product_sold",
           );
-          return `Payment request created for ${product.name} (${(payment.amountMinor / 100).toFixed(2)} ${payment.currency})${quantity > 1 ? ` x${quantity}` : ""}. Share this secure payment link with the visitor: ${url}`;
+          return `Payment request created for ${product.name} (${formatDecimal({ amountMinor: payment.amountMinor, currency: payment.currency })} ${currencyCode({ amountMinor: payment.amountMinor, currency: payment.currency })})${quantity > 1 ? ` x${quantity}` : ""}. Share this secure payment link with the visitor: ${url}`;
         }
         case "escalate":
           await chatService.setConversationStatus(conversationId, "escalated");
