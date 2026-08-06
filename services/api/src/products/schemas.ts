@@ -1,13 +1,15 @@
 import { z } from "zod";
 
-export const productCurrencySchema = z.enum(["usd", "eur", "gbp"]);
+import { CURRENCY_CODES, DEFAULT_CURRENCY } from "@repo/money";
+
+export const productCurrencySchema = z.enum(CURRENCY_CODES);
 
 export const createProductSchema = z.object({
   domainId: z.string().uuid(),
   name: z.string().min(1).max(120),
   description: z.string().max(1000).optional(),
   priceCents: z.number().int().min(0).max(100_000_000),
-  currency: productCurrencySchema.default("usd"),
+  currency: productCurrencySchema.default(DEFAULT_CURRENCY),
 });
 
 export const updateProductSchema = z.object({
