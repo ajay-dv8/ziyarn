@@ -2,12 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { eq } from "drizzle-orm";
 
 import {
   ConversationServiceError,
   conversationStatusSchema,
   ownerReplySchema,
 } from "@repo/api/chat";
+import { db } from "@repo/database";
+import { leads } from "@repo/database/schema";
 
 import { authService } from "@/services/auth-service";
 import { chatService } from "@/services/chat-service";
@@ -158,6 +161,59 @@ export async function markConversationSeenAction(input: {
     await chatService.markConversationSeen(input.conversationId, user.id);
     revalidatePath("/dashboard/conversations");
     return { ok: true };
+  } catch (error) {
+    return errorResult(error);
+  }
+}
+
+export type LeadInfo = {
+  email: string | null;
+  name: string | null;
+  company: string | null;
+  interest: string | null;
+  answers: { question: string; answer: string }[] | null;
+};
+
+export async function getConversationLeadAction(input: {
+  conversationId: string;
+}): Promise<ActionResult & { lead?: LeadInfo | null }> {
+  try {
+    const user = await requireOwner();
+    const conversation = await chatService.getConversationForOwner(
+      input.conversationId,
+      user.id,
+    );
+    const rows = await db
+      .select({
+        email: leads.email,
+        name: leads.name,
+        company: leads.company,
+        interest: leads.interest,
+        answers: leads.answers,
+      })
+      .from(leads)
+      .where(eq(leads.conversationId, conversation.id))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return { ok: true, lead: null };
+    return {
+      ok: true,
+      lead: {
+        email: row.email,
+        name: row.name,
+        company: row.company,
+        interest: row.interest,
+        answers: Array.isArray(row.answers)
+          ? row.answers.filter(
+              (a): a is { question: string; answer: string } =>
+                typeof a === "object" &&
+                a !== null &&
+                typeof a.question === "string" &&
+                typeof a.answer === "string",
+            )
+          : null,
+      },
+    };
   } catch (error) {
     return errorResult(error);
   }
