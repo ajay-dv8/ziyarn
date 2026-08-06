@@ -316,12 +316,32 @@ registry so amounts render consistently (GHS default).
   [{ghs, minor}]; /portal/pay renders GH₵2,500.00; fixtures cleaned.
   Typecheck/lint green on money + database + api + web.
 
-(Deferred but tracked — candidates for P10/P11)
+P10 Transactional email — booking confirmation + payment receipt
+- Goal: notify the customer on the two moments that matter — a booking is
+  confirmed, and a payment lands. Best-effort: never fail the booking/webhook
+  flow if SMTP is unconfigured or delivery fails.
+- templates (services/api/src/email/templates.ts): inline-styled HTML +
+  text twin for bookingConfirmation (date/time/topic, domain brand bar) and
+  paymentReceipt (formatted via formatMoney, description, first-8 reference);
+  HTML-escapes customer-provided fields.
+- email service: export sendTransactional({ to, subject, text, html }) —
+  reuses the SMTP transport helper; returns { ok:false } (no throw) when
+  SMTP unset or send fails.
+- wiring (services/api/src/portal/server.ts): confirmBooking joins domains for
+  the brand name and emails the customer after confirm; handleStripeWebhook
+  emails a receipt after marking a payment paid (payment.email present).
+  Injected via createPortalService({ db, sendTransactional }) from
+  apps/web/services/portal-service.ts.
+- Status (done): typecheck+lint green on @repo/api + web; template unit check
+  (escaping, en-GB date, 12h time, GH₵ amount, reference) passed. Live SMTP
+  delivery not testable here (no real SMTP creds verifiable) — same caveat as
+  P6 campaign send.
+
+(Deferred but tracked — candidates for P11+)
 - credit ledger usage metering (conversations/messages/emails per month, usage
   page) — deferred from P6 intentionally
 - campaign scheduling + drag-and-drop HTML template editor (P6 deferred the
   Resend template editor; now SMTP-based)
-- transactional email on nodemailer: booking confirmation + payment receipt
 - native chat SDKs (mobile/desktop) — transport-agnostic API is ready for it
 - knowledge file uploads (app-owned storage, local dev / S3 or Blob in prod)
 - Sentry/observability hardening (pino exists; section 7 non-negotiable)
