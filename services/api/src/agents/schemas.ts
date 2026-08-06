@@ -4,6 +4,7 @@ export const agentToolsSchema = z.enum([
   "capture_email",
   "book_appointment",
   "create_payment",
+  "sell_product",
   "escalate",
   "answer_knowledge",
 ]);
@@ -11,6 +12,10 @@ export const agentToolsSchema = z.enum([
 export const agentIdSchema = z.object({
   id: z.string().uuid("Invalid agent id"),
 });
+
+export const filterQuestionsSchema = z
+  .array(z.string().trim().min(1).max(300))
+  .max(20);
 
 export const createAgentSchema = z.object({
   domainId: z.string().uuid("Invalid domain id"),
@@ -23,6 +28,7 @@ export const createAgentSchema = z.object({
   instructions: z.string().trim().max(4000).optional(),
   systemPrompt: z.string().trim().max(16000).optional(),
   tools: z.array(agentToolsSchema).max(10).optional(),
+  filterQuestions: filterQuestionsSchema.optional(),
 });
 
 export const updateAgentSchema = z
@@ -32,6 +38,7 @@ export const updateAgentSchema = z
     instructions: createAgentSchema.shape.instructions.optional(),
     systemPrompt: createAgentSchema.shape.systemPrompt.optional(),
     tools: createAgentSchema.shape.tools.optional(),
+    filterQuestions: createAgentSchema.shape.filterQuestions.optional(),
   })
   .refine(
     (data) =>
@@ -39,7 +46,8 @@ export const updateAgentSchema = z
       data.description !== undefined ||
       data.instructions !== undefined ||
       data.systemPrompt !== undefined ||
-      data.tools !== undefined,
+      data.tools !== undefined ||
+      data.filterQuestions !== undefined,
     { message: "Nothing to update" },
   );
 
