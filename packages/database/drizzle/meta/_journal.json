@@ -50,6 +50,13 @@
       "when": 1786049200000,
       "tag": "0006_p5_portal",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786122400000,
+      "tag": "0007_p6_billing",
+      "breakpoints": true
     }
   ]
 }
