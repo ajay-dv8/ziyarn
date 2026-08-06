@@ -12,6 +12,7 @@ import {
 } from "@repo/ui/components/card";
 
 import { CreateCampaignButton } from "@/components/dashboard/create-campaign-button";
+import { ScheduleCampaignControl } from "@/components/dashboard/schedule-campaign-button";
 import { SendCampaignButton } from "@/components/dashboard/send-campaign-button";
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
@@ -121,7 +122,22 @@ export default async function CampaignsPage() {
                   </span>
                 </div>
                 {campaign.status === "draft" ? (
-                  <SendCampaignButton campaignId={campaign.id} />
+                  <div className="space-y-3 border-t border-border pt-3">
+                    <SendCampaignButton campaignId={campaign.id} />
+                    <ScheduleCampaignControl
+                      campaignId={campaign.id}
+                      status={campaign.status}
+                      scheduledAt={campaign.scheduledAt}
+                    />
+                  </div>
+                ) : campaign.status === "scheduled" ? (
+                  <div className="border-t border-border pt-3">
+                    <ScheduleCampaignControl
+                      campaignId={campaign.id}
+                      status={campaign.status}
+                      scheduledAt={campaign.scheduledAt}
+                    />
+                  </div>
                 ) : null}
               </CardContent>
             </Card>
