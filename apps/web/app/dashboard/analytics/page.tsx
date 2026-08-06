@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
 
+import { formatMoney } from "@repo/money";
 import {
   Card,
   CardContent,
@@ -25,19 +26,6 @@ const RANGE_LABELS: Record<(typeof RANGES)[number], string> = {
   "30": "30 days",
   "90": "90 days",
 };
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  usd: "$",
-  eur: "€",
-  gbp: "£",
-};
-
-function formatAmount(minor: number, currency: string): string {
-  return `${CURRENCY_SYMBOLS[currency] ?? ""}${(minor / 100).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 function KpiCard({
   label,
@@ -86,8 +74,8 @@ export default async function AnalyticsPage({
 
   const revenueTotal =
     data?.totals.revenueByCurrency
-      .map((entry) => formatAmount(entry.minor, entry.currency))
-      .join(" + ") ?? "$0.00";
+      .map((entry) => formatMoney({ amountMinor: entry.minor, currency: entry.currency }))
+      .join(" + ") ?? "GH₵0.00";
   const revenueSub =
     data?.totals.revenueByCurrency.length === 1
       ? `${data.totals.paidPayments} paid`
@@ -221,7 +209,7 @@ export default async function AnalyticsPage({
                           {product.revenueByCurrency.length === 0
                             ? "—"
                             : product.revenueByCurrency
-                                .map((entry) => formatAmount(entry.minor, entry.currency))
+                                .map((entry) => formatMoney({ amountMinor: entry.minor, currency: entry.currency }))
                                 .join(" + ")}
                         </p>
                       </li>
