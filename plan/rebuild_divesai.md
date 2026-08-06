@@ -361,9 +361,34 @@ per month + a Usage page.
   /dashboard/usage renders all cards (1 / 2 / 0 + / 3,000 / 100 / 0).
   Fixtures cleaned up from Neon.
 
+## P12 — Campaign scheduling
+
+- Goal: let owners schedule marketing emails for future delivery instead of
+  only sending immediately, completing the P6 deferral note.
+- schema: campaigns gains `scheduled_at` (timestamptz, nullable) and status
+  `scheduled` (migration 0011, applied to Neon).
+- service (services/api/src/email): `scheduleCampaign` (draft → scheduled,
+  rejects past times; zod via `scheduleCampaignSchema`), `cancelScheduledCampaign`
+  (scheduled → draft, clears scheduled_at), `processDueCampaigns` (all
+  campaigns where status=scheduled AND scheduled_at <= now, sends serially
+  through the existing sendCampaign path, returns {sent, failed}). sendCampaign
+  unchanged — it already allows scheduled through to the send.
+- API: POST /api/campaigns/[id]/schedule, POST /api/campaigns/[id]/cancel-schedule
+  (owner-guarded), GET /api/campaigns/process-scheduled guarded by
+  CRON_SECRET header (x-cron-secret) — wire it to Vercel Cron / any scheduler.
+  CRON_SECRET added to turbo.json globalEnv.
+- UI: ScheduleCampaignControl on /dashboard/campaigns — datetime-local picker
+  for drafts, "Scheduled for … + Cancel schedule" for scheduled campaigns.
+- Status (done): @repo/api + web typecheck/lint green. Live E2E: temp owner
+  → create campaign → schedule in the past rejected (SCHEDULE_IN_PAST),
+  schedule future → status scheduled, cron without secret 401, cron with
+  secret before due → {sent:0}, after due → {sent:1} and campaign marked
+  sent (0 recipients, no leads). Cancel-schedule returns to draft. Page
+  renders both control states. Fixtures cleaned up from Neon.
+
 (Deferred but tracked — candidates for P12+)
-- campaign scheduling + drag-and-drop HTML template editor (P6 deferred the
-  Resend template editor; now SMTP-based)
+- drag-and-drop HTML template editor (P6 deferred the Resend template
+  editor; now SMTP-based)
 - native chat SDKs (mobile/desktop) — transport-agnostic API is ready for it
 - knowledge file uploads (app-owned storage, local dev / S3 or Blob in prod)
 - Sentry/observability hardening (pino exists; section 7 non-negotiable)
