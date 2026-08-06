@@ -6,4 +6,9 @@ export const createCampaignSchema = z.object({
   body: z.string().trim().min(1, "Body is required").max(20000),
 });
 
+export const scheduleCampaignSchema = z.object({
+  scheduledAt: z.string().datetime({ offset: true }),
+});
+
 export type CreateCampaignInput = z.infer<typeof createCampaignSchema>;
+export type ScheduleCampaignInput = z.infer<typeof scheduleCampaignSchema>;
