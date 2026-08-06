@@ -1,0 +1,139 @@
+import type { Metadata } from "next";
+import { headers } from "next/headers";
+
+import { getPlanLimits, type Plan } from "@repo/api/plans";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/components/card";
+
+import { ManageSubscriptionButton } from "@/components/dashboard/manage-subscription-button";
+import { UpgradeButton } from "@/components/dashboard/upgrade-button";
+import { authService } from "@/services/auth-service";
+import { billingService } from "@/services/billing-service";
+import { domainsService } from "@/services/domains-service";
+
+export const metadata: Metadata = {
+  title: "Billing",
+};
+
+const PLAN_RANK: Record<Plan, number> = {
+  free: 0,
+  standard: 1,
+  pro: 2,
+  ultimate: 3,
+};
+
+const PLANS: Array<{
+  id: "standard" | "pro" | "ultimate";
+  name: string;
+  price: string;
+  blurb: string;
+}> = [
+  { id: "standard", name: "Standard", price: "$29/mo", blurb: "For growing teams" },
+  { id: "pro", name: "Pro", price: "$99/mo", blurb: "For serious operators" },
+  { id: "ultimate", name: "Ultimate", price: "$299/mo", blurb: "For platforms" },
+];
+
+export default async function BillingPage() {
+  const requestHeaders = await headers();
+  const session = await authService.getSession(requestHeaders);
+  if (!session) {
+    return null;
+  }
+  const domains = await domainsService.listDomains(requestHeaders);
+  const plan = domains.reduce<Plan>(
+    (best, domain) => (PLAN_RANK[domain.plan] > PLAN_RANK[best] ? domain.plan : best),
+    "free",
+  );
+  const limits = getPlanLimits(plan);
+  const subscription = await billingService.getSubscription(session.user.id);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
+        <p className="text-sm text-muted-foreground">
+          Upgrade to lift your domain, conversation and email limits.
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Current plan</CardTitle>
+          <CardDescription>
+            {plan === "free"
+              ? "You are on the free plan."
+              : `You are on the ${plan} plan — all your domains get its limits.`}
+            {subscription?.status === "active"
+              ? ` Subscription ${subscription.status}${
+                  subscription.currentPeriodEnd
+                    ? `, renews ${subscription.currentPeriodEnd.toLocaleDateString("en-US")}`
+                    : ""
+                }.`
+              : ""}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ul className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <li className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">Domains</p>
+              <p className="text-lg font-semibold">{limits.maxDomains} max</p>
+            </li>
+            <li className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">AI credits / month</p>
+              <p className="text-lg font-semibold">{limits.creditsPerMonth}</p>
+            </li>
+            <li className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">Conversations / day</p>
+              <p className="text-lg font-semibold">{limits.conversationsPerDay}</p>
+            </li>
+            <li className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">Emails / month</p>
+              <p className="text-lg font-semibold">{limits.emailsPerMonth}</p>
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        {PLANS.map((p) => (
+          <Card
+            key={p.id}
+            className={plan === p.id ? "border-primary" : undefined}
+          >
+            <CardHeader>
+              <CardTitle>{p.name}</CardTitle>
+              <CardDescription>{p.blurb}</CardDescription>
+              <p className="text-2xl font-semibold tracking-tight">{p.price}</p>
+            </CardHeader>
+            <CardContent>
+              <UpgradeButton
+                plan={p.id}
+                label="Upgrade"
+                current={plan === p.id}
+              />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {subscription?.stripeCustomerId ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Manage subscription</CardTitle>
+            <CardDescription>
+              Cancel, switch plans or update your payment method.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ManageSubscriptionButton />
+          </CardContent>
+        </Card>
+      ) : null}
+    </div>
+  );
+}

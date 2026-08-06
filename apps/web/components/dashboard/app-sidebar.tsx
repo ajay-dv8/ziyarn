@@ -20,9 +20,12 @@ import {
 import {
   BookOpen,
   Bot,
+  CreditCard,
   Globe,
   LayoutDashboard,
+  Mail,
   MessagesSquare,
+  Plug,
   Settings,
   Sparkles,
 } from "lucide-react";
@@ -95,6 +98,36 @@ export function AppSidebar({
               >
                 <MessagesSquare />
                 <span>Conversations</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === APP_ROUTES.DASHBOARD_CAMPAIGNS}
+                tooltip="Campaigns"
+                render={<Link href={APP_ROUTES.DASHBOARD_CAMPAIGNS} />}
+              >
+                <Mail />
+                <span>Campaigns</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === APP_ROUTES.DASHBOARD_BILLING}
+                tooltip="Billing"
+                render={<Link href={APP_ROUTES.DASHBOARD_BILLING} />}
+              >
+                <CreditCard />
+                <span>Billing</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === APP_ROUTES.DASHBOARD_INTEGRATIONS}
+                tooltip="Integrations"
+                render={<Link href={APP_ROUTES.DASHBOARD_INTEGRATIONS} />}
+              >
+                <Plug />
+                <span>Integrations</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

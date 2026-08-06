@@ -24,8 +24,8 @@ import {
 } from "lucide-react";
 
 import { APP_ROUTES } from "@/constants/routes";
-import { chatService } from "@/lib/chat-service";
-import { domainsService } from "@/lib/domains-service";
+import { chatService } from "@/services/chat-service";
+import { domainsService } from "@/services/domains-service";
 
 export const metadata: Metadata = {
   title: "Overview",
@@ -102,7 +102,7 @@ export default async function DashboardPage() {
     {
       label: "Plan",
       value: plan.charAt(0).toUpperCase() + plan.slice(1),
-      sub: "billing coming soon",
+      sub: "manage in billing",
       icon: Sparkles,
     },
   ];
