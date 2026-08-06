@@ -11,11 +11,13 @@ import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { cn } from "@repo/ui/lib/utils";
 
 import {
+  getConversationLeadAction,
   listConversationsAction,
   markConversationSeenAction,
   replyToConversationAction,
   setConversationStatusAction,
   type ConversationListRow,
+  type LeadInfo,
 } from "@/lib/actions/conversations";
 
 type ConversationRow = ConversationListRow;
@@ -41,6 +43,7 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [lead, setLead] = useState<LeadInfo | null>(null);
 
   const esRef = useRef<EventSource | null>(null);
   const sinceRef = useRef<string | null>(null);
@@ -130,6 +133,7 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
   async function openConversation(id: string) {
     setSelectedId(id);
     setMessages([]);
+    setLead(null);
     seenRef.current = new Set();
     markConversationSeenAction({ conversationId: id });
     setConversations((prev) =>
@@ -150,6 +154,11 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
       sinceRef.current = cursor;
       connect(cursor);
       requestAnimationFrame(scrollToBottom);
+    }
+
+    const leadRes = await getConversationLeadAction({ conversationId: id });
+    if (leadRes.ok) {
+      setLead(leadRes.lead ?? null);
     }
   }
 
@@ -295,6 +304,42 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
                   )}
                 </div>
               </div>
+
+              {lead ? (
+                <div className="border-b bg-muted/40 px-4 py-2.5 text-xs">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
+                    <span className="font-medium text-foreground">
+                      {lead.name ?? "Lead"}
+                    </span>
+                    {lead.email ? (
+                      <a
+                        href={`mailto:${lead.email}`}
+                        className="underline underline-offset-2 hover:text-foreground"
+                      >
+                        {lead.email}
+                      </a>
+                    ) : null}
+                    {lead.company ? (
+                      <span>{lead.company}</span>
+                    ) : null}
+                    {lead.interest ? (
+                      <span className="capitalize">{lead.interest}</span>
+                    ) : null}
+                  </div>
+                  {lead.answers && lead.answers.length > 0 ? (
+                    <ul className="mt-1.5 space-y-1">
+                      {lead.answers.map((a, index) => (
+                        <li key={index}>
+                          <span className="text-muted-foreground">
+                            {a.question}:{" "}
+                          </span>
+                          <span className="text-foreground">{a.answer}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
 
               <ScrollArea className="flex-1">
                 <div ref={messagesRef} className="space-y-2 overflow-y-auto p-4">
