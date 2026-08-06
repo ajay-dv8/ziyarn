@@ -64,7 +64,7 @@ export const payments = pgTable(
     email: text("email"),
     description: text("description"),
     amountMinor: integer("amount_minor").notNull(),
-    currency: text("currency").notNull(),
+    currency: text("currency").notNull().default("ghs"),
     stripePaymentIntentId: text("stripe_payment_intent_id"),
     status: text("status", {
       enum: ["pending", "requires_payment", "paid", "failed"],
