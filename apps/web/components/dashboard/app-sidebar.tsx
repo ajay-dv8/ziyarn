@@ -18,6 +18,7 @@ import {
   SidebarRail,
 } from "@repo/ui/components/sidebar";
 import {
+  BarChart3,
   BookOpen,
   Bot,
   CreditCard,
@@ -108,6 +109,16 @@ export function AppSidebar({
               >
                 <Bot />
                 <span>Agents</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === APP_ROUTES.DASHBOARD_ANALYTICS}
+                tooltip="Analytics"
+                render={<Link href={APP_ROUTES.DASHBOARD_ANALYTICS} />}
+              >
+                <BarChart3 />
+                <span>Analytics</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
