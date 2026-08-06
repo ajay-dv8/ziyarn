@@ -9,6 +9,8 @@ export type PlanLimits = {
   conversationsPerDay: number;
   /** Max marketing emails an owner can send per month. */
   emailsPerMonth: number;
+  /** Max catalog products an owner can define per domain. */
+  maxProductsPerDomain: number;
 };
 
 /**
@@ -21,24 +23,28 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     creditsPerMonth: 100,
     conversationsPerDay: 100,
     emailsPerMonth: 0,
+    maxProductsPerDomain: 0,
   },
   standard: {
     maxDomains: 5,
     creditsPerMonth: 1000,
     conversationsPerDay: 1000,
     emailsPerMonth: 500,
+    maxProductsPerDomain: 50,
   },
   pro: {
     maxDomains: 20,
     creditsPerMonth: 10000,
     conversationsPerDay: 5000,
     emailsPerMonth: 5000,
+    maxProductsPerDomain: 500,
   },
   ultimate: {
     maxDomains: 100,
     creditsPerMonth: 100000,
     conversationsPerDay: 50000,
     emailsPerMonth: 50000,
+    maxProductsPerDomain: 5000,
   },
 };
 
@@ -81,6 +87,27 @@ export function assertCanStartConversation(
       429,
       "CONVERSATION_LIMIT_EXCEEDED",
       `Your plan allows ${limits.conversationsPerDay} widget conversations per day`,
+    );
+  }
+}
+
+/** Throws if the domain's product catalog is at capacity for the plan. */
+export function assertCanCreateProduct(
+  limits: PlanLimits,
+  currentProductCount: number,
+): void {
+  if (limits.maxProductsPerDomain <= 0) {
+    throw new PlanLimitError(
+      429,
+      "PLAN_LIMIT_EXCEEDED",
+      "Catalog products require the Standard plan or above",
+    );
+  }
+  if (currentProductCount >= limits.maxProductsPerDomain) {
+    throw new PlanLimitError(
+      429,
+      "PLAN_LIMIT_EXCEEDED",
+      `Your plan allows at most ${limits.maxProductsPerDomain} products per domain`,
     );
   }
 }
