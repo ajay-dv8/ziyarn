@@ -1,6 +1,6 @@
 import { randomBytes, createHmac, timingSafeEqual } from "node:crypto";
 
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 
@@ -20,8 +20,11 @@ import {
   type CampaignRecipient,
 } from "@repo/database/schema";
 
-import { createCampaignSchema } from "@repo/api/email/schemas";
-import type { CreateCampaignInput } from "@repo/api/email/schemas";
+import { createCampaignSchema, scheduleCampaignSchema } from "@repo/api/email/schemas";
+import type {
+  CreateCampaignInput,
+  ScheduleCampaignInput,
+} from "@repo/api/email/schemas";
 
 export class EmailServiceError extends Error {
   constructor(
@@ -191,6 +194,90 @@ export function createEmailService(deps: { db: Database }) {
       return campaign;
     },
 
+    /**
+     * Schedules a draft campaign for delivery at a future time. The send
+     * itself is triggered by the scheduler (processDueCampaigns).
+     */
+    async scheduleCampaign(
+      ownerId: string,
+      campaignId: string,
+      input: ScheduleCampaignInput,
+    ): Promise<Campaign> {
+      const data = scheduleCampaignSchema.parse(input);
+      const when = new Date(data.scheduledAt);
+      if (Number.isNaN(when.getTime())) {
+        throw new EmailServiceError(400, "INVALID_DATE", "Scheduled time is invalid");
+      }
+      if (when.getTime() <= Date.now()) {
+        throw new EmailServiceError(400, "SCHEDULE_IN_PAST", "Scheduled time must be in the future");
+      }
+      const campaign = await this.getCampaign(ownerId, campaignId);
+      if (campaign.status !== "draft") {
+        throw new EmailServiceError(
+          409,
+          "CAMPAIGN_NOT_DRAFT",
+          "Only draft campaigns can be scheduled",
+        );
+      }
+      const [updated] = await db
+        .update(campaigns)
+        .set({ status: "scheduled", scheduledAt: when, updatedAt: new Date() })
+        .where(eq(campaigns.id, campaign.id))
+        .returning();
+      if (!updated) {
+        throw new EmailServiceError(500, "UPDATE_FAILED", "Failed to schedule campaign");
+      }
+      return updated;
+    },
+
+    /** Cancels a scheduled campaign, returning it to draft. */
+    async cancelScheduledCampaign(
+      ownerId: string,
+      campaignId: string,
+    ): Promise<Campaign> {
+      const campaign = await this.getCampaign(ownerId, campaignId);
+      if (campaign.status !== "scheduled") {
+        throw new EmailServiceError(
+          409,
+          "CAMPAIGN_NOT_SCHEDULED",
+          "This campaign is not scheduled",
+        );
+      }
+      const [updated] = await db
+        .update(campaigns)
+        .set({ status: "draft", scheduledAt: null, updatedAt: new Date() })
+        .where(eq(campaigns.id, campaign.id))
+        .returning();
+      if (!updated) {
+        throw new EmailServiceError(500, "UPDATE_FAILED", "Failed to cancel campaign");
+      }
+      return updated;
+    },
+
+    /**
+     * Sends every campaign whose scheduled time has arrived. Called by the
+     * scheduler endpoint (cron). Sends happen serially so email credits stay
+     * consistent; failures bubble up per campaign via sendCampaign.
+     */
+    async processDueCampaigns(): Promise<{ sent: number; failed: number }> {
+      const now = new Date();
+      const due = await db
+        .select()
+        .from(campaigns)
+        .where(and(eq(campaigns.status, "scheduled"), lte(campaigns.scheduledAt, now)));
+      let sent = 0;
+      let failed = 0;
+      for (const campaign of due) {
+        try {
+          await this.sendCampaign(campaign.ownerId, campaign.id);
+          sent += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+      return { sent, failed };
+    },
+
     async getRecipients(
       ownerId: string,
       campaignId: string,
@@ -233,9 +320,7 @@ export function createEmailService(deps: { db: Database }) {
           "CAMPAIGN_ALREADY_SENT",
           "This campaign has already been sent",
         );
-      }
-
-      const recipients = await this.buildRecipientList(ownerId);
+      }      const recipients = await this.buildRecipientList(ownerId);
       if (recipients.length === 0) {
         await db
           .update(campaigns)
