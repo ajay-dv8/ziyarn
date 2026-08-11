@@ -25,6 +25,7 @@ import type {
   CreateCampaignInput,
   ScheduleCampaignInput,
 } from "@repo/api/email/schemas";
+import { renderEmailBody } from "@repo/api/email/blocks";
 
 export class EmailServiceError extends Error {
   constructor(
@@ -164,9 +165,15 @@ export function createEmailService(deps: { db: Database }) {
   return {
     async createCampaign(ownerId: string, input: CreateCampaignInput): Promise<Campaign> {
       const data = createCampaignSchema.parse(input);
+      const body = data.blocks ? renderEmailBody(data.blocks) : (data.body ?? "");
       const [campaign] = await db
         .insert(campaigns)
-        .values({ ownerId, ...data })
+        .values({
+          ownerId,
+          name: data.name,
+          subject: data.subject,
+          body,
+        })
         .returning();
       if (!campaign) {
         throw new EmailServiceError(500, "CREATE_FAILED", "Failed to create campaign");
