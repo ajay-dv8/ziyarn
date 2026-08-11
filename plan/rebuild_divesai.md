@@ -386,9 +386,35 @@ per month + a Usage page.
   sent (0 recipients, no leads). Cancel-schedule returns to draft. Page
   renders both control states. Fixtures cleaned up from Neon.
 
+## P13 — Drag-and-drop email template editor
+
+- Goal: replace raw-HTML composition with a block-based visual editor,
+  delivering the P6 deferral (Resend template editor, now SMTP-based).
+- blocks module (services/api/src/email/blocks.ts): pure TS (no zod — safe
+  for client import) EmailBlock discriminated union: heading (size 1-3),
+  paragraph, button (label+url), image (url+alt), divider, spacer (8-32px);
+  EMAIL_BLOCK_META palette; createBlock factory (crypto.randomUUID ids);
+  renderEmailBody → inline-styled, table-based, email-client-safe full HTML
+  document (escapeHtml + wordsToLines for multiline text).
+- schema: emailBlockSchema (zod discriminatedUnion, per-kind limits, url
+  validation) in schemas.ts; createCampaignSchema now accepts blocks[]
+  (≤40) OR body — refine requires at least one. Server renders blocks →
+  body via renderEmailBody in createCampaign (single source of truth; a
+  client can't smuggle raw HTML through blocks).
+- UI: EmailTemplateEditor client component in the create-campaign sheet —
+  Design/HTML mode toggle, block palette (drag-in or click-to-add), native
+  HTML5 drag-and-drop reorder with drop-target highlight, per-block inline
+  editors (heading size, spacer height, button/image fields), live iframe
+  preview rendered with renderEmailBody, raw-HTML textarea fallback mode.
+  Sheet widened to sm:max-w-xl. Draft state lifted (EmailTemplateDraft
+  union) so create sends {blocks} or {body}.
+- Status (done): @repo/api + web typecheck/lint green. Live E2E: temp owner
+  → POST /api/campaigns with 5 blocks → stored body is full rendered HTML
+  containing heading/paragraph/button+url/divider/spacer; invalid block url
+  → 400 INVALID_INPUT; page loads without runtime errors (editor renders
+  client-side on sheet open). Fixtures cleaned up from Neon.
+
 (Deferred but tracked — candidates for P12+)
-- drag-and-drop HTML template editor (P6 deferred the Resend template
-  editor; now SMTP-based)
 - native chat SDKs (mobile/desktop) — transport-agnostic API is ready for it
 - knowledge file uploads (app-owned storage, local dev / S3 or Blob in prod)
 - Sentry/observability hardening (pino exists; section 7 non-negotiable)
