@@ -15,20 +15,35 @@ import {
   SheetTrigger,
 } from "@repo/ui/components/sheet";
 
+import {
+  EmailTemplateEditor,
+  type EmailTemplateDraft,
+} from "@/components/dashboard/email-template-editor";
+
 export function CreateCampaignButton() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", subject: "", body: "" });
+  const [name, setName] = useState("");
+  const [subject, setSubject] = useState("");
+  const [draft, setDraft] = useState<EmailTemplateDraft | null>(null);
 
-  async function create() {
+async function create() {
+    if (draft?.kind === "blocks" && draft.blocks.length === 0) {
+      setError("Add at least one block, or switch to HTML and paste a body.");
+      return;
+    }
+    const payload =
+      draft?.kind === "blocks"
+        ? { name, subject, blocks: draft.blocks }
+        : { name, subject, body: draft?.kind === "html" ? draft.body : "" };
     setSaving(true);
     setError(null);
     try {
       const response = await fetch("/api/campaigns", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const body = (await response.json().catch(() => null)) as {
         error?: { message?: string };
@@ -39,7 +54,9 @@ export function CreateCampaignButton() {
         return;
       }
       setOpen(false);
-      setForm({ name: "", subject: "", body: "" });
+      setName("");
+      setSubject("");
+      setDraft(null);
       window.location.reload();
     } catch {
       setError("Network error. Please try again.");
@@ -50,7 +67,7 @@ export function CreateCampaignButton() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger render={<Button>New campaign</Button>} />
-      <SheetContent side="right">
+      <SheetContent side="right" className="w-full sm:max-w-xl">
         <SheetHeader>
           <SheetTitle>New campaign</SheetTitle>
           <SheetDescription>
@@ -64,8 +81,8 @@ export function CreateCampaignButton() {
             <Input
               id="campaign-name"
               placeholder="May product update"
-              value={form.name}
-              onChange={(event) => setForm({ ...form, name: event.target.value })}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
             />
           </div>
           <div className="space-y-2">
@@ -73,20 +90,13 @@ export function CreateCampaignButton() {
             <Input
               id="campaign-subject"
               placeholder="What's new in May"
-              value={form.subject}
-              onChange={(event) => setForm({ ...form, subject: event.target.value })}
+              value={subject}
+              onChange={(event) => setSubject(event.target.value)}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="campaign-body">Body (HTML)</Label>
-            <textarea
-              id="campaign-body"
-              rows={10}
-              placeholder={"<p>Hi,</p><p>We have big news…</p>"}
-              value={form.body}
-              onChange={(event) => setForm({ ...form, body: event.target.value })}
-              className="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-2 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30"
-            />
+            <Label>Body</Label>
+            <EmailTemplateEditor onDraft={setDraft} />
           </div>
           {error ? (
             <p className="text-sm text-red-600" role="alert">
