@@ -36,10 +36,7 @@ import {
 import { ZiyarnLogo } from "@/assets/logo/ziyarn-logo";
 import { APP_ROUTES } from "@/constants/routes";
 
-const COMING_SOON = [
-  { title: "Knowledge Base", icon: BookOpen },
-  { title: "Settings", icon: Settings },
-];
+const COMING_SOON = [{ title: "Settings", icon: Settings }];
 
 export function AppSidebar({
   plan,
@@ -110,6 +107,16 @@ export function AppSidebar({
               >
                 <Bot />
                 <span>Agents</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === APP_ROUTES.DASHBOARD_KNOWLEDGE}
+                tooltip="Knowledge Base"
+                render={<Link href={APP_ROUTES.DASHBOARD_KNOWLEDGE} />}
+              >
+                <BookOpen />
+                <span>Knowledge Base</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
