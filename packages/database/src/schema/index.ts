@@ -7,6 +7,7 @@ export * from "@repo/database/schema/products";
 import { domains } from "@repo/database/schema/domains";
 import {
   index,
+  integer,
   jsonb,
   pgTable,
   text,
@@ -153,6 +154,10 @@ export const knowledgeDocuments = pgTable(
       .references(() => agents.id, { onDelete: "cascade" }),
     source: text("source").notNull(),
     title: text("title"),
+    fileName: text("file_name"),
+    fileMime: text("file_mime"),
+    fileSize: integer("file_size"),
+    storageKey: text("storage_key"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
