@@ -4,4 +4,5 @@ export const API_ROUTES = {
   AUTH_SIGN_UP_EMAIL: "/api/auth/sign-up/email",
   AUTH_CALLBACK: "/api/auth/callback",
   CHAT: "/api/chat",
+  KNOWLEDGE_UPLOAD: "/api/knowledge/upload",
 } as const;
