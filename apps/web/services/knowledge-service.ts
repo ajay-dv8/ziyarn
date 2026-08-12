@@ -1,4 +1,6 @@
+import { createBlobKnowledgeStorage } from "@repo/api/knowledge/blob-storage";
 import { createKnowledgeService } from "@repo/api/knowledge";
+import { createLocalKnowledgeStorage } from "@repo/api/knowledge/storage";
 
 import { db } from "@repo/database";
 
@@ -10,4 +12,7 @@ export const knowledgeService = createKnowledgeService({
   getSession: (headers: Headers) => authService.getSession(headers),
   embed: (texts: string[]) => aiService.embed(texts),
   embeddingModel: aiService.embeddingModel,
+  storage: process.env.BLOB_READ_WRITE_TOKEN
+    ? createBlobKnowledgeStorage()
+    : createLocalKnowledgeStorage(),
 });
