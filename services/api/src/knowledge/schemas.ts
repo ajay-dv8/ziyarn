@@ -18,6 +18,19 @@ export const listKnowledgeDocumentsSchema = z.object({
   agentId: z.uuid(),
 });
 
+export const uploadFileSchema = z.object({
+  domainId: z.uuid(),
+  agentId: z.uuid(),
+  fileName: z.string().trim().min(1).max(200),
+  fileMime: z.string().trim().min(1).max(200),
+  data: z.instanceof(Uint8Array),
+});
+
+export const getFileSchema = z.object({
+  domainId: z.uuid(),
+  documentId: z.uuid(),
+});
+
 export const deleteKnowledgeDocumentSchema = z.object({
   domainId: z.uuid(),
   documentId: z.uuid(),
@@ -36,6 +49,8 @@ export type CreateKnowledgeDocumentInput = z.infer<
 export type ListKnowledgeDocumentsInput = z.infer<
   typeof listKnowledgeDocumentsSchema
 >;
+export type UploadFileInput = z.infer<typeof uploadFileSchema>;
+export type GetFileInput = z.infer<typeof getFileSchema>;
 export type DeleteKnowledgeDocumentInput = z.infer<
   typeof deleteKnowledgeDocumentSchema
 >;
