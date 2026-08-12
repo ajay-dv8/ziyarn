@@ -4,13 +4,28 @@ export {
   listKnowledgeDocumentsSchema,
   deleteKnowledgeDocumentSchema,
   queryKnowledgeSchema,
+  uploadFileSchema,
+  getFileSchema,
   MAX_DOCUMENT_CHARS,
   MAX_DOCUMENT_CHUNKS,
   type CreateKnowledgeDocumentInput,
   type ListKnowledgeDocumentsInput,
   type DeleteKnowledgeDocumentInput,
   type QueryKnowledgeInput,
+  type UploadFileInput,
+  type GetFileInput,
 } from "@repo/api/knowledge/schemas";
+export {
+  detectFileType,
+  extractFileText,
+  MAX_UPLOAD_BYTES,
+  type SupportedFileType,
+} from "@repo/api/knowledge/extract";
+export {
+  createLocalKnowledgeStorage,
+  type KnowledgeFileStorage,
+} from "@repo/api/knowledge/storage";
+export { createBlobKnowledgeStorage } from "@repo/api/knowledge/blob-storage";
 export {
   createKnowledgeService,
   KnowledgeServiceError,
