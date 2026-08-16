@@ -25,6 +25,8 @@
     "./plans/*": "./src/plans/*.ts",
     "./portal": "./src/portal/index.ts",
     "./portal/*": "./src/portal/*.ts",
+    "./paystack": "./src/paystack/index.ts",
+    "./paystack/*": "./src/paystack/*.ts",
     "./products": "./src/products/index.ts",
     "./products/*": "./src/products/*.ts",
     "./usage": "./src/usage/index.ts",
