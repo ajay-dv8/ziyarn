@@ -20,6 +20,8 @@ export const subscriptions = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     stripeCustomerId: text("stripe_customer_id"),
     stripeSubscriptionId: text("stripe_subscription_id"),
+    customerCode: text("customer_code"),
+    customerSubscriptionCode: text("customer_subscription_code"),
     plan: text("plan", {
       enum: ["standard", "pro", "ultimate"],
     }).notNull(),
