@@ -71,7 +71,12 @@ export default async function ProductsPage({
             domainId={selected.id}
           />
         ) : (
-          <UpgradeButton plan="standard" label="Upgrade to Standard" current={false} />
+          <UpgradeButton
+              plan="standard"
+              label="Upgrade to Standard"
+              current={false}
+              email={session.user.email}
+            />
         )}
       </div>
 
@@ -109,7 +114,12 @@ export default async function ProductsPage({
             <p className="text-sm text-muted-foreground">
               Upgrade to Standard or above to let your agents sell in chat.
             </p>
-            <UpgradeButton plan="standard" label="Upgrade to Standard" current={false} />
+            <UpgradeButton
+              plan="standard"
+              label="Upgrade to Standard"
+              current={false}
+              email={session.user.email}
+            />
           </CardContent>
         </Card>
       ) : domainProducts.length === 0 ? (

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 
 import { getPlanLimits, type Plan } from "@repo/api/plans";
+import { formatPlanPrice } from "@repo/api/paystack";
 import {
   Card,
   CardContent,
@@ -10,6 +11,7 @@ import {
   CardTitle,
 } from "@repo/ui/components/card";
 
+import { CancelSubscriptionButton } from "@/components/dashboard/cancel-subscription-button";
 import { ManageSubscriptionButton } from "@/components/dashboard/manage-subscription-button";
 import { UpgradeButton } from "@/components/dashboard/upgrade-button";
 import { authService } from "@/services/auth-service";
@@ -30,12 +32,11 @@ const PLAN_RANK: Record<Plan, number> = {
 const PLANS: Array<{
   id: "standard" | "pro" | "ultimate";
   name: string;
-  price: string;
   blurb: string;
 }> = [
-  { id: "standard", name: "Standard", price: "$29/mo", blurb: "For growing teams" },
-  { id: "pro", name: "Pro", price: "$99/mo", blurb: "For serious operators" },
-  { id: "ultimate", name: "Ultimate", price: "$299/mo", blurb: "For platforms" },
+  { id: "standard", name: "Standard", blurb: "For growing teams" },
+  { id: "pro", name: "Pro", blurb: "For serious operators" },
+  { id: "ultimate", name: "Ultimate", blurb: "For platforms" },
 ];
 
 export default async function BillingPage() {
@@ -108,20 +109,36 @@ export default async function BillingPage() {
             <CardHeader>
               <CardTitle>{p.name}</CardTitle>
               <CardDescription>{p.blurb}</CardDescription>
-              <p className="text-2xl font-semibold tracking-tight">{p.price}</p>
+              <p className="text-2xl font-semibold tracking-tight">
+                {formatPlanPrice(p.id)}
+              </p>
             </CardHeader>
             <CardContent>
               <UpgradeButton
                 plan={p.id}
                 label="Upgrade"
                 current={plan === p.id}
+                email={session.user.email}
               />
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {subscription?.stripeCustomerId ? (
+      {subscription?.customerSubscriptionCode && subscription.status !== "canceled" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Manage subscription</CardTitle>
+            <CardDescription>
+              Cancel your Paystack subscription. Your domains revert to the
+              free plan immediately.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CancelSubscriptionButton />
+          </CardContent>
+        </Card>
+      ) : subscription?.stripeCustomerId ? (
         <Card>
           <CardHeader>
             <CardTitle>Manage subscription</CardTitle>
