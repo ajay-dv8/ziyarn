@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import "dotenv/config";
 
 import { setDefaultResultOrder } from "node:dns";
@@ -11,9 +12,9 @@ import * as schema from "@repo/database/schema";
 // pick IPv6, which has no route on some machines, and every query times out.
 setDefaultResultOrder("ipv4first");
 
-const MAX_RETRIES = 10;
+const MAX_RETRIES = 20;
 const RETRY_DELAY_MS = 500;
-const MAX_DELAY_MS = 4000;
+const MAX_DELAY_MS = 6000;
 
 // Transient network failures should be retried rather than surfaced to the
 // caller (flaky hotspots, AWS region blips, etc.).
