@@ -43,10 +43,13 @@
     "@vercel/blob": "^2.8.0",
     "better-auth": "^1.6.25",
     "drizzle-orm": "^0.44.7",
+    "mammoth": "^1.12.1",
     "nodemailer": "^9.0.4",
     "pdf-parse": "2.4.5",
     "pdfjs-dist": "5.4.296",
     "stripe": "^18.3.0",
+    "word-extractor": "^1.0.4",
+    "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
