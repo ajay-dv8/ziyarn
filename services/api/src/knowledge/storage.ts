@@ -18,7 +18,7 @@ export function createLocalKnowledgeStorage(): KnowledgeFileStorage {
     process.env.STORAGE_DIR ?? path.join(process.cwd(), ".uploads", "knowledge");
 
   const resolve = (key: string) => {
-    const filePath = path.join(dir, key);
+    const filePath = path.join(/*turbopackIgnore: true*/ dir, key);
     if (!filePath.startsWith(dir)) {
       throw new Error("Invalid storage key");
     }
