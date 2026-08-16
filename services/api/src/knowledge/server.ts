@@ -232,7 +232,7 @@ export function createKnowledgeService(deps: {
         throw new KnowledgeServiceError(
           415,
           "UNSUPPORTED_FILE_TYPE",
-          "Supported files: PDF, TXT, MD, HTML",
+          "Supported files: PDF, TXT, MD, HTML, DOC, DOCX, XLS, XLSX",
         );
       }
 

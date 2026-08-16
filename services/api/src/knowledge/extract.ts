@@ -1,10 +1,21 @@
+import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
+import { read, utils } from "xlsx";
+import WordExtractor from "word-extractor";
 
 import { MAX_DOCUMENT_CHARS } from "@repo/api/knowledge/schemas";
 
 export const MAX_UPLOAD_BYTES = Math.floor(4.45 * 1024 * 1024);
 
-export type SupportedFileType = "pdf" | "txt" | "md" | "html";
+export type SupportedFileType =
+  | "pdf"
+  | "txt"
+  | "md"
+  | "html"
+  | "docx"
+  | "doc"
+  | "xlsx"
+  | "xls";
 
 const EXTENSION_TO_TYPE: Record<string, SupportedFileType> = {
   pdf: "pdf",
@@ -13,6 +24,10 @@ const EXTENSION_TO_TYPE: Record<string, SupportedFileType> = {
   markdown: "md",
   html: "html",
   htm: "html",
+  docx: "docx",
+  doc: "doc",
+  xlsx: "xlsx",
+  xls: "xls",
 };
 
 export function detectFileType(fileName: string): SupportedFileType | null {
@@ -45,11 +60,52 @@ function stripHtml(html: string): string {
 
 const PAGE_MARKER = /^--\s*\d+\s+of\s+\d+\s*--$/gm;
 
+/** Extracts plain text from .docx files via mammoth. */
+async function extractDocx(buffer: Uint8Array): Promise<string> {
+  const result = await mammoth.extractRawText({ buffer: Buffer.from(buffer) });
+  return result.value;
+}
+
+/** Extracts cell text from .xlsx/.xls workbooks via SheetJS. */
+function extractWorkbook(buffer: Uint8Array): string {
+  const workbook = read(Buffer.from(buffer), { type: "buffer" });
+  const parts: string[] = [];
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) {
+      continue;
+    }
+    const rows = utils.sheet_to_json<unknown[]>(sheet, {
+      header: 1,
+      raw: true,
+      defval: "",
+    });
+    for (const row of rows) {
+      const line = (row as unknown[])
+        .map((cell) => (cell === null || cell === undefined ? "" : String(cell)))
+        .join("\t")
+        .trim();
+      if (line) {
+        parts.push(line);
+      }
+    }
+  }
+  return parts.join("\n");
+}
+
+/** Extracts plain text from legacy binary .doc files via word-extractor. */
+async function extractDoc(buffer: Uint8Array): Promise<string> {
+  const extractor = new WordExtractor();
+  const document = await extractor.extract(Buffer.from(buffer));
+  return document.getBody({ trim: false, keepLineBreaks: true }) ?? "";
+}
+
 /**
  * Extracts plain text from an uploaded file. Supports PDF (pdf-parse),
- * plain text, Markdown, and HTML (tags stripped). Returns null for
- * unsupported files; throws with a friendly message when content exceeds
- * the document size limit.
+ * plain text, Markdown, HTML (tags stripped), Word (.doc/.docx) and
+ * Excel (.xls/.xlsx) workbooks. Returns null for unsupported files;
+ * throws with a friendly message when content exceeds the document
+ * size limit.
  */
 export async function extractFileText(
   type: SupportedFileType,
@@ -80,6 +136,16 @@ export async function extractFileText(
       break;
     case "html":
       text = stripHtml(new TextDecoder().decode(buffer));
+      break;
+    case "docx":
+      text = await extractDocx(buffer);
+      break;
+    case "doc":
+      text = await extractDoc(buffer);
+      break;
+    case "xlsx":
+    case "xls":
+      text = extractWorkbook(buffer);
       break;
   }
 
