@@ -61,7 +61,7 @@ export function KnowledgeUploadButton({
             id="knowledge-file"
             ref={inputRef}
             type="file"
-            accept=".pdf,.txt,.md,.html,.htm"
+            accept=".pdf,.txt,.md,.html,.htm,.doc,.docx,.xls,.xlsx"
             disabled={uploading}
             onChange={(event) => {
               const file = event.target.files?.[0];

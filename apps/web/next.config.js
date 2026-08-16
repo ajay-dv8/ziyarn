@@ -8,7 +8,13 @@ const nextConfig = {
   turbopack: {
     root: path.join(__dirname, "..", ".."),
   },
-  serverExternalPackages: ["pdf-parse", "pdfjs-dist"],
+  serverExternalPackages: [
+    "pdf-parse",
+    "pdfjs-dist",
+    "mammoth",
+    "xlsx",
+    "word-extractor",
+  ],
 };
 
 export default nextConfig;
