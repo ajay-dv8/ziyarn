@@ -8,7 +8,7 @@ const nextConfig = {
   turbopack: {
     root: path.join(__dirname, "..", ".."),
   },
-  serverExternalPackages: [],
+  serverExternalPackages: ["@napi-rs/canvas"],
 };
 
 export default nextConfig;
