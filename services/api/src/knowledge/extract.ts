@@ -1,8 +1,3 @@
-import mammoth from "mammoth";
-import { PDFParse } from "pdf-parse";
-import { read, utils } from "xlsx";
-import WordExtractor from "word-extractor";
-
 import { MAX_DOCUMENT_CHARS } from "@repo/api/knowledge/schemas";
 
 export const MAX_UPLOAD_BYTES = Math.floor(4.45 * 1024 * 1024);
@@ -62,12 +57,14 @@ const PAGE_MARKER = /^--\s*\d+\s+of\s+\d+\s*--$/gm;
 
 /** Extracts plain text from .docx files via mammoth. */
 async function extractDocx(buffer: Uint8Array): Promise<string> {
+  const { default: mammoth } = await import("mammoth");
   const result = await mammoth.extractRawText({ buffer: Buffer.from(buffer) });
   return result.value;
 }
 
 /** Extracts cell text from .xlsx/.xls workbooks via SheetJS. */
-function extractWorkbook(buffer: Uint8Array): string {
+async function extractWorkbook(buffer: Uint8Array): Promise<string> {
+  const { read, utils } = await import("xlsx");
   const workbook = read(Buffer.from(buffer), { type: "buffer" });
   const parts: string[] = [];
   for (const sheetName of workbook.SheetNames) {
@@ -95,6 +92,7 @@ function extractWorkbook(buffer: Uint8Array): string {
 
 /** Extracts plain text from legacy binary .doc files via word-extractor. */
 async function extractDoc(buffer: Uint8Array): Promise<string> {
+  const { default: WordExtractor } = await import("word-extractor");
   const extractor = new WordExtractor();
   const document = await extractor.extract(Buffer.from(buffer));
   return document.getBody({ trim: false, keepLineBreaks: true }) ?? "";
@@ -119,6 +117,9 @@ export async function extractFileText(
   let text: string;
   switch (type) {
     case "pdf": {
+      const { PDFParse } = await import("pdf-parse");
+      const { getData } = await import("pdf-parse/worker");
+      PDFParse.setWorker(getData());
       const parser = new PDFParse({ data: Buffer.from(buffer) });
       try {
         const result = await parser.getText();
@@ -145,7 +146,7 @@ export async function extractFileText(
       break;
     case "xlsx":
     case "xls":
-      text = extractWorkbook(buffer);
+      text = await extractWorkbook(buffer);
       break;
   }
 
