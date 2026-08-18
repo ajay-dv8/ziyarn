@@ -37,7 +37,7 @@ const PLAN_NAME: Record<CheckoutPlan, string> = {
 };
 
 /**
- * Plan prices in Paystack minor units (kobo for NGN, pesewas for GHS). Env
+ * Plan prices in Paystack minor units (pesewas for GHS, kobo for NGN). Env
  * overrides use the same minor units, e.g. PAYSTACK_PRICE_PRO=9900000.
  */
 export const PLAN_PRICES_KOBO: Record<CheckoutPlan, number> = {
@@ -48,7 +48,7 @@ export const PLAN_PRICES_KOBO: Record<CheckoutPlan, number> = {
 
 /** The currency the merchant account charges in (set PAYSTACK_CURRENCY). */
 export function paystackCurrency(): string {
-  return process.env.PAYSTACK_CURRENCY ?? "NGN";
+  return process.env.PAYSTACK_CURRENCY ?? "GHS";
 }
 
 export function planPriceKobo(plan: CheckoutPlan): number {
@@ -57,7 +57,7 @@ export function planPriceKobo(plan: CheckoutPlan): number {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : PLAN_PRICES_KOBO[plan];
 }
 
-/** Formats a plan price for display, e.g. "₦29,000/mo" or "GH₵290/mo". */
+/** Formats a plan price for display, e.g. "GH₵290/mo" or "₦29,000/mo". */
 export function formatPlanPrice(plan: CheckoutPlan): string {
   const major = planPriceKobo(plan) / 100;
   const currency = paystackCurrency();
