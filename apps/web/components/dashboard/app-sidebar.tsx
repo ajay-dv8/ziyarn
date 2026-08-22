@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useState } from "react";
 
 import { Card, CardContent } from "@repo/ui/components/card";
 import {
@@ -15,12 +16,16 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarRail,
 } from "@repo/ui/components/sidebar";
 import {
   BarChart3,
   BookOpen,
   Bot,
+  ChevronRight,
   CreditCard,
   Gauge,
   Globe,
@@ -35,6 +40,7 @@ import {
 
 import { ZiyarnLogo } from "@/assets/logo/ziyarn-logo";
 import { APP_ROUTES } from "@/constants/routes";
+import { CreateDomainButton } from "@/components/domains/create-domain-button";
 
 const COMING_SOON: { title: string; icon: typeof Settings }[] = [];
 
@@ -42,12 +48,22 @@ export function AppSidebar({
   plan,
   domainCount,
   maxDomains,
+  domains,
 }: {
   plan: string;
   domainCount: number;
   maxDomains: number;
+  domains: { id: string; name: string }[];
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeDomainId = searchParams.get("domainId");
+  const [domainsOpen, setDomainsOpen] = useState(
+    pathname.startsWith("/dashboard/domains") ||
+      pathname.startsWith("/dashboard/agents") ||
+      pathname.startsWith("/dashboard/knowledge") ||
+      pathname.startsWith("/dashboard/analytics"),
+  );
 
   return (
     <Sidebar collapsible="icon">
@@ -83,11 +99,37 @@ export function AppSidebar({
               <SidebarMenuButton
                 isActive={pathname === APP_ROUTES.DASHBOARD_DOMAINS}
                 tooltip="Domains"
-                render={<Link href={APP_ROUTES.DASHBOARD_DOMAINS} />}
+                onClick={() => setDomainsOpen(!domainsOpen)}
               >
                 <Globe />
                 <span>Domains</span>
+                <ChevronRight
+                  className={`ml-auto h-4 w-4 transition-transform duration-200 ${
+                    domainsOpen ? "rotate-90" : ""
+                  }`}
+                />
               </SidebarMenuButton>
+              {domainsOpen && (
+                <SidebarMenuSub>
+                  {domains.map((domain) => (
+                    <SidebarMenuSubItem key={domain.id}>
+                      <SidebarMenuSubButton
+                        isActive={activeDomainId === domain.id}
+                        render={
+                          <Link
+                            href={`/dashboard/domains?domainId=${domain.id}`}
+                          />
+                        }
+                      >
+                        <span>{domain.name}</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  ))}
+                  <SidebarMenuSubItem>
+                    <CreateDomainButton variant="sub" />
+                  </SidebarMenuSubItem>
+                </SidebarMenuSub>
+              )}
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
