@@ -48,8 +48,8 @@ export default async function DashboardLayout({
         maxDomains={limits.maxDomains}
         domains={domains.map((domain) => ({ id: domain.id, name: domain.name }))}
       />
-      <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+      <SidebarInset className="h-screen overflow-y-auto">
+        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-4" />
           <div className="ml-auto">
