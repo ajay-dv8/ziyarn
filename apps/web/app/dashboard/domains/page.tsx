@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@repo/ui/components/card";
 
-import { CreateDomainForm } from "@/components/domains/create-domain-form";
+import { CreateDomainButton } from "@/components/domains/create-domain-button";
 import { DeleteDomainButton } from "@/components/domains/delete-domain-button";
 import { EmbedSnippet } from "@/components/domains/embed-snippet";
 import { RenameDomainForm } from "@/components/domains/rename-domain-form";
@@ -34,25 +34,16 @@ export default async function DomainsPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold">Domains</h1>
-        <p className="text-sm text-muted-foreground">
-          Each domain gets its own chatbot agent and embed widget.
-        </p>
-      </div>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-semibold">Domains</h1>
+          <p className="text-sm text-muted-foreground">
+            Each domain gets its own chatbot agent and embed widget.
+          </p>
+        </div>
 
-      <Card className="max-w-md">
-        <CardHeader>
-          <CardTitle>New domain</CardTitle>
-          <CardDescription>
-            Pick a name and a unique slug — the slug becomes part of your
-            widget URL.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <CreateDomainForm />
-        </CardContent>
-      </Card>
+        <CreateDomainButton />
+      </div>
 
       <div className="space-y-4">
         {domains.map((domain, index) => (
@@ -79,7 +70,7 @@ export default async function DomainsPage() {
         ))}
         {domains.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No domains yet — create your first one above.
+            No domains yet — click &quot;New domain&quot; to get started.
           </p>
         )}
       </div>
