@@ -16,7 +16,18 @@ See `plan/rebuild_divesai.md` for the roadmap and `plan/*.md` for architecture.
 
 - NEVER commit, amend, or push unless the user explicitly asks. Stage changes and report; the user decides when to commit.
 
-## Dev server (critical)
+## Dev server / build (critical)
+
+- ALWAYS run builds, `next dev`, and `next start` resource-limited to 4 CPUs
+  and 5 GB RAM (this machine is RAM-constrained):
+
+  ```
+  NODE_OPTIONS="--max-old-space-size=5120" taskset -c 0-3 pnpm dev --filter=web
+  ```
+
+  Same pattern for `pnpm --filter web build` and `next start` (when the pnpm
+  wrapper hangs in the background, drop it and use the direct binary:
+  `node ./node_modules/next/dist/bin/next <dev|start> --port <port>`).
 
 - The dev server reliably DEADLOCKS (accepts TCP, never responds, idle CPU) when
   launched with plain `setsid node ... > file &`. It must be launched through a
@@ -24,7 +35,7 @@ See `plan/rebuild_divesai.md` for the roadmap and `plan/*.md` for architecture.
 
   ```
   cd apps/web && rm -rf .next
-  nohup setsid /usr/bin/script -qec "node ./node_modules/next/dist/bin/next dev --port 3000" /tmp/opencode/fg.log </dev/null >/dev/null 2>&1 & disown
+  NODE_OPTIONS="--max-old-space-size=5120" nohup setsid /usr/bin/script -qec "taskset -c 0-3 node ./node_modules/next/dist/bin/next dev --port 3000" /tmp/opencode/fg.log </dev/null >/dev/null 2>&1 & disown
   ```
 
 - Never `pkill -f "next/dist/bin/next"` from a shell whose own command line
@@ -32,7 +43,6 @@ See `plan/rebuild_divesai.md` for the roadmap and `plan/*.md` for architecture.
   `pkill -f "[n]ext/dist/bin/next"`.
 - First dynamic request compiles; static files (favicon) answer instantly.
   Real errors only appear in the PTY log (stdout is block-buffered to files).
-- `pnpm dev` / npx wrappers hang in the background — use the direct node binary.
 
 ## Network quirks on this machine
 
