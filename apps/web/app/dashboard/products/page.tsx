@@ -3,18 +3,13 @@ import Link from "next/link";
 import { headers } from "next/headers";
 
 import { getPlanLimits, type Plan } from "@repo/api/plans";
-import { formatMoney } from "@repo/money";
-import { Badge } from "@repo/ui/components/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@repo/ui/components/card";
 
 import { CreateProductButton } from "@/components/dashboard/create-product-button";
-import { ProductActions } from "@/components/dashboard/product-actions";
+import { ProductsList } from "@/components/dashboard/products-list";
 import { UpgradeButton } from "@/components/dashboard/upgrade-button";
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
@@ -136,35 +131,17 @@ export default async function ProductsPage({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {domainProducts.map((product) => (
-            <Card key={product.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-base">{product.name}</CardTitle>
-                  <Badge variant={product.active ? "secondary" : "outline"}>
-                    {product.active ? "Active" : "Inactive"}
-                  </Badge>
-                </div>
-                <CardDescription>
-                  {product.description ?? "No description"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex items-center justify-between gap-3">
-                <span className="text-lg font-semibold">
-                  {formatMoney({
-                    amountMinor: product.priceCents,
-                    currency: product.currency,
-                  })}{" "}
-                  <span className="text-sm font-normal text-muted-foreground uppercase">
-                    {product.currency}
-                  </span>
-                </span>
-                <ProductActions product={product} />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <ProductsList
+          products={domainProducts.map((p) => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            priceCents: p.priceCents,
+            currency: p.currency,
+            active: p.active,
+          }))}
+          defaultCurrency={settings.defaultCurrency}
+        />
       )}
     </div>
   );
