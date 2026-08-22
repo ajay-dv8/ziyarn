@@ -46,6 +46,7 @@ export default async function DashboardLayout({
         plan={plan}
         domainCount={domains.length}
         maxDomains={limits.maxDomains}
+        domains={domains.map((domain) => ({ id: domain.id, name: domain.name }))}
       />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
