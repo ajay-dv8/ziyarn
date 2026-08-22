@@ -22,13 +22,14 @@ import {
 } from "@repo/ui/components/dropdown-menu";
 import {
   MoreHorizontal,
+  Pencil,
   Pause,
   Play,
   Trash2,
   Loader2,
-  Package,
 } from "lucide-react";
 
+import { EditProductSheet, type EditableProduct } from "./edit-product-sheet";
 import type { Product } from "./products-list";
 
 export function ProductGrid({
@@ -43,6 +44,7 @@ export function ProductGrid({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [editProduct, setEditProduct] = useState<EditableProduct | null>(null);
 
   function toggleOne(id: string) {
     setSelected((prev) => {
@@ -214,6 +216,9 @@ export function ProductGrid({
                       )}
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setEditProduct(product)}>
+                        <Pencil className="mr-2 h-4 w-4" /> Edit
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleToggleActive(product.id)}>
                         {product.active ? (
                           <><Pause className="mr-2 h-4 w-4" /> Deactivate</>
@@ -236,6 +241,12 @@ export function ProductGrid({
           ))
         )}
       </div>
+      <EditProductSheet
+        product={editProduct}
+        open={editProduct !== null}
+        onOpenChange={(open) => { if (!open) setEditProduct(null); }}
+        onSaved={onRefetch}
+      />
     </div>
   );
 }
