@@ -30,14 +30,16 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import {
-  LayoutGrid,
   Loader2,
   MoreHorizontal,
+  Pencil,
   Package,
   Pause,
   Play,
   Trash2,
 } from "lucide-react";
+
+import { EditProductSheet, type EditableProduct } from "./edit-product-sheet";
 
 type Product = {
   id: string;
@@ -61,6 +63,7 @@ export function ProductTable({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [page, setPage] = useState(1);
+  const [editProduct, setEditProduct] = useState<EditableProduct | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(products.length / PAGE_SIZE));
   const paginated = products.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -280,8 +283,8 @@ export function ProductTable({
                             <><Play className="mr-2 h-4 w-4" /> Activate</>
                           )}
                         </DropdownMenuItem>
-                        <DropdownMenuItem disabled>
-                          Edit
+                        <DropdownMenuItem onClick={() => setEditProduct(product)}>
+                          <Pencil className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -327,6 +330,12 @@ export function ProductTable({
           </PaginationContent>
         </Pagination>
       )}
+      <EditProductSheet
+        product={editProduct}
+        open={editProduct !== null}
+        onOpenChange={(open) => { if (!open) setEditProduct(null); }}
+        onSaved={onRefetch}
+      />
     </div>
   );
 }
