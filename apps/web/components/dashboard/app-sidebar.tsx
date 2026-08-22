@@ -36,7 +36,7 @@ import {
 import { ZiyarnLogo } from "@/assets/logo/ziyarn-logo";
 import { APP_ROUTES } from "@/constants/routes";
 
-const COMING_SOON = [{ title: "Settings", icon: Settings }];
+const COMING_SOON: { title: string; icon: typeof Settings }[] = [];
 
 export function AppSidebar({
   plan,
@@ -177,6 +177,16 @@ export function AppSidebar({
               >
                 <Plug />
                 <span>Integrations</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === APP_ROUTES.DASHBOARD_SETTINGS}
+                tooltip="Settings"
+                render={<Link href={APP_ROUTES.DASHBOARD_SETTINGS} />}
+              >
+                <Settings />
+                <span>Settings</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

@@ -9,4 +9,5 @@ export * from "@repo/api/knowledge";
 export * from "@repo/api/plans";
 export * from "@repo/api/portal";
 export * from "@repo/api/products";
+export * from "@repo/api/settings";
 export * from "@repo/api/usage";

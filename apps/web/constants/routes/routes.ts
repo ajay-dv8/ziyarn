@@ -16,4 +16,5 @@ export const APP_ROUTES = {
   DASHBOARD_KNOWLEDGE: "/dashboard/knowledge",
   DASHBOARD_ANALYTICS: "/dashboard/analytics",
   DASHBOARD_USAGE: "/dashboard/usage",
+  DASHBOARD_SETTINGS: "/dashboard/settings",
 } as const;

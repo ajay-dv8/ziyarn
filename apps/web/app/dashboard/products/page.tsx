@@ -19,6 +19,7 @@ import { UpgradeButton } from "@/components/dashboard/upgrade-button";
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
 import { productsService } from "@/services/products-service";
+import { settingsService } from "@/services/settings-service";
 
 export const metadata: Metadata = {
   title: "Products",
@@ -55,6 +56,8 @@ export default async function ProductsPage({
     ? await productsService.listProducts({ domainId: selected.id }, requestHeaders)
     : [];
 
+  const settings = await settingsService.getSettings(requestHeaders);
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -69,6 +72,7 @@ export default async function ProductsPage({
           <CreateProductButton
             domains={domains.map((domain) => ({ id: domain.id, name: domain.name }))}
             domainId={selected.id}
+            defaultCurrency={settings.defaultCurrency}
           />
         ) : (
           <UpgradeButton

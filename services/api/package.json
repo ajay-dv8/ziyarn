@@ -29,6 +29,8 @@
     "./paystack/*": "./src/paystack/*.ts",
     "./products": "./src/products/index.ts",
     "./products/*": "./src/products/*.ts",
+    "./settings": "./src/settings/index.ts",
+    "./settings/*": "./src/settings/*.ts",
     "./usage": "./src/usage/index.ts",
     "./usage/*": "./src/usage/*.ts"
   },

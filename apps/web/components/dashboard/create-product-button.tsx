@@ -21,9 +21,11 @@ const CURRENCIES = CURRENCY_CODES;
 export function CreateProductButton({
   domains,
   domainId,
+  defaultCurrency = DEFAULT_CURRENCY,
 }: {
   domains: { id: string; name: string }[];
   domainId: string;
+  defaultCurrency?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -33,7 +35,7 @@ export function CreateProductButton({
     name: "",
     description: "",
     price: "",
-    currency: DEFAULT_CURRENCY as CurrencyCode,
+    currency: (defaultCurrency as CurrencyCode) || DEFAULT_CURRENCY,
   });
 
   async function create() {
@@ -70,7 +72,7 @@ export function CreateProductButton({
         name: "",
         description: "",
         price: "",
-        currency: DEFAULT_CURRENCY,
+        currency: (defaultCurrency as CurrencyCode) || DEFAULT_CURRENCY,
       });
       window.location.reload();
     } catch {
