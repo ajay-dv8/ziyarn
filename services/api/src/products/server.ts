@@ -158,5 +158,11 @@ export function createProductsService(deps: {
       if (!row) throw notFound();
       return row;
     },
+
+    /** Deletes a product the session user owns. */
+    async deleteProduct(productId: string, headers: Headers): Promise<void> {
+      const { product } = await requireOwnedProduct(productId, headers);
+      await db.delete(products).where(eq(products.id, product.id));
+    },
   };
 }
