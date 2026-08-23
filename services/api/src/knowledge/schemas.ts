@@ -3,6 +3,9 @@ import { z } from "zod";
 export const MAX_DOCUMENT_CHARS = 90_000;
 export const MAX_DOCUMENT_CHUNKS = 100;
 
+export const MAX_CRAWL_PAGES = 50;
+export const MAX_CRAWL_DEPTH = 3;
+
 export const createKnowledgeDocumentSchema = z.object({
   domainId: z.uuid(),
   agentId: z.uuid(),
@@ -43,6 +46,17 @@ export const queryKnowledgeSchema = z.object({
   minScore: z.number().min(0).max(1).optional(),
 });
 
+export const startCrawlSchema = z.object({
+  domainId: z.uuid(),
+  agentId: z.uuid(),
+  url: z.url().max(2000),
+});
+
+export const crawlStatusSchema = z.object({
+  domainId: z.uuid(),
+  agentId: z.uuid(),
+});
+
 export type CreateKnowledgeDocumentInput = z.infer<
   typeof createKnowledgeDocumentSchema
 >;
@@ -55,3 +69,5 @@ export type DeleteKnowledgeDocumentInput = z.infer<
   typeof deleteKnowledgeDocumentSchema
 >;
 export type QueryKnowledgeInput = z.infer<typeof queryKnowledgeSchema>;
+export type StartCrawlInput = z.infer<typeof startCrawlSchema>;
+export type CrawlStatusInput = z.infer<typeof crawlStatusSchema>;

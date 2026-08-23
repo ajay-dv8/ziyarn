@@ -53,6 +53,19 @@ function stripHtml(html: string): string {
     .trim();
 }
 
+/** Extracts readable plain text from an HTML document (used by the crawler). */
+export function extractHtmlText(html: string): string {
+  return stripHtml(html);
+}
+
+/** Extracts the contents of the <title> tag, if present. */
+export function extractHtmlTitle(html: string): string | null {
+  const match = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html);
+  if (!match) return null;
+  const title = stripHtml(match[1] ?? "").replace(/\s+/g, " ").trim();
+  return title ? title.slice(0, 200) : null;
+}
+
 const PAGE_MARKER = /^--\s*\d+\s+of\s+\d+\s*--$/gm;
 
 /** Extracts plain text from .docx files via mammoth. */
