@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import {
   agents,
+  crawlJobs,
   documentChunks,
   domains,
   embeddings,
@@ -17,12 +18,15 @@ import {
   extensionOf,
   extractFileText,
 } from "@repo/api/knowledge/extract";
+import { createDefaultFetchPage, crawlWebsite } from "@repo/api/knowledge/crawler";
 import type { KnowledgeFileStorage } from "@repo/api/knowledge/storage";
 import { chunkText } from "@repo/api/knowledge/chunker";
 import {
   MAX_DOCUMENT_CHUNKS,
   type CreateKnowledgeDocumentInput,
   createKnowledgeDocumentSchema,
+  type CrawlStatusInput,
+  crawlStatusSchema,
   type DeleteKnowledgeDocumentInput,
   deleteKnowledgeDocumentSchema,
   getFileSchema,
@@ -30,6 +34,8 @@ import {
   listKnowledgeDocumentsSchema,
   type QueryKnowledgeInput,
   queryKnowledgeSchema,
+  type StartCrawlInput,
+  startCrawlSchema,
   uploadFileSchema,
 } from "@repo/api/knowledge/schemas";
 
@@ -120,10 +126,11 @@ export function createKnowledgeService(deps: {
     title: string | undefined,
     file?: {
       fileName: string;
-      fileMime: string;
-      fileSize: number;
-      storageKey: string;
+      fileMime?: string;
+      fileSize?: number;
+      storageKey?: string;
     },
+    crawlJobId?: string,
   ) => {
     const chunks = chunkText(content);
     if (chunks.length === 0) {
@@ -159,6 +166,7 @@ export function createKnowledgeService(deps: {
       .insert(knowledgeDocuments)
       .values({
         agentId,
+        crawlJobId: crawlJobId ?? null,
         source: title ?? (file?.fileName ?? "untitled"),
         title,
         ...file,
@@ -340,6 +348,126 @@ export function createKnowledgeService(deps: {
       await db
         .delete(knowledgeDocuments)
         .where(eq(knowledgeDocuments.id, document.id));
+    },
+
+    /**
+     * Creates a crawl job and returns it together with a `run` function that
+     * performs the crawl. Callers invoke run() in the background (e.g. via
+     * Next.js after()) so the HTTP request can return immediately.
+     * Re-crawling replaces the documents of previous crawl jobs.
+     */
+    startCrawl: async (
+      input: StartCrawlInput,
+      headers: Headers,
+    ): Promise<{
+      job: typeof crawlJobs.$inferSelect;
+      run: () => Promise<void>;
+    }> => {
+      const body = startCrawlSchema.parse(input);
+      await requireOwnedAgent(body.domainId, body.agentId, headers);
+
+      const [job] = await db
+        .insert(crawlJobs)
+        .values({
+          agentId: body.agentId,
+          url: body.url,
+          status: "running",
+        })
+        .returning();
+      if (!job) {
+        throw new KnowledgeServiceError(
+          500,
+          "INSERT_FAILED",
+          "Failed to create crawl job",
+        );
+      }
+
+      // Remove documents from earlier crawls of this agent so a re-crawl
+      // replaces stale site knowledge instead of duplicating it.
+      await db
+        .delete(knowledgeDocuments)
+        .where(
+          and(
+            eq(knowledgeDocuments.agentId, body.agentId),
+            ne(knowledgeDocuments.crawlJobId, job.id),
+          ),
+        );
+      await db.delete(crawlJobs).where(
+        and(eq(crawlJobs.agentId, body.agentId), ne(crawlJobs.id, job.id)),
+      );
+
+      const fetchPage = createDefaultFetchPage();
+
+      const run = async () => {
+        const fail = async (message: string) => {
+          await db
+            .update(crawlJobs)
+            .set({ status: "failed", error: message.slice(0, 1000), updatedAt: new Date() })
+            .where(eq(crawlJobs.id, job.id));
+        };
+        try {
+          const result = await crawlWebsite(
+            {
+              fetchPage,
+              onPage: async (page) => {
+                await ingestContent(
+                  body.agentId,
+                  page.text,
+                  page.title ?? page.url,
+                  {
+                    fileName: page.url,
+                    fileMime: "text/html",
+                    fileSize: page.text.length,
+                  },
+                  job.id,
+                );
+              },
+            },
+            { startUrl: body.url },
+          );
+          await db
+            .update(crawlJobs)
+            .set({
+              status: result.pagesCrawled > 0 ? "completed" : "failed",
+              pagesFound: result.pagesFound,
+              pagesCrawled: result.pagesCrawled,
+              error:
+                result.errors.length > 0
+                  ? result.errors.slice(0, 5).join(" | ").slice(0, 1000)
+                  : null,
+              updatedAt: new Date(),
+            })
+            .where(eq(crawlJobs.id, job.id));
+        } catch (error) {
+          await fail(
+            error instanceof Error ? error.message : "Crawl failed unexpectedly",
+          );
+        }
+      };
+
+      return { job, run };
+    },
+
+    /** Returns the latest crawl job of an agent plus its document count. */
+    getCrawlStatus: async (input: CrawlStatusInput, headers: Headers) => {
+      const body = crawlStatusSchema.parse(input);
+      await requireOwnedAgent(body.domainId, body.agentId, headers);
+
+      const [job] = await db
+        .select()
+        .from(crawlJobs)
+        .where(eq(crawlJobs.agentId, body.agentId))
+        .orderBy(desc(crawlJobs.createdAt))
+        .limit(1);
+
+      if (!job) return { job: null, documentCount: 0 };
+
+      const [counts] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(knowledgeDocuments)
+        .where(eq(knowledgeDocuments.crawlJobId, job.id));
+
+      return { job, documentCount: counts?.count ?? 0 };
     },
 
     /**
