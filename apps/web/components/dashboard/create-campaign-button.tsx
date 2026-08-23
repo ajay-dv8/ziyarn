@@ -3,17 +3,17 @@
 import { useState } from "react";
 
 import { Button } from "@repo/ui/components/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@repo/ui/components/dialog";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@repo/ui/components/sheet";
 
 import {
   EmailTemplateEditor,
@@ -28,7 +28,7 @@ export function CreateCampaignButton() {
   const [subject, setSubject] = useState("");
   const [draft, setDraft] = useState<EmailTemplateDraft | null>(null);
 
-async function create() {
+  async function create() {
     if (draft?.kind === "blocks" && draft.blocks.length === 0) {
       setError("Add at least one block, or switch to HTML and paste a body.");
       return;
@@ -65,17 +65,17 @@ async function create() {
   }
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger render={<Button>New campaign</Button>} />
-      <SheetContent side="right" className="w-full sm:max-w-xl">
-        <SheetHeader>
-          <SheetTitle>New campaign</SheetTitle>
-          <SheetDescription>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button>New campaign</Button>} />
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>New campaign</DialogTitle>
+          <DialogDescription>
             Sent to every lead email your domains have captured (unsubscribed
             emails are skipped automatically).
-          </SheetDescription>
-        </SheetHeader>
-        <div className="space-y-4 py-4">
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="campaign-name">Name</Label>
             <Input
@@ -104,12 +104,12 @@ async function create() {
             </p>
           ) : null}
         </div>
-        <SheetFooter>
+        <DialogFooter>
           <Button onClick={create} disabled={saving}>
             {saving ? "Creating…" : "Create campaign"}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
