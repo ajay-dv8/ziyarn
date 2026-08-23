@@ -3,6 +3,7 @@ export {
   listCustomersSchema,
   importCustomersSchema,
   backfillCustomersSchema,
+  customerBulkSchema,
   isEmailColumn,
   isNameColumn,
   type CustomerSource,
