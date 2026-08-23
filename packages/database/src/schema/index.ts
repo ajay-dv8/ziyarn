@@ -7,6 +7,7 @@ export * from "@repo/database/schema/settings";
 
 import { domains } from "@repo/database/schema/domains";
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -172,6 +173,55 @@ export const crawlJobs = pgTable(
   (table) => [index("crawl_jobs_agent_id_idx").on(table.agentId)],
 );
 
+export const dataSources = pgTable(
+  "data_sources",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agentId: uuid("agent_id")
+      .notNull()
+      .references(() => agents.id, { onDelete: "cascade" }),
+    type: text("type", {
+      enum: ["postgres", "mysql", "mongodb", "convex"],
+    }).notNull(),
+    label: text("label").notNull(),
+    host: text("host"),
+    databaseName: text("database_name"),
+    credentialsEncrypted: text("credentials_encrypted").notNull(),
+    status: text("status", { enum: ["connected", "failed"] })
+      .notNull()
+      .default("connected"),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("data_sources_agent_id_idx").on(table.agentId)],
+);
+
+export const dataSourceTables = pgTable(
+  "data_source_tables",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    dataSourceId: uuid("data_source_id")
+      .notNull()
+      .references(() => dataSources.id, { onDelete: "cascade" }),
+    tableName: text("table_name").notNull(),
+    columnsJson: jsonb("columns_json"),
+    rowCount: integer("row_count"),
+    relevant: boolean("relevant").notNull().default(false),
+    included: boolean("included").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("data_source_tables_data_source_id_idx").on(table.dataSourceId),
+  ],
+);
+
 export const knowledgeDocuments = pgTable(
   "knowledge_documents",
   {
@@ -181,6 +231,9 @@ export const knowledgeDocuments = pgTable(
       .references(() => agents.id, { onDelete: "cascade" }),
     crawlJobId: uuid("crawl_job_id").references(() => crawlJobs.id, {
       onDelete: "set null",
+    }),
+    dataSourceId: uuid("data_source_id").references(() => dataSources.id, {
+      onDelete: "cascade",
     }),
     source: text("source").notNull(),
     title: text("title"),
