@@ -11,6 +11,7 @@ import {
 } from "@repo/api/portal/schemas";
 import { db } from "@repo/database";
 import { leads, products } from "@repo/database/schema";
+import { upsertCustomers } from "@repo/api/customers/server";
 import type { AgentToolName } from "@repo/ai";
 import { currencyCode, formatDecimal } from "@repo/money";
 
@@ -186,6 +187,8 @@ export async function POST(request: Request) {
       switch (name) {
         case "capture_email": {
           const email = typeof args.email === "string" ? args.email : "";
+          const visitorName =
+            typeof args.name === "string" ? args.name.trim().slice(0, 200) : "";
           const answers = Array.isArray(args.answers)
             ? args.answers
                 .filter(
@@ -224,6 +227,7 @@ export async function POST(request: Request) {
                 .update(leads)
                 .set({
                   email: email || existing.email,
+                  name: visitorName || existing.name,
                   interest:
                     typeof args.purpose === "string"
                       ? args.purpose
@@ -234,10 +238,19 @@ export async function POST(request: Request) {
             } else {
               await db.insert(leads).values({
                 conversationId,
+                name: visitorName || null,
                 email: email || null,
                 interest:
                   typeof args.purpose === "string" ? args.purpose : null,
                 answers: merged.size > 0 ? [...merged.values()] : null,
+              });
+            }
+            if (email) {
+              await upsertCustomers(db, {
+                domainId: domain.id,
+                source: "chat",
+                conversationId,
+                rows: [{ email, name: visitorName || null }],
               });
             }
             logger.info({ conversationId, email }, "lead_captured");

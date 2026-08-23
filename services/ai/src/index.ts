@@ -52,6 +52,10 @@ const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       parameters: toolParameters(
         {
           email: { type: "string", description: "The visitor's email address" },
+          name: {
+            type: "string",
+            description: "The visitor's name, if they shared it",
+          },
           purpose: {
             type: "string",
             enum: ["quote", "callback", "info", "other"],
