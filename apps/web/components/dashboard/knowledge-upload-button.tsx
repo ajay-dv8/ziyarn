@@ -174,27 +174,27 @@ export function KnowledgeUploadButton({
       {files.length > 0 && (
         <div className="space-y-2">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {files.map((f, i) => (
+            {files.map((file, i) => (
               <div
-                key={`${f.name}-${i}`}
+                key={`${file.name}-${i}`}
                 className="flex items-center gap-3 rounded-md border p-2"
               >
-                {previews[f.name] && f.type.startsWith("image/") ? (
+                {previews[file.name] && file.type.startsWith("image/") ? (
                   <img
-                    src={previews[f.name]}
-                    alt={f.name}
+                    src={previews[file.name]}
+                    alt={file.name}
                     className="h-12 w-12 rounded object-cover"
                   />
                 ) : (
                   <div className="flex h-12 w-12 items-center justify-center rounded bg-muted text-xs uppercase">
-                    {f.name.split(".").pop()}
+                    {file.name.split(".").pop()}
                   </div>
                 )}
 
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{f.name}</div>
+                  <div className="truncate text-sm font-medium">{file.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {Math.round(f.size / 1024)} KB
+                    {Math.round(file.size / 1024)} KB
                   </div>
                 </div>
 
