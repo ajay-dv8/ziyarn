@@ -15,6 +15,7 @@ import {
 
 import { ImportCustomersDialog } from "@/components/dashboard/import-customers-dialog";
 import { BackfillCustomersButton } from "@/components/dashboard/backfill-customers-button";
+import { SyncDatabaseButton } from "@/components/dashboard/sync-database-button";
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
 import { customersService } from "@/services/customers-service";
@@ -106,7 +107,10 @@ export default async function CustomersPage({
           </p>
         </div>
         {selectedDomain ? (
-          <ImportCustomersDialog domainId={selectedDomain.id} />
+          <div className="flex flex-wrap items-start gap-2">
+            <SyncDatabaseButton domainId={selectedDomain.id} />
+            <ImportCustomersDialog domainId={selectedDomain.id} />
+          </div>
         ) : null}
       </div>
 
