@@ -8,12 +8,10 @@ import { getPlanLimits } from "@repo/api/plans";
 import type { Plan } from "@repo/api/plans/schemas";
 import type { Database } from "@repo/database";
 import {
-  agents,
   campaignRecipients,
   campaigns,
-  conversations,
+  customers,
   domains,
-  leads,
   subscriptions,
   unsubscribedEmails,
   type Campaign,
@@ -173,6 +171,7 @@ export function createEmailService(deps: { db: Database }) {
           name: data.name,
           subject: data.subject,
           body,
+          audience: data.audience,
         })
         .returning();
       if (!campaign) {
@@ -307,10 +306,10 @@ export function createEmailService(deps: { db: Database }) {
     },
 
     /**
-     * Sends a campaign to all leads of the owner's domains. Enforces the
-     * plan's monthly email budget, skips unsubscribed emails, and records
-     * every recipient. Delivers via SMTP through Nodemailer. Gracefully
-     * rejects when SMTP is not configured.
+     * Sends a campaign to its chosen audience (from the unified customers
+     * table). Enforces the plan's monthly email budget, skips unsubscribed
+     * emails, and records every recipient. Delivers via SMTP through
+     * Nodemailer. Gracefully rejects when SMTP is not configured.
      */
     async sendCampaign(
       ownerId: string,
@@ -327,7 +326,11 @@ export function createEmailService(deps: { db: Database }) {
           "CAMPAIGN_ALREADY_SENT",
           "This campaign has already been sent",
         );
-      }      const recipients = await this.buildRecipientList(ownerId);
+      }
+      const recipients = await this.buildRecipientList(
+        ownerId,
+        campaign.audience,
+      );
       if (recipients.length === 0) {
         await db
           .update(campaigns)
@@ -562,19 +565,33 @@ export function createEmailService(deps: { db: Database }) {
       return row?.plan ?? "free";
     },
 
-    async buildRecipientList(ownerId: string): Promise<Array<{ id: string; email: string }>> {
+    /**
+     * Recipients for a campaign, drawn from the unified customers table.
+     * `audience` filters by provenance: chat-captured, database-synced,
+     * imported subscribers, or everyone. Unsubscribed emails are removed.
+     */
+    async buildRecipientList(
+      ownerId: string,
+      audience: "all" | "chat" | "database" | "site" = "all",
+    ): Promise<Array<{ id: string; email: string }>> {
+      const conditions = [eq(domains.ownerId, ownerId)];
+      if (audience !== "all") {
+        conditions.push(eq(customers.source, audience));
+      }
       const rows = await db
-        .select({ id: leads.id, email: leads.email })
-        .from(leads)
-        .innerJoin(conversations, eq(conversations.id, leads.conversationId))
-        .innerJoin(agents, eq(agents.id, conversations.agentId))
-        .innerJoin(domains, eq(domains.id, agents.domainId))
-        .where(eq(domains.ownerId, ownerId));
+        .select({
+          id: customers.id,
+          email: customers.email,
+          emailLower: customers.emailLower,
+        })
+        .from(customers)
+        .innerJoin(domains, eq(customers.domainId, domains.id))
+        .where(and(...conditions));
+
       const byEmail = new Map<string, { id: string; email: string }>();
       for (const row of rows) {
-        const email = row.email?.trim().toLowerCase();
-        if (email && !byEmail.has(email)) {
-          byEmail.set(email, { id: row.id, email: row.email! });
+        if (row.emailLower && !byEmail.has(row.emailLower)) {
+          byEmail.set(row.emailLower, { id: row.id, email: row.email });
         }
       }
       if (byEmail.size === 0) {

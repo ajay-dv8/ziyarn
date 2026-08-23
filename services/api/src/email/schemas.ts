@@ -41,6 +41,7 @@ export const createCampaignSchema = z
     subject: z.string().trim().min(1, "Subject is required").max(200),
     body: z.string().max(20000).optional(),
     blocks: z.array(emailBlockSchema).max(40).optional(),
+    audience: z.enum(["all", "chat", "database", "site"]).default("all"),
   })
   .refine((data) => Boolean(data.body) || Boolean(data.blocks), {
     message: "Body is required",
