@@ -180,6 +180,7 @@ export function KnowledgeUploadButton({
                 className="flex items-center gap-3 rounded-md border p-2"
               >
                 {previews[file.name] && file.type.startsWith("image/") ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={previews[file.name]}
                     alt={file.name}
