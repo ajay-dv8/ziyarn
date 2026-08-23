@@ -10,6 +10,7 @@ import { listCustomersSchema } from "@repo/api/customers/schemas";
 
 import { authService } from "@/services/auth-service";
 import { customersService } from "@/services/customers-service";
+import { dataSourcesService } from "@/services/datasources-service";
 
 export const runtime = "nodejs";
 
@@ -75,6 +76,23 @@ export async function POST(request: Request) {
       }
       const result = await customersService.backfillFromLeads(
         parsed.data,
+        request.headers,
+      );
+      return NextResponse.json(result);
+    }
+
+    if (action === "syncDatabase") {
+      const parsed = backfillCustomersSchema.safeParse({
+        domainId: raw.domainId,
+      });
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: { code: "INVALID_INPUT", message: "domainId is required" } },
+          { status: 400 },
+        );
+      }
+      const result = await dataSourcesService.syncContacts(
+        { domainId: parsed.data.domainId },
         request.headers,
       );
       return NextResponse.json(result);
