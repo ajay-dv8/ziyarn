@@ -12,6 +12,7 @@ import {
 
 import { DeleteKnowledgeDocumentButton } from "@/components/dashboard/delete-knowledge-document-button";
 import { KnowledgeUploadButton } from "@/components/dashboard/knowledge-upload-button";
+import { WebsiteCrawlForm } from "@/components/dashboard/website-crawl-form";
 import { authService } from "@/services/auth-service";
 import { agentsService } from "@/services/agents-service";
 import { domainsService } from "@/services/domains-service";
@@ -26,6 +27,86 @@ function formatSize(bytes: number | null): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+type KnowledgeDocumentRow = {
+  id: string;
+  source: string;
+  title: string | null;
+  fileName: string | null;
+  fileSize: number | null;
+  storageKey: string | null;
+  createdAt: Date | string;
+};
+
+function DocumentListItem({
+  document: doc,
+  domainId,
+  variant,
+}: {
+  document: KnowledgeDocumentRow;
+  domainId: string;
+  variant: "page" | "file";
+}) {
+  const primary =
+    variant === "page"
+      ? (doc.title ?? doc.fileName ?? doc.source)
+      : (doc.fileName ?? doc.title ?? doc.source);
+  const secondary = [
+    variant === "page"
+      ? doc.fileName
+      : doc.fileSize
+        ? formatSize(doc.fileSize)
+        : "Pasted text",
+    new Date(doc.createdAt).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-input px-3 py-2.5">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{primary}</p>
+        {variant === "page" ? (
+          <a
+            href={doc.fileName ?? "#"}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="block max-w-full truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
+          >
+            {doc.fileName}
+          </a>
+        ) : null}
+        <p
+          className={
+            variant === "page"
+              ? "text-xs text-muted-foreground"
+              : "text-xs text-muted-foreground"
+          }
+        >
+          {secondary}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {variant === "file" && doc.storageKey ? (
+          <a
+            href={`/api/knowledge/${doc.id}/file?domainId=${domainId}`}
+            className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            Download
+          </a>
+        ) : null}
+        <DeleteKnowledgeDocumentButton
+          documentId={doc.id}
+          domainId={domainId}
+        />
+      </div>
+    </div>
+  );
 }
 
 export default async function KnowledgePage({
@@ -55,12 +136,16 @@ export default async function KnowledgePage({
           requestHeaders,
         )
       : [];
+  const crawledPages = documents.filter((doc) => doc.crawlJobId);
+  const uploadedDocs = documents.filter((doc) => !doc.crawlJobId);
 
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Knowledge Base</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Knowledge Base
+          </h1>
           <p className="text-sm text-muted-foreground">
             Upload files your agent answers from. Documents are embedded and
             searched by similarity at chat time.
@@ -122,64 +207,75 @@ export default async function KnowledgePage({
                 {selectedAgent.name} will answer from these files.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
+              {/* KNOWLEDGE UPLOAD */}
               <KnowledgeUploadButton
                 domainId={selectedDomain.id}
                 agentId={selectedAgent.id}
               />
+              <div className="border-t pt-6">
+                {/* Document list */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Documents</CardTitle>
+                    <CardDescription>
+                      {uploadedDocs.length} document(s) in this agent&apos;s
+                      knowledge base.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {uploadedDocs.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No documents yet. Upload a PDF, TXT, Markdown, or HTML
+                        file above.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {uploadedDocs.map((document) => (
+                          <DocumentListItem
+                            key={document.id}
+                            document={document}
+                            domainId={selectedDomain.id}
+                            variant="file"
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </CardContent>
           </Card>
 
           <Card>
+            {/* WEBSITE CRAWL FORM */}
+            <div className="p-6 border-b ">
+              <WebsiteCrawlForm
+              domainId={selectedDomain.id}
+              agentId={selectedAgent.id}
+            />
+            </div>
             <CardHeader>
-              <CardTitle>Documents</CardTitle>
+              <CardTitle>Pages</CardTitle>
               <CardDescription>
-                {documents.length} document(s) in this agent&apos;s knowledge
-                base.
+                {crawledPages.length} crawled page(s) in this agent&apos;s
+                knowledge base.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {documents.length === 0 ? (
+              {crawledPages.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No documents yet. Upload a PDF, TXT, Markdown, or HTML file
-                  above.
+                  No pages yet. Crawl your website above to add its pages here.
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {documents.map((document) => (
-                    <div
+                  {crawledPages.map((document) => (
+                    <DocumentListItem
                       key={document.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-input px-3 py-2.5"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
-                          {document.fileName ?? document.title ?? document.source}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {document.fileSize ? formatSize(document.fileSize) : "Pasted text"}
-                          {" · "}
-                          {new Date(document.createdAt).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        {document.storageKey ? (
-                          <a
-                            href={`/api/knowledge/${document.id}/file?domainId=${selectedDomain.id}`}
-                            className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                          >
-                            Download
-                          </a>
-                        ) : null}
-                        <DeleteKnowledgeDocumentButton
-                          documentId={document.id}
-                          domainId={selectedDomain.id}
-                        />
-                      </div>
-                    </div>
+                      document={document}
+                      domainId={selectedDomain.id}
+                      variant="page"
+                    />
                   ))}
                 </div>
               )}
