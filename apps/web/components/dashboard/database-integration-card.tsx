@@ -60,6 +60,12 @@ export function DatabaseIntegrationCard({
   const [connecting, setConnecting] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [syncNotice, setSyncNotice] = useState<{
+    sourceId: string;
+    ok: boolean;
+    partial: boolean;
+    message: string;
+  } | null>(null);
 
   const [selections, setSelections] = useState<Record<string, Set<string>>>({});
 
@@ -160,6 +166,7 @@ export function DatabaseIntegrationCard({
 
   async function saveAndSync(source: DataSource) {
     setSyncingId(source.id);
+    setSyncNotice(null);
     setError(null);
     const selected = selections[source.id] ?? new Set<string>();
     try {
@@ -189,12 +196,26 @@ export function DatabaseIntegrationCard({
       });
       const syncBody = (await syncRes.json().catch(() => null)) as {
         documentsCreated?: number;
+        skipped?: Array<{ tableName: string; error: string }>;
         error?: { message?: string };
       } | null;
       if (!syncRes.ok) {
         setError(syncBody?.error?.message ?? "Sync failed.");
         return;
       }
+      const created = syncBody?.documentsCreated ?? 0;
+      const skippedTables = syncBody?.skipped ?? [];
+      setSyncNotice({
+        sourceId: source.id,
+        ok: true,
+        partial: skippedTables.length > 0,
+        message:
+          skippedTables.length === 0
+            ? `Synced just now — ${created} table(s) added to your agent's knowledge base.`
+            : `Synced ${created} table(s), skipped ${skippedTables.length}: ${skippedTables
+                .map((t) => `${t.tableName} (${t.error})`)
+                .join(", ")}`,
+      });
       await load();
     } catch {
       setError("Network error during sync.");
@@ -205,6 +226,7 @@ export function DatabaseIntegrationCard({
 
   async function disconnect(sourceId: string) {
     setSyncingId(sourceId);
+    setSyncNotice(null);
     try {
       await fetch(
         `/api/integrations/databases?domainId=${domainId}&dataSourceId=${sourceId}`,
@@ -492,6 +514,19 @@ export function DatabaseIntegrationCard({
                     Synced tables become knowledge your agent answers from.
                   </p>
                 </div>
+
+                {syncNotice?.sourceId === source.id ? (
+                  <p
+                    role="status"
+                    className={`text-sm ${
+                      syncNotice.partial
+                        ? "text-amber-600"
+                        : "text-emerald-600"
+                    }`}
+                  >
+                    {syncNotice.message}
+                  </p>
+                ) : null}
               </div>
             );
           })}
