@@ -46,7 +46,7 @@ export function SeriesBars({ series }: { series: DayBucket[] }) {
                 style={{ height: `${Math.max(4, (point.payments / maxPayments) * 100)}%` }}
               />
             </div>
-            <span className="hidden text-[10px] text-muted-foreground group-hover:block">
+            <span className="text-[10px] leading-none text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
               {point.date.slice(5)}
             </span>
           </div>
