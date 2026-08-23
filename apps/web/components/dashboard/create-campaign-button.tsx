@@ -29,14 +29,7 @@ export function CreateCampaignButton() {
   const [draft, setDraft] = useState<EmailTemplateDraft | null>(null);
 
   async function create() {
-    if (draft?.kind === "blocks" && draft.blocks.length === 0) {
-      setError("Add at least one block, or switch to HTML and paste a body.");
-      return;
-    }
-    const payload =
-      draft?.kind === "blocks"
-        ? { name, subject, blocks: draft.blocks }
-        : { name, subject, body: draft?.kind === "html" ? draft.body : "" };
+    const payload = { name, subject, body: draft?.body ?? "" };
     setSaving(true);
     setError(null);
     try {
@@ -67,7 +60,7 @@ export function CreateCampaignButton() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button>New campaign</Button>} />
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>New campaign</DialogTitle>
           <DialogDescription>
