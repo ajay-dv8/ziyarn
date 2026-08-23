@@ -19,10 +19,8 @@ export type Product = {
 
 export function ProductsList({
   products,
-  defaultCurrency,
 }: {
   products: Product[];
-  defaultCurrency: string;
 }) {
   const [view, setView] = useState<"table" | "grid">("table");
 
@@ -57,11 +55,7 @@ export function ProductsList({
       {view === "table" ? (
         <ProductTable products={products} onRefetch={refetch} />
       ) : (
-        <ProductGrid
-          products={products}
-          defaultCurrency={defaultCurrency}
-          onRefetch={refetch}
-        />
+        <ProductGrid products={products} onRefetch={refetch} />
       )}
     </div>
   );

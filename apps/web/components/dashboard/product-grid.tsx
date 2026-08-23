@@ -34,11 +34,9 @@ import type { Product } from "./products-list";
 
 export function ProductGrid({
   products,
-  defaultCurrency,
   onRefetch,
 }: {
   products: Product[];
-  defaultCurrency: string;
   onRefetch: () => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -53,14 +51,6 @@ export function ProductGrid({
       else next.add(id);
       return next;
     });
-  }
-
-  function toggleAll() {
-    if (selected.size === products.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(products.map((p) => p.id)));
-    }
   }
 
   async function patchProduct(id: string, body: Record<string, unknown>) {

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { CURRENCY_CODES, type CurrencyCode } from "@repo/money";
+import { CURRENCY_CODES } from "@repo/money";
 import { Button } from "@repo/ui/components/button";
 import { Label } from "@repo/ui/components/label";
 
