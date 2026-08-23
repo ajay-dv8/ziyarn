@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import {
   CustomersServiceError,
   backfillCustomersSchema,
+  customerBulkSchema,
   importCustomersSchema,
 } from "@repo/api/customers";
 import { listCustomersSchema } from "@repo/api/customers/schemas";
@@ -93,6 +94,35 @@ export async function POST(request: Request) {
       }
       const result = await dataSourcesService.syncContacts(
         { domainId: parsed.data.domainId },
+        request.headers,
+      );
+      return NextResponse.json(result);
+    }
+
+    if (action === "remove" || action === "block" || action === "unblock") {
+      const parsed = customerBulkSchema.safeParse(raw);
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: { code: "INVALID_INPUT", message: "Select at least one customer" } },
+          { status: 400 },
+        );
+      }
+      if (action === "remove") {
+        const result = await customersService.removeMany(
+          parsed.data,
+          request.headers,
+        );
+        return NextResponse.json(result);
+      }
+      if (action === "block") {
+        const result = await customersService.blockMany(
+          parsed.data,
+          request.headers,
+        );
+        return NextResponse.json(result);
+      }
+      const result = await customersService.unblockMany(
+        parsed.data,
         request.headers,
       );
       return NextResponse.json(result);
