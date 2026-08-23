@@ -36,6 +36,7 @@ import {
   Settings,
   ShoppingBag,
   Sparkles,
+  UsersRound,
 } from "lucide-react";
 
 import { ZiyarnLogo } from "@/assets/logo/ziyarn-logo";
@@ -179,6 +180,16 @@ export function AppSidebar({
               >
                 <Gauge />
                 <span>Usage</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === APP_ROUTES.DASHBOARD_CUSTOMERS}
+                tooltip="Customers"
+                render={<Link href={APP_ROUTES.DASHBOARD_CUSTOMERS} />}
+              >
+                <UsersRound />
+                <span>Customers</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
