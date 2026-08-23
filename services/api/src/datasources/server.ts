@@ -507,6 +507,88 @@ export function createDataSourcesService(deps: {
       }
     },
 
+    /**
+     * Lightweight contact-only fetch: reads email-bearing tables from every
+     * data source attached to the domain's agents and upserts them into the
+     * customer list. No documents are re-embedded.
+     */
+    syncContacts: async (input: { domainId: string }, headers: Headers) => {
+      await requireOwnedAgent(input.domainId, null, headers);
+
+      const sources = await db
+        .select({
+          id: dataSources.id,
+          label: dataSources.label,
+          credentialsEncrypted: dataSources.credentialsEncrypted,
+        })
+        .from(dataSources)
+        .innerJoin(agents, eq(dataSources.agentId, agents.id))
+        .where(eq(agents.domainId, input.domainId));
+
+      const results: Array<{
+        label: string;
+        imported: number;
+        error?: string;
+      }> = [];
+      let totalImported = 0;
+
+      for (const source of sources) {
+        try {
+          const connection = decryptJson<AnyConnection>(
+            source.credentialsEncrypted,
+          );
+          const driver = await createDriver(connection);
+          try {
+            const tables = await driver.listTables();
+            let importedForSource = 0;
+            for (const table of tables) {
+              const emailColumn = table.columns.find((c) =>
+                isEmailColumn(c.name),
+              );
+              if (!emailColumn) continue;
+              const nameColumn = table.columns.find((c) => isNameColumn(c.name));
+              const rows = await driver.sampleRows(
+                table.name,
+                CONTACT_IMPORT_LIMIT,
+              );
+              const inserted = await upsertCustomers(db, {
+                domainId: input.domainId,
+                source: "database",
+                sourceLabel: `${table.name} (${source.label})`,
+                rows: rows.map((row) => ({
+                  email:
+                    typeof row[emailColumn.name] === "string"
+                      ? (row[emailColumn.name] as string)
+                      : "",
+                  name:
+                    nameColumn && typeof row[nameColumn.name] === "string"
+                      ? (row[nameColumn.name] as string)
+                      : null,
+                })),
+              });
+              importedForSource += inserted;
+            }
+            totalImported += importedForSource;
+            results.push({
+              label: source.label,
+              imported: importedForSource,
+            });
+          } finally {
+            await driver.close();
+          }
+        } catch (error) {
+          results.push({
+            label: source.label,
+            imported: 0,
+            error:
+              error instanceof Error ? error.message : "could not read source",
+          });
+        }
+      }
+
+      return { totalImported, sources: results };
+    },
+
     /** Removes a data source; its tables and derived documents cascade. */
     remove: async (input: DeleteDataSourceInput, headers: Headers) => {
       const source = await requireOwnedSource(
