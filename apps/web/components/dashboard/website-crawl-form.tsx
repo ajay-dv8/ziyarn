@@ -152,12 +152,12 @@ export function WebsiteCrawlForm({
           {busy ? (
             <>
               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              Crawling…
+              Fetching pages…
             </>
           ) : job ? (
-            "Re-crawl site"
+            "Re-fetch pages"
           ) : (
-            "Start crawl"
+            "Fetch pages"
           )}
         </Button>
       </div>
