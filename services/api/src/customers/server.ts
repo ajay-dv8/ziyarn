@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import {
@@ -7,6 +7,7 @@ import {
   customers,
   domains,
   leads,
+  unsubscribedEmails,
 } from "@repo/database/schema";
 import type { SessionWithUser } from "@repo/api/domains/server";
 import {
@@ -111,7 +112,7 @@ export function createCustomersService(deps: {
   return {
     /** Lists a domain's customers with per-source counts. */
     list: async (input: ListCustomersInput, headers: Headers) => {
-      await requireOwnedDomain(input.domainId, headers);
+      const session = await requireOwnedDomain(input.domainId, headers);
 
       const conditions = [eq(customers.domainId, input.domainId)];
       if (input.source) conditions.push(eq(customers.source, input.source));
@@ -130,6 +131,21 @@ export function createCustomersService(deps: {
         .where(and(...conditions))
         .orderBy(desc(customers.createdAt))
         .limit(500);
+
+      // Blocked = on the owner's suppression list, so campaigns skip them.
+      const blockedEmails = new Set(
+        (
+          await db
+            .select({ email: unsubscribedEmails.email })
+            .from(unsubscribedEmails)
+            .where(eq(unsubscribedEmails.ownerId, session.user.id))
+        ).map((row) => row.email.toLowerCase()),
+      );
+
+      const customersWithBlocked = rows.map((row) => ({
+        ...row,
+        blocked: blockedEmails.has(row.emailLower),
+      }));
 
       const grouped = await db
         .select({
@@ -151,7 +167,7 @@ export function createCustomersService(deps: {
         counts.all += row.count;
       }
 
-      return { customers: rows, counts };
+      return { customers: customersWithBlocked, counts };
     },
 
     /**
@@ -167,6 +183,90 @@ export function createCustomersService(deps: {
         rows: input.rows,
       });
       return { imported: inserted };
+    },
+
+    /** Deletes selected customer rows of an owned domain. */
+    removeMany: async (
+      input: { domainId: string; ids: string[] },
+      headers: Headers,
+    ) => {
+      await requireOwnedDomain(input.domainId, headers);
+      const deleted = await db
+        .delete(customers)
+        .where(
+          and(
+            eq(customers.domainId, input.domainId),
+            inArray(customers.id, input.ids),
+          ),
+        )
+        .returning({ id: customers.id });
+      return { removed: deleted.length };
+    },
+
+    /**
+     * Blocks selected customers by adding their emails to the owner's
+     * suppression list — campaigns skip them everywhere. Rows stay listed
+     * so the block remains visible and reversible.
+     */
+    blockMany: async (
+      input: { domainId: string; ids: string[] },
+      headers: Headers,
+    ) => {
+      const session = await requireOwnedDomain(input.domainId, headers);
+      const rows = await db
+        .select({ emailLower: customers.emailLower })
+        .from(customers)
+        .where(
+          and(
+            eq(customers.domainId, input.domainId),
+            inArray(customers.id, input.ids),
+          ),
+        );
+      if (rows.length === 0) return { blocked: 0 };
+
+      const inserted = await db
+        .insert(unsubscribedEmails)
+        .values(
+          rows.map((row) => ({
+            ownerId: session.user.id,
+            email: row.emailLower,
+          })),
+        )
+        .onConflictDoNothing()
+        .returning({ id: unsubscribedEmails.id });
+      return { blocked: inserted.length };
+    },
+
+    /** Unblocks previously blocked customers. */
+    unblockMany: async (
+      input: { domainId: string; ids: string[] },
+      headers: Headers,
+    ) => {
+      const session = await requireOwnedDomain(input.domainId, headers);
+      const rows = await db
+        .select({ emailLower: customers.emailLower })
+        .from(customers)
+        .where(
+          and(
+            eq(customers.domainId, input.domainId),
+            inArray(customers.id, input.ids),
+          ),
+        );
+      if (rows.length === 0) return { unblocked: 0 };
+
+      const removed = await db
+        .delete(unsubscribedEmails)
+        .where(
+          and(
+            eq(unsubscribedEmails.ownerId, session.user.id),
+            inArray(
+              unsubscribedEmails.email,
+              rows.map((row) => row.emailLower),
+            ),
+          ),
+        )
+        .returning({ id: unsubscribedEmails.id });
+      return { unblocked: removed.length };
     },
 
     /**
