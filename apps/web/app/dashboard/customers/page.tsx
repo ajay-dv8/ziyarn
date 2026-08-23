@@ -2,17 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
 
-import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@repo/ui/components/table";
 
+import { CustomersTable } from "@/components/dashboard/customers-table";
 import { ImportCustomersDialog } from "@/components/dashboard/import-customers-dialog";
 import { BackfillCustomersButton } from "@/components/dashboard/backfill-customers-button";
 import { SyncDatabaseButton } from "@/components/dashboard/sync-database-button";
@@ -34,25 +26,6 @@ const SOURCE_TABS: Array<{
   { value: "database", label: "From database" },
   { value: "site", label: "Subscribers" },
 ];
-
-function sourceBadge(source: string, label: string | null) {
-  switch (source) {
-    case "chat":
-      return <Badge className="bg-violet-600/10 text-violet-700 dark:text-violet-300" variant="secondary">Chat agent</Badge>;
-    case "database":
-      return (
-        <Badge
-          className="max-w-56 truncate bg-blue-600/10 text-blue-700 dark:text-blue-300"
-          variant="secondary"
-          title={label ?? undefined}
-        >
-          Database{label ? ` · ${label}` : ""}
-        </Badge>
-      );
-    default:
-      return <Badge variant="secondary">Subscriber</Badge>;
-  }
-}
 
 export default async function CustomersPage({
   searchParams,
@@ -181,66 +154,45 @@ export default async function CustomersPage({
           </div>
 
           {/* table */}
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead className="hidden sm:table-cell">Added</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.customers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="h-28 text-center">
-                      {trimmedQuery ? (
-                        <span className="text-muted-foreground">
-                          No customers match “{trimmedQuery}”.
-                        </span>
-                      ) : activeSource === "site" ? (
-                        <span className="text-muted-foreground">
-                          No subscribers yet — import a list to add them.
-                        </span>
-                      ) : activeSource === "chat" ? (
-                        <span className="flex flex-col items-center gap-2">
-                          <span className="text-muted-foreground">
-                            No chat customers yet.
-                          </span>
-                          <BackfillCustomersButton domainId={selectedDomain.id} />
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">
-                          No customers yet. They appear here when your chat
-                          agent captures an email or you sync a database.
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  data.customers.map((customer) => (
-                    <TableRow key={customer.id}>
-                      <TableCell className="font-medium">
-                        {customer.name || "—"}
-                      </TableCell>
-                      <TableCell>{customer.email}</TableCell>
-                      <TableCell>
-                        {sourceBadge(customer.source, customer.sourceLabel)}
-                      </TableCell>
-                      <TableCell className="hidden text-muted-foreground sm:table-cell">
-                        {new Date(customer.createdAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          {data.customers.length === 0 ? (
+            <div className="rounded-lg border">
+              <div className="flex h-28 flex-col items-center justify-center gap-3 text-center text-sm text-muted-foreground">
+                <span>
+                  {trimmedQuery ? (
+                    <>No customers match “{trimmedQuery}”.</>
+                  ) : activeSource === "site" ? (
+                    <>No subscribers yet — import a list to add them.</>
+                  ) : activeSource === "chat" ? (
+                    <>No chat customers yet.</>
+                  ) : (
+                    <>
+                      No customers yet. They appear here when your chat agent
+                      captures an email or you sync a database.
+                    </>
+                  )}
+                </span>
+                {!trimmedQuery && activeSource === "chat" ? (
+                  <BackfillCustomersButton domainId={selectedDomain.id} />
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <CustomersTable
+              domainId={selectedDomain.id}
+              customers={data.customers.map((customer) => ({
+                id: customer.id,
+                name: customer.name,
+                email: customer.email,
+                source: customer.source,
+                sourceLabel: customer.sourceLabel,
+                blocked: customer.blocked,
+                createdAt:
+                  customer.createdAt instanceof Date
+                    ? customer.createdAt.toISOString()
+                    : String(customer.createdAt),
+              }))}
+            />
+          )}
           {data.customers.length >= 500 ? (
             <p className="text-xs text-muted-foreground">
               Showing the latest 500 customers — refine with search or filters.
