@@ -61,6 +61,11 @@ export const campaigns = pgTable(
     })
       .notNull()
       .default("draft"),
+    audience: text("audience", {
+      enum: ["all", "chat", "database", "site"],
+    })
+      .notNull()
+      .default("all"),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     sentCount: integer("sent_count").notNull().default(0),
     deliveredCount: integer("delivered_count").notNull().default(0),

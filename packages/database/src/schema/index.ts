@@ -326,3 +326,38 @@ export const leads = pgTable(
   },
   (table) => [index("leads_email_idx").on(table.email)],
 );
+
+export const customers = pgTable(
+  "customers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    domainId: uuid("domain_id")
+      .notNull()
+      .references(() => domains.id, { onDelete: "cascade" }),
+    emailLower: text("email_lower").notNull(),
+    email: text("email").notNull(),
+    name: text("name"),
+    source: text("source", {
+      enum: ["chat", "database", "site"],
+    })
+      .notNull()
+      .default("chat"),
+    sourceLabel: text("source_label"),
+    conversationId: uuid("conversation_id").references(() => conversations.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("customers_domain_email_lower_idx").on(
+      table.domainId,
+      table.emailLower,
+    ),
+    index("customers_domain_source_idx").on(table.domainId, table.source),
+  ],
+);
