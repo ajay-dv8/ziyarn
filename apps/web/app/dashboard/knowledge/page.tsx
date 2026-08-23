@@ -137,7 +137,9 @@ export default async function KnowledgePage({
         )
       : [];
   const crawledPages = documents.filter((doc) => doc.crawlJobId);
-  const uploadedDocs = documents.filter((doc) => !doc.crawlJobId);
+  const uploadedDocs = documents.filter(
+    (doc) => !doc.crawlJobId && !doc.dataSourceId,
+  );
 
   return (
     <div className="space-y-6">
