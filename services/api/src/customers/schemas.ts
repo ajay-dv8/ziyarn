@@ -25,10 +25,16 @@ export const backfillCustomersSchema = z.object({
   domainId: z.uuid(),
 });
 
+export const customerBulkSchema = z.object({
+  domainId: z.uuid(),
+  ids: z.array(z.uuid()).min(1).max(500),
+});
+
 export type CustomerSource = z.infer<typeof customerSourceSchema>;
 export type ListCustomersInput = z.infer<typeof listCustomersSchema>;
 export type ImportCustomersInput = z.infer<typeof importCustomersSchema>;
 export type BackfillCustomersInput = z.infer<typeof backfillCustomersSchema>;
+export type CustomerBulkInput = z.infer<typeof customerBulkSchema>;
 
 /** Best-effort name column detection for database contact imports. */
 export function isEmailColumn(columnName: string): boolean {
