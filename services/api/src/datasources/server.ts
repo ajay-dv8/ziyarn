@@ -20,7 +20,12 @@ import type { SessionWithUser } from "@repo/api/domains/server";
 import { decryptJson, encryptJson } from "@repo/api/datasources/crypto";
 import { createDriver } from "@repo/api/datasources/drivers";
 import type { AnyConnection } from "@repo/api/datasources/drivers/types";
-import { connectionSummary, isRelevantTable } from "@repo/api/datasources/relevance";
+import {
+  connectionSummary,
+  isRelevantTable,
+} from "@repo/api/datasources/relevance";
+import { isEmailColumn, isNameColumn } from "@repo/api/customers/schemas";
+import { upsertCustomers } from "@repo/api/customers/server";
 import {
   SAMPLE_ROW_LIMIT,
   type ConnectDataSourceInput,
@@ -29,6 +34,9 @@ import {
   type SyncDataSourceInput,
   type UpdateDataSourceTablesInput,
 } from "@repo/api/datasources/schemas";
+
+/** Max rows scanned per table when importing contacts into the customer list. */
+const CONTACT_IMPORT_LIMIT = 200;
 
 export class DataSourceServiceError extends Error {
   constructor(
@@ -363,6 +371,7 @@ export function createDataSourcesService(deps: {
         input.dataSourceId,
         headers,
       );
+      const domainIdForContacts = input.domainId;
 
       const connection = decryptJson<AnyConnection>(
         source.credentialsEncrypted,
@@ -430,6 +439,36 @@ export function createDataSourcesService(deps: {
               tableName: table.tableName,
               error: error instanceof Error ? error.message : "read failed",
             });
+          }
+
+          // Contact import: tables with an email column feed the domain's
+          // customer list (source "database"). Best-effort — never blocks sync.
+          if (domainIdForContacts && columns?.some((c) => isEmailColumn(c.name))) {
+            try {
+              const emailCol = columns.find((c) => isEmailColumn(c.name))!.name;
+              const nameCol = columns.find((c) => isNameColumn(c.name))?.name;
+              const contactRows = await driver.sampleRows(
+                table.tableName,
+                CONTACT_IMPORT_LIMIT,
+              );
+              await upsertCustomers(db, {
+                domainId: domainIdForContacts,
+                source: "database",
+                sourceLabel: `${table.tableName} (${source.label})`,
+                rows: contactRows.map((row) => ({
+                  email:
+                    typeof row[emailCol] === "string"
+                      ? (row[emailCol] as string)
+                      : "",
+                  name:
+                    nameCol && typeof row[nameCol] === "string"
+                      ? (row[nameCol] as string)
+                      : null,
+                })),
+              });
+            } catch {
+              // Contact import is opportunistic; skip failures silently.
+            }
           }
         }
 
