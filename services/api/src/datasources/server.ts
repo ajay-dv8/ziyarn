@@ -396,6 +396,7 @@ export function createDataSourcesService(deps: {
           .where(eq(knowledgeDocuments.dataSourceId, source.id));
 
         let documentsCreated = 0;
+        const skipped: Array<{ tableName: string; error: string }> = [];
         for (const table of included) {
           const fresh = freshTables.find(
             (candidate) => candidate.name === table.tableName,
@@ -406,33 +407,38 @@ export function createDataSourcesService(deps: {
           const rowCount = fresh?.rowCount ?? table.rowCount;
           let rows: Record<string, unknown>[] = [];
 
+          // One unreadable table must not abort the whole sync — record it
+          // and continue so the rest of the catalog still becomes knowledge.
           try {
             rows = await driver.sampleRows(table.tableName, SAMPLE_ROW_LIMIT);
+            const text = tableDocumentText({
+              label: source.label,
+              tableName: table.tableName,
+              columns,
+              rowCount,
+              rows,
+            });
+            await ingestTableDocument({
+              agentId: source.agentId,
+              dataSourceId: source.id,
+              tableName: table.tableName,
+              text,
+            });
+            documentsCreated += 1;
           } catch (error) {
-            throw new DataSourceServiceError(
-              400,
-              "SAMPLE_FAILED",
-              `Could not read table ${table.tableName}: ${
-                error instanceof Error ? error.message : "read failed"
-              }`,
-            );
+            skipped.push({
+              tableName: table.tableName,
+              error: error instanceof Error ? error.message : "read failed",
+            });
           }
+        }
 
-          const text = tableDocumentText({
-            label: source.label,
-            tableName: table.tableName,
-            columns,
-            rowCount,
-            rows,
-          });
-
-          await ingestTableDocument({
-            agentId: source.agentId,
-            dataSourceId: source.id,
-            tableName: table.tableName,
-            text,
-          });
-          documentsCreated += 1;
+        if (documentsCreated === 0 && skipped.length > 0) {
+          throw new DataSourceServiceError(
+            502,
+            "SYNC_FAILED",
+            `Could not read any selected table. First error: ${skipped[0]?.error}`,
+          );
         }
 
         // Refresh stored metadata for all known tables.
@@ -456,7 +462,7 @@ export function createDataSourcesService(deps: {
           .set({ lastSyncedAt: new Date(), updatedAt: new Date() })
           .where(eq(dataSources.id, source.id));
 
-        return { ok: true, documentsCreated };
+        return { ok: true, documentsCreated, skipped };
       } finally {
         await driver.close();
       }
