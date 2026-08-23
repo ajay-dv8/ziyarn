@@ -7,7 +7,13 @@ import { Button } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
-import { Database, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  Database,
+  Loader2,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 
 type SourceType = "postgres" | "mysql" | "mongodb" | "convex";
 
@@ -68,6 +74,10 @@ export function DatabaseIntegrationCard({
   } | null>(null);
 
   const [selections, setSelections] = useState<Record<string, Set<string>>>({});
+  const [savedSelections, setSavedSelections] = useState<
+    Record<string, Set<string>>
+  >({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     try {
@@ -79,12 +89,27 @@ export function DatabaseIntegrationCard({
       const next = body.sources ?? [];
       setSources(next);
       const nextSelections: Record<string, Set<string>> = {};
+      const nextSaved: Record<string, Set<string>> = {};
       for (const source of next) {
-        nextSelections[source.id] = new Set(
+        const included = new Set(
           source.tables.filter((t) => t.included).map((t) => t.tableName),
         );
+        nextSelections[source.id] = new Set(included);
+        nextSaved[source.id] = included;
       }
       setSelections(nextSelections);
+      setSavedSelections(nextSaved);
+      setExpanded((prev) => {
+        const merged = { ...prev };
+        for (const source of next) {
+          if (!(source.id in merged)) {
+            // Freshly connected sources start expanded; known ones keep
+            // the user's collapse choice.
+            merged[source.id] = !source.lastSyncedAt;
+          }
+        }
+        return merged;
+      });
       setLoaded(true);
     } catch {
       setLoaded(true);
@@ -97,6 +122,21 @@ export function DatabaseIntegrationCard({
 
   function update(field: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  /** True when the user toggled tables since the last save/sync. */
+  function isDirty(source: DataSource): boolean {
+    const current = selections[source.id] ?? new Set<string>();
+    const saved = savedSelections[source.id] ?? new Set<string>();
+    if (current.size !== saved.size) return true;
+    for (const name of current) {
+      if (!saved.has(name)) return true;
+    }
+    return false;
+  }
+
+  function toggleExpanded(sourceId: string) {
+    setExpanded((prev) => ({ ...prev, [sourceId]: !prev[sourceId] }));
   }
 
   async function connect() {
@@ -450,44 +490,69 @@ export function DatabaseIntegrationCard({
                   </Badge>
                 </div>
 
-                <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border p-2">
-                  {source.tables.length === 0 ? (
-                    <p className="p-2 text-sm text-muted-foreground">
-                      No tables found.
-                    </p>
-                  ) : (
-                    source.tables.map((table) => (
-                      <label
-                        key={table.tableName}
-                        className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-muted/50"
-                      >
-                        <Checkbox
-                          checked={selected.has(table.tableName)}
-                          onCheckedChange={() =>
-                            toggleTable(source.id, table.tableName)
-                          }
-                        />
-                        <span className="flex-1 truncate text-sm">
-                          {table.tableName}
-                        </span>
-                        {table.relevant ? (
-                          <Badge variant="secondary">suggested</Badge>
-                        ) : null}
-                        {table.rowCount !== null ? (
-                          <span className="text-xs text-muted-foreground">
-                            {table.rowCount} rows
+                <button
+                  type="button"
+                  onClick={() => toggleExpanded(source.id)}
+                  aria-expanded={expanded[source.id] ?? false}
+                  className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${
+                        expanded[source.id] ? "" : "-rotate-90"
+                      }`}
+                    />
+                    Tables ({source.tables.length})
+                  </span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {isDirty(source) ? "Unsaved changes" : `${selected.size} selected`}
+                  </span>
+                </button>
+
+                {expanded[source.id] ? (
+                  <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border p-2">
+                    {source.tables.length === 0 ? (
+                      <p className="p-2 text-sm text-muted-foreground">
+                        No tables found.
+                      </p>
+                    ) : (
+                      source.tables.map((table) => (
+                        <label
+                          key={table.tableName}
+                          className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-muted/50"
+                        >
+                          <Checkbox
+                            checked={selected.has(table.tableName)}
+                            onCheckedChange={() =>
+                              toggleTable(source.id, table.tableName)
+                            }
+                          />
+                          <span className="flex-1 truncate text-sm">
+                            {table.tableName}
                           </span>
-                        ) : null}
-                      </label>
-                    ))
-                  )}
-                </div>
+                          {table.relevant ? (
+                            <Badge variant="secondary">suggested</Badge>
+                          ) : null}
+                          {table.rowCount !== null ? (
+                            <span className="text-xs text-muted-foreground">
+                              {table.rowCount} rows
+                            </span>
+                          ) : null}
+                        </label>
+                      ))
+                    )}
+                  </div>
+                ) : null}
 
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     size="sm"
                     onClick={() => saveAndSync(source)}
-                    disabled={syncingId === source.id || selected.size === 0}
+                    disabled={
+                      syncingId === source.id ||
+                      selected.size === 0 ||
+                      !isDirty(source)
+                    }
                   >
                     {syncingId === source.id ? (
                       <>
@@ -511,7 +576,9 @@ export function DatabaseIntegrationCard({
                     Disconnect
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    Synced tables become knowledge your agent answers from.
+                    {isDirty(source)
+                      ? "Synced tables become knowledge your agent answers from."
+                      : "No changes to sync — toggle tables to enable."}
                   </p>
                 </div>
 
