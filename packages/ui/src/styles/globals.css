@@ -167,6 +167,58 @@
   animation: zy-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* Quill (snow theme) — align chrome with app tokens, support dark mode. */
+.ql-toolbar.ql-snow {
+  border-color: var(--border);
+  border-radius: calc(var(--radius) - 4px) calc(var(--radius) - 4px) 0 0;
+  font-family: var(--font-sans);
+}
+.ql-container.ql-snow {
+  border-color: var(--border);
+  border-top-color: transparent;
+  border-radius: 0 0 calc(var(--radius) - 4px) calc(var(--radius) - 4px);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  min-height: 180px;
+}
+.ql-toolbar.ql-snow .ql-stroke {
+  stroke: var(--muted-foreground);
+}
+.ql-toolbar.ql-snow .ql-fill {
+  fill: var(--muted-foreground);
+}
+.ql-toolbar.ql-snow .ql-picker-label {
+  color: var(--muted-foreground);
+}
+.ql-toolbar.ql-snow button:hover .ql-stroke,
+.ql-toolbar.ql-snow button.ql-active .ql-stroke,
+.ql-toolbar.ql-snow .ql-picker-item.ql-selected,
+.ql-toolbar.ql-snow button:hover .ql-fill,
+.ql-toolbar.ql-snow button.ql-active .ql-fill {
+  stroke: var(--foreground);
+  fill: var(--foreground);
+  color: var(--foreground);
+}
+.ql-snow .ql-editor a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+.dark .ql-toolbar.ql-snow,
+.dark .ql-container.ql-snow {
+  background: transparent;
+}
+.dark .ql-toolbar.ql-snow .ql-picker-options {
+  background: var(--popover);
+  border-color: var(--border);
+}
+.ql-editor {
+  min-height: 170px;
+}
+.ql-editor.ql-blank::before {
+  color: var(--muted-foreground);
+  font-style: normal;
+}
+
 .imgDark {
   display: none;
 }
