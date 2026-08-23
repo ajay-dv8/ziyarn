@@ -146,6 +146,32 @@ export const messages = pgTable(
   ],
 );
 
+export const crawlJobs = pgTable(
+  "crawl_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agentId: uuid("agent_id")
+      .notNull()
+      .references(() => agents.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    status: text("status", {
+      enum: ["pending", "running", "completed", "failed"],
+    })
+      .notNull()
+      .default("pending"),
+    pagesFound: integer("pages_found").notNull().default(0),
+    pagesCrawled: integer("pages_crawled").notNull().default(0),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("crawl_jobs_agent_id_idx").on(table.agentId)],
+);
+
 export const knowledgeDocuments = pgTable(
   "knowledge_documents",
   {
@@ -153,6 +179,9 @@ export const knowledgeDocuments = pgTable(
     agentId: uuid("agent_id")
       .notNull()
       .references(() => agents.id, { onDelete: "cascade" }),
+    crawlJobId: uuid("crawl_job_id").references(() => crawlJobs.id, {
+      onDelete: "set null",
+    }),
     source: text("source").notNull(),
     title: text("title"),
     fileName: text("file_name"),
@@ -163,7 +192,10 @@ export const knowledgeDocuments = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("knowledge_documents_agent_id_idx").on(table.agentId)],
+  (table) => [
+    index("knowledge_documents_agent_id_idx").on(table.agentId),
+    index("knowledge_documents_crawl_job_id_idx").on(table.crawlJobId),
+  ],
 );
 
 export const documentChunks = pgTable(
