@@ -13,6 +13,7 @@ import {
 import { ProfileForm } from "@/components/dashboard/profile-form";
 import { PasswordForm } from "@/components/dashboard/password-form";
 import { DefaultCurrencyForm } from "@/components/dashboard/default-currency-form";
+import { ThemeSettings } from "@/components/dashboard/theme-settings";
 import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 import { settingsService } from "@/services/settings-service";
@@ -78,6 +79,18 @@ export default async function SettingsPage() {
           <DefaultCurrencyForm
             defaultCurrency={settings.defaultCurrency}
           />
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-lg">
+        <CardHeader>
+          <CardTitle>Appearance</CardTitle>
+          <CardDescription>
+            Choose light or dark, or follow your system.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ThemeSettings />
         </CardContent>
       </Card>
     </div>
