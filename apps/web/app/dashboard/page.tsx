@@ -218,16 +218,15 @@ export default async function DashboardPage() {
             </Button>
             <Button
               variant="outline"
-              disabled
-              title="Coming soon"
               className="w-full justify-between"
+              render={<Link href={APP_ROUTES.DASHBOARD_KNOWLEDGE} />}
             >
               Add to knowledge base
               <BookOpen size={16} />
             </Button>
             <Separator />
             <p className="text-xs text-muted-foreground">
-              Widget embed and knowledge base arrive in an upcoming release.
+              Widget embed arrives in an upcoming release.
             </p>
           </CardContent>
         </Card>
