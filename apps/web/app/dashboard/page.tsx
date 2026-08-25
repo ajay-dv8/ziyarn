@@ -12,11 +12,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/card";
-import { Separator } from "@repo/ui/components/separator";
 import {
   ArrowRight,
   BookOpen,
-  Code2,
+  Bot,
   Globe,
   MessagesSquare,
   Sparkles,
@@ -209,12 +208,11 @@ export default async function DashboardPage() {
             </Button>
             <Button
               variant="outline"
-              disabled
-              title="Coming soon"
               className="w-full justify-between"
+              render={<Link href={APP_ROUTES.DASHBOARD_AGENTS} />}
             >
-              Embed the widget
-              <Code2 size={16} />
+              Create an agent
+              <Bot size={16} />
             </Button>
             <Button
               variant="outline"
@@ -224,10 +222,6 @@ export default async function DashboardPage() {
               Add to knowledge base
               <BookOpen size={16} />
             </Button>
-            <Separator />
-            <p className="text-xs text-muted-foreground">
-              Widget embed arrives in an upcoming release.
-            </p>
           </CardContent>
         </Card>
       </div>
