@@ -13,7 +13,7 @@ export async function createPostgresDriver(
   connection: PostgresConnection,
 ): Promise<DbDriver> {
   const { Client } = await import("pg");
-  const client = new Client({
+  const clientConfig = {
     host: connection.host,
     port: connection.port,
     database: connection.database,
@@ -25,36 +25,47 @@ export async function createPostgresDriver(
     connectionTimeoutMillis: 10_000,
     query_timeout: 15_000,
     statement_timeout: 15_000,
-  });
-
-  let connected = false;
-
-  const ensureConnected = async () => {
-    if (!connected) {
-      await client.connect();
-      connected = true;
-    }
   };
 
-  /** Retries transient network failures — mobile/hotel wifi drops packets. */
-  const withRetry = async <T>(fn: () => Promise<T>): Promise<T> => {
+  /**
+   * Runs fn with a dedicated client, retrying transient network failures on
+   * brand-new connections — pg Clients cannot be reused after end(), so each
+   * attempt gets its own.
+   */
+  const describeError = (error: unknown): string => {
+    if (error instanceof Error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      const base = error.message || code || error.name || "unknown error";
+      return code && !base.includes(code) ? `${base} (${code})` : base;
+    }
+    return String(error);
+  };
+
+  const withClient = async <T>(
+    fn: (client: InstanceType<typeof Client>) => Promise<T>,
+  ): Promise<T> => {
     let lastError: unknown;
     for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+      const client = new Client(clientConfig);
       try {
-        await ensureConnected();
-        return await fn();
+        await client.connect();
+        return await fn(client);
       } catch (error) {
         lastError = error;
-        connected = false;
+        console.error(
+          `[postgres-driver] attempt ${attempt + 1} failed:`,
+          error,
+        );
+      } finally {
         await client.end().catch(() => undefined);
-        if (attempt < RETRY_DELAYS_MS.length) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, RETRY_DELAYS_MS[attempt]),
-          );
-        }
+      }
+      if (attempt < RETRY_DELAYS_MS.length) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, RETRY_DELAYS_MS[attempt]),
+        );
       }
     }
-    throw lastError;
+    throw new Error(describeError(lastError));
   };
 
   const quoteIdent = (identifier: string): string => {
@@ -64,7 +75,11 @@ export async function createPostgresDriver(
     return `"${identifier}"`;
   };
 
-  const introspectTables = async (): Promise<IntrospectedTable[]> => {
+  type Queryable = InstanceType<typeof Client>;
+
+  const introspectTables = async (
+    client: Queryable,
+  ): Promise<IntrospectedTable[]> => {
     const tables = await client.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables
        WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
@@ -73,15 +88,26 @@ export async function createPostgresDriver(
     const result: IntrospectedTable[] = [];
     for (const row of tables.rows) {
       const tableName = row.table_name;
-      const columns = await client.query<{
-        column_name: string;
-        data_type: string;
-      }>(
-        `SELECT column_name, data_type FROM information_schema.columns
-         WHERE table_schema = 'public' AND table_name = $1
-         ORDER BY ordinal_position`,
-        [tableName],
-      );
+      // Per-table failures (transient network drops) degrade gracefully
+      // instead of aborting the whole introspection.
+      let columns: IntrospectedTable["columns"] = [];
+      try {
+        const cols = await client.query<{
+          column_name: string;
+          data_type: string;
+        }>(
+          `SELECT column_name, data_type FROM information_schema.columns
+           WHERE table_schema = 'public' AND table_name = $1
+           ORDER BY ordinal_position`,
+          [tableName],
+        );
+        columns = cols.rows.map((c) => ({
+          name: c.column_name,
+          type: c.data_type,
+        }));
+      } catch {
+        columns = [];
+      }
       let rowCount: number | null = null;
       try {
         const counted = await client.query<{ n: string }>(
@@ -91,31 +117,24 @@ export async function createPostgresDriver(
       } catch {
         rowCount = null;
       }
-      result.push({
-        name: tableName,
-        columns: columns.rows.map((c) => ({
-          name: c.column_name,
-          type: c.data_type,
-        })),
-        rowCount,
-      });
+      result.push({ name: tableName, columns, rowCount });
     }
     return result;
   };
 
   return {
     async testConnection() {
-      await withRetry(async () => {
+      await withClient(async (client) => {
         await client.query("SELECT 1");
       });
     },
 
     async listTables(): Promise<IntrospectedTable[]> {
-      return withRetry(introspectTables);
+      return withClient(introspectTables);
     },
 
     async sampleRows(tableName, limit) {
-      return withRetry(async () => {
+      return withClient(async (client) => {
         const rows = await client.query(
           `SELECT * FROM ${quoteIdent(tableName)} LIMIT ${Math.min(limit, 50)}`,
         );
@@ -123,8 +142,6 @@ export async function createPostgresDriver(
       });
     },
 
-    async close() {
-      await client.end().catch(() => undefined);
-    },
+    async close() {},
   };
 }
