@@ -6,6 +6,7 @@ import { formatMoney } from "@repo/money";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
+import { cn } from "@repo/ui/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +49,7 @@ type Product = {
   priceCents: number;
   currency: string;
   active: boolean;
+  availability?: string | null;
 };
 
 const PAGE_SIZE = 10;
@@ -252,9 +254,24 @@ export function ProductTable({
                     })}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    <Badge variant={product.active ? "secondary" : "outline"}>
-                      {product.active ? "Active" : "Inactive"}
-                    </Badge>
+                    <div className="flex flex-col items-start gap-1">
+                      <Badge variant={product.active ? "secondary" : "outline"}>
+                        {product.active ? "Active" : "Inactive"}
+                      </Badge>
+                      {product.availability ? (
+                        <span
+                          className={cn(
+                            "text-xs",
+                            product.availability === "Out of stock" ||
+                              product.availability === "No longer in source"
+                              ? "text-destructive"
+                              : "text-muted-foreground",
+                          )}
+                        >
+                          {product.availability}
+                        </span>
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>

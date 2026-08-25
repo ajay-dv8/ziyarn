@@ -15,6 +15,7 @@ export type Product = {
   priceCents: number;
   currency: string;
   active: boolean;
+  availability?: string | null;
 };
 
 export function ProductsList({

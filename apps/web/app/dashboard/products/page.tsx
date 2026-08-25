@@ -10,6 +10,7 @@ import {
 
 import { CreateProductButton } from "@/components/dashboard/create-product-button";
 import { ProductsList } from "@/components/dashboard/products-list";
+import { SyncDatabaseProductsButton } from "@/components/dashboard/sync-database-products-button";
 import { UpgradeButton } from "@/components/dashboard/upgrade-button";
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
@@ -64,11 +65,14 @@ export default async function ProductsPage({
           </p>
         </div>
         {selected ? (
-          <CreateProductButton
-            domains={domains.map((domain) => ({ id: domain.id, name: domain.name }))}
-            domainId={selected.id}
-            defaultCurrency={settings.defaultCurrency}
-          />
+          <div className="flex flex-wrap items-start gap-2">
+            <SyncDatabaseProductsButton domainId={selected.id} />
+            <CreateProductButton
+              domains={domains.map((domain) => ({ id: domain.id, name: domain.name }))}
+              domainId={selected.id}
+              defaultCurrency={settings.defaultCurrency}
+            />
+          </div>
         ) : (
           <UpgradeButton
               plan="standard"
@@ -139,6 +143,7 @@ export default async function ProductsPage({
             priceCents: p.priceCents,
             currency: p.currency,
             active: p.active,
+            availability: p.availability,
           }))}
         />
       )}

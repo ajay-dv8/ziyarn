@@ -30,6 +30,8 @@ import {
 } from "lucide-react";
 
 import { EditProductSheet, type EditableProduct } from "./edit-product-sheet";
+import { cn } from "@repo/ui/lib/utils";
+
 import type { Product } from "./products-list";
 
 export function ProductGrid({
@@ -173,6 +175,19 @@ export function ProductGrid({
                     <CardDescription>
                       {product.description ?? "No description"}
                     </CardDescription>
+                    {product.availability ? (
+                      <p
+                        className={cn(
+                          "mt-1 text-xs",
+                          product.availability === "Out of stock" ||
+                            product.availability === "No longer in source"
+                            ? "text-destructive"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {product.availability}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </CardHeader>
