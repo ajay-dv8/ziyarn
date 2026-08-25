@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import {
@@ -9,6 +9,7 @@ import {
   documentChunks,
   embeddings,
   knowledgeDocuments,
+  products,
 } from "@repo/database/schema";
 import { chunkText } from "@repo/api/knowledge/chunker";
 import {
@@ -26,6 +27,11 @@ import {
 } from "@repo/api/datasources/relevance";
 import { isEmailColumn, isNameColumn } from "@repo/api/customers/schemas";
 import { upsertCustomers } from "@repo/api/customers/server";
+import {
+  mapProductColumns,
+  mapProductRow,
+  type MappedProduct,
+} from "@repo/api/datasources/product-columns";
 import {
   SAMPLE_ROW_LIMIT,
   type ConnectDataSourceInput,
@@ -47,6 +53,53 @@ export class DataSourceServiceError extends Error {
     super(message);
     this.name = "DataSourceServiceError";
   }
+}
+
+/**
+ * Upserts database-synced products by (domainId, externalKey). Manual
+ * products (externalKey null) are never touched. Returns the set of keys
+ * seen this run so callers can deactivate vanished ones.
+ */
+async function upsertSyncedProducts(
+  db: Database,
+  input: {
+    domainId: string;
+    dataSourceId: string;
+    currency: "ghs" | "usd" | "eur" | "gbp";
+    rows: MappedProduct[];
+  },
+): Promise<number> {
+  if (input.rows.length === 0) return 0;
+
+  await db
+    .insert(products)
+    .values(
+      input.rows.map((row) => ({
+        domainId: input.domainId,
+        dataSourceId: input.dataSourceId,
+        externalKey: row.externalKey,
+        name: row.name,
+        description: row.description,
+        priceCents: row.priceCents,
+        currency: input.currency,
+        active: row.active,
+        availability: row.availability,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [products.domainId, products.externalKey],
+      set: {
+        name: sql`excluded.name`,
+        description: sql`excluded.description`,
+        priceCents: sql`excluded.price_cents`,
+        currency: sql`excluded.currency`,
+        active: sql`excluded.active`,
+        availability: sql`excluded.availability`,
+        updatedAt: new Date(),
+      },
+    });
+
+  return input.rows.length;
 }
 
 const unauthorized = () =>
@@ -581,12 +634,198 @@ export function createDataSourcesService(deps: {
             label: source.label,
             imported: 0,
             error:
-              error instanceof Error ? error.message : "could not read source",
+              error instanceof Error
+                ? error.message.slice(0, 240)
+                : "could not read source",
           });
         }
       }
 
       return { totalImported, sources: results };
+    },
+
+    /**
+     * Product-only fetch: reads name+price tables from every data source
+     * attached to the domain's agents and upserts them into the catalog.
+     * Rows that vanish from the source are deactivated, never deleted.
+     */
+    syncProducts: async (
+      input: { domainId: string; currency: "ghs" | "usd" | "eur" | "gbp" },
+      headers: Headers,
+    ) => {
+      await requireOwnedAgent(input.domainId, null, headers);
+
+      const sources = await db
+        .select({
+          id: dataSources.id,
+          label: dataSources.label,
+          credentialsEncrypted: dataSources.credentialsEncrypted,
+        })
+        .from(dataSources)
+        .innerJoin(agents, eq(dataSources.agentId, agents.id))
+        .where(eq(agents.domainId, input.domainId));
+
+      const results: Array<{
+        label: string;
+        imported: number;
+        error?: string;
+      }> = [];
+      let totalUpserted = 0;
+      let totalMarkedUnavailable = 0;
+
+      for (const source of sources) {
+        const seenKeys = new Set<string>();
+        const skippedTables: string[] = [];
+        let importedForSource = 0;
+        let mappedTables = 0;
+
+        try {
+          let connection: AnyConnection;
+          try {
+            connection = decryptJson<AnyConnection>(
+              source.credentialsEncrypted,
+            );
+          } catch (error) {
+            throw new Error(
+              `decrypting credentials: ${
+                error instanceof Error ? error.message : "unknown"
+              }`,
+            );
+          }
+          const driver = await createDriver(connection);
+          try {
+            let tables: Awaited<ReturnType<typeof driver.listTables>>;
+            try {
+              tables = await driver.listTables();
+            } catch (error) {
+              throw new Error(
+                `listing tables: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              );
+            }
+            for (const table of tables) {
+              const mapping = mapProductColumns(table.columns);
+              if (!mapping) continue;
+              mappedTables += 1;
+
+              let rows: Record<string, unknown>[] = [];
+              try {
+                rows = await driver.sampleRows(
+                  table.name,
+                  CONTACT_IMPORT_LIMIT,
+                );
+              } catch (error) {
+                // Transient read failures skip the table; other tables and
+                // sources still sync.
+                console.error(
+                  `[syncProducts] skipping table ${table.name}:`,
+                  error,
+                );
+                skippedTables.push(table.name);
+                continue;
+              }
+              // Dedupe by externalKey within the batch — sources without a
+              // usable id column fall back to slugged names, and duplicate
+              // conflict targets would make the upsert fail ("cannot affect
+              // row a second time"). Last row wins.
+              const byKey = new Map<string, MappedProduct>();
+              for (const row of rows) {
+                const mapped = mapProductRow({
+                  row,
+                  tableName: table.name,
+                  mapping,
+                });
+                if (!mapped) continue;
+                seenKeys.add(mapped.externalKey);
+                byKey.set(mapped.externalKey, mapped);
+              }
+
+              const mappedRows = Array.from(byKey.values());
+
+              try {
+                const upserted = await upsertSyncedProducts(db, {
+                  domainId: input.domainId,
+                  dataSourceId: source.id,
+                  currency: input.currency,
+                  rows: mappedRows,
+                });
+                importedForSource += upserted;
+              } catch (error) {
+                throw new Error(
+                  `saving products from ${table.name}: ${
+                    error instanceof Error ? error.message : "upsert failed"
+                  }`,
+                );
+              }
+            }
+          } finally {
+            await driver.close();
+          }
+
+          if (mappedTables === 0) {
+            results.push({
+              label: source.label,
+              imported: 0,
+              error:
+                "no product-like tables found (tables need name + price columns)",
+            });
+            continue;
+          }
+
+          // Deactivate this source's synced products missing from the run.
+          if (seenKeys.size > 0) {
+            const existing = await db
+              .select({
+                id: products.id,
+                externalKey: products.externalKey,
+                active: products.active,
+              })
+              .from(products)
+              .where(
+                and(
+                  eq(products.dataSourceId, source.id),
+                  eq(products.domainId, input.domainId),
+                ),
+              );
+            const vanishedIds = existing
+              .filter((p) => p.externalKey && !seenKeys.has(p.externalKey))
+              .map((p) => p.id);
+            if (vanishedIds.length > 0) {
+              await db
+                .update(products)
+                .set({ active: false, availability: "No longer in source", updatedAt: new Date() })
+                .where(inArray(products.id, vanishedIds));
+              totalMarkedUnavailable += vanishedIds.length;
+            }
+          }
+
+          totalUpserted += importedForSource;
+          results.push({
+            label: source.label,
+            imported: importedForSource,
+            error:
+              skippedTables.length > 0
+                ? `skipped tables (read errors): ${skippedTables.join(", ")}`
+                : undefined,
+          });
+        } catch (error) {
+          console.error(
+            `[syncProducts] source ${source.label} failed:`,
+            error,
+          );
+          results.push({
+            label: source.label,
+            imported: 0,
+            error:
+              error instanceof Error
+                ? error.message.slice(0, 240)
+                : "could not read source",
+          });
+        }
+      }
+
+      return { totalUpserted, markedUnavailable: totalMarkedUnavailable, sources: results };
     },
 
     /** Removes a data source; its tables and derived documents cascade. */
