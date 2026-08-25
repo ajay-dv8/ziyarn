@@ -5,10 +5,12 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
 import { domains } from "@repo/database/schema/domains";
+import { dataSources } from "@repo/database/schema";
 
 export const products = pgTable(
   "products",
@@ -17,6 +19,11 @@ export const products = pgTable(
     domainId: uuid("domain_id")
       .notNull()
       .references(() => domains.id, { onDelete: "cascade" }),
+    dataSourceId: uuid("data_source_id").references(
+      () => dataSources.id,
+      { onDelete: "cascade" },
+    ),
+    externalKey: text("external_key"),
     name: text("name").notNull(),
     description: text("description"),
     priceCents: integer("price_cents").notNull(),
@@ -26,6 +33,7 @@ export const products = pgTable(
       .notNull()
       .default("ghs"),
     active: boolean("active").notNull().default(true),
+    availability: text("availability"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -33,7 +41,13 @@ export const products = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("products_domain_id_idx").on(table.domainId)],
+  (table) => [
+    index("products_domain_id_idx").on(table.domainId),
+    uniqueIndex("products_domain_external_key_idx").on(
+      table.domainId,
+      table.externalKey,
+    ),
+  ],
 );
 
 export type Product = typeof products.$inferSelect;

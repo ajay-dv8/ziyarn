@@ -127,6 +127,13 @@
       "when": 1787496264495,
       "tag": "0017_customers",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1787503477246,
+      "tag": "0018_db_products",
+      "breakpoints": true
     }
   ]
 }
