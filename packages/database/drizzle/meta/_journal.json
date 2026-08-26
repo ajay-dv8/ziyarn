@@ -134,6 +134,13 @@
       "when": 1787503477246,
       "tag": "0018_db_products",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1787631003634,
+      "tag": "0019_domain_logo",
+      "breakpoints": true
     }
   ]
 }

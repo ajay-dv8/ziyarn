@@ -18,6 +18,7 @@ export const domains = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
+    logoUrl: text("logo_url"),
     embedSecret: text("embed_secret").notNull(),
     plan: text("plan", {
       enum: ["free", "standard", "pro", "ultimate"],
