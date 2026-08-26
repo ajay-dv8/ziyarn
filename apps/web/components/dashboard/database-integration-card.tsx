@@ -22,6 +22,8 @@ type SourceTable = {
   rowCount: number | null;
   relevant: boolean;
   included: boolean;
+  includeProducts: boolean;
+  productEligible: boolean;
 };
 
 type DataSource = {
@@ -77,6 +79,12 @@ export function DatabaseIntegrationCard({
   const [savedSelections, setSavedSelections] = useState<
     Record<string, Set<string>>
   >({});
+  const [productSelections, setProductSelections] = useState<
+    Record<string, Set<string>>
+  >({});
+  const [savedProductSelections, setSavedProductSelections] = useState<
+    Record<string, Set<string>>
+  >({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
@@ -90,15 +98,24 @@ export function DatabaseIntegrationCard({
       setSources(next);
       const nextSelections: Record<string, Set<string>> = {};
       const nextSaved: Record<string, Set<string>> = {};
+      const nextProducts: Record<string, Set<string>> = {};
+      const nextSavedProducts: Record<string, Set<string>> = {};
       for (const source of next) {
         const included = new Set(
           source.tables.filter((t) => t.included).map((t) => t.tableName),
         );
         nextSelections[source.id] = new Set(included);
         nextSaved[source.id] = included;
+        const products = new Set(
+          source.tables.filter((t) => t.includeProducts).map((t) => t.tableName),
+        );
+        nextProducts[source.id] = new Set(products);
+        nextSavedProducts[source.id] = products;
       }
       setSelections(nextSelections);
       setSavedSelections(nextSaved);
+      setProductSelections(nextProducts);
+      setSavedProductSelections(nextSavedProducts);
       setExpanded((prev) => {
         const merged = { ...prev };
         for (const source of next) {
@@ -128,11 +145,16 @@ export function DatabaseIntegrationCard({
   function isDirty(source: DataSource): boolean {
     const current = selections[source.id] ?? new Set<string>();
     const saved = savedSelections[source.id] ?? new Set<string>();
-    if (current.size !== saved.size) return true;
-    for (const name of current) {
-      if (!saved.has(name)) return true;
-    }
-    return false;
+    const currentProducts = productSelections[source.id] ?? new Set<string>();
+    const savedProducts = savedProductSelections[source.id] ?? new Set<string>();
+    const setsDiffer = (a: Set<string>, b: Set<string>) => {
+      if (a.size !== b.size) return true;
+      for (const name of a) if (!b.has(name)) return true;
+      return false;
+    };
+    return (
+      setsDiffer(current, saved) || setsDiffer(currentProducts, savedProducts)
+    );
   }
 
   function toggleExpanded(sourceId: string) {
@@ -204,11 +226,22 @@ export function DatabaseIntegrationCard({
     });
   }
 
+  function toggleProductTable(sourceId: string, tableName: string) {
+    setProductSelections((prev) => {
+      const current = prev[sourceId] ?? new Set<string>();
+      const next = new Set(current);
+      if (next.has(tableName)) next.delete(tableName);
+      else next.add(tableName);
+      return { ...prev, [sourceId]: next };
+    });
+  }
+
   async function saveAndSync(source: DataSource) {
     setSyncingId(source.id);
     setSyncNotice(null);
     setError(null);
     const selected = selections[source.id] ?? new Set<string>();
+    const selectedProducts = productSelections[source.id] ?? new Set<string>();
     try {
       const patchRes = await fetch("/api/integrations/databases", {
         method: "PATCH",
@@ -219,6 +252,7 @@ export function DatabaseIntegrationCard({
           selections: source.tables.map((table) => ({
             tableName: table.tableName,
             included: selected.has(table.tableName),
+            includeProducts: selectedProducts.has(table.tableName),
           })),
         }),
       });
@@ -462,6 +496,7 @@ export function DatabaseIntegrationCard({
         <div className="space-y-4">
           {sources.map((source) => {
             const selected = selections[source.id] ?? new Set<string>();
+            const selectedProducts = productSelections[source.id] ?? new Set<string>();
             return (
               <div key={source.id} className="rounded-lg border p-4 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -505,7 +540,9 @@ export function DatabaseIntegrationCard({
                     Tables ({source.tables.length})
                   </span>
                   <span className="text-xs font-normal text-muted-foreground">
-                    {isDirty(source) ? "Unsaved changes" : `${selected.size} selected`}
+                    {isDirty(source)
+                      ? "Unsaved changes"
+                      : `${selected.size} knowledge · ${selectedProducts.size} products`}
                   </span>
                 </button>
 
@@ -516,30 +553,81 @@ export function DatabaseIntegrationCard({
                         No tables found.
                       </p>
                     ) : (
-                      source.tables.map((table) => (
-                        <label
-                          key={table.tableName}
-                          className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-muted/50"
-                        >
-                          <Checkbox
-                            checked={selected.has(table.tableName)}
-                            onCheckedChange={() =>
-                              toggleTable(source.id, table.tableName)
-                            }
-                          />
-                          <span className="flex-1 truncate text-sm">
-                            {table.tableName}
-                          </span>
-                          {table.relevant ? (
-                            <Badge variant="secondary">suggested</Badge>
-                          ) : null}
-                          {table.rowCount !== null ? (
-                            <span className="text-xs text-muted-foreground">
-                              {table.rowCount} rows
-                            </span>
-                          ) : null}
-                        </label>
-                      ))
+                      <>
+                        <div className="flex items-center gap-2 px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          <span className="w-4" />
+                          <span className="flex-1">Table</span>
+                          <span className="w-16 text-center">Knowledge</span>
+                          <span className="w-16 text-center">Products</span>
+                        </div>
+                        {source.tables.map((table) => {
+                          const productChecked = selectedProducts.has(
+                            table.tableName,
+                          );
+                          return (
+                            <div
+                              key={table.tableName}
+                              className="flex items-center gap-2 rounded px-2 py-1 hover:bg-muted/50"
+                            >
+                              <Checkbox
+                                checked={selected.has(table.tableName)}
+                                onCheckedChange={() =>
+                                  toggleTable(source.id, table.tableName)
+                                }
+                                aria-label={`Include ${table.tableName} in knowledge base`}
+                              />
+                              <span className="flex-1 truncate text-sm">
+                                {table.tableName}
+                              </span>
+                              {table.relevant ? (
+                                <Badge variant="secondary">suggested</Badge>
+                              ) : null}
+                              {table.rowCount !== null ? (
+                                <span className="text-xs text-muted-foreground">
+                                  {table.rowCount} rows
+                                </span>
+                              ) : null}
+                              <Checkbox
+                                checked={productChecked}
+                                disabled={!table.productEligible}
+                                onCheckedChange={() =>
+                                  toggleProductTable(source.id, table.tableName)
+                                }
+                                aria-label={`Sync products from ${table.tableName}`}
+                              />
+                            </div>
+                          );
+                        })}
+                        {source.tables.some(
+                          (table) =>
+                            !table.productEligible &&
+                            (selectedProducts.has(table.tableName) ||
+                              (savedProductSelections[source.id] ??
+                                new Set()).has(table.tableName)),
+                        ) ? (
+                          <p className="px-2 pt-1 text-xs text-muted-foreground">
+                            Greyed tables have no detectable name + price
+                            columns and cannot sync products.
+                          </p>
+                        ) : null}
+                        {source.tables.some((table) => {
+                          const nowOff = !(
+                            productSelections[source.id] ?? new Set()
+                          ).has(table.tableName);
+                          return (
+                            nowOff &&
+                            (savedProductSelections[source.id] ?? new Set()).has(
+                              table.tableName,
+                            )
+                          );
+                        }) ? (
+                          <p className="px-2 pt-1 text-xs text-amber-600 dark:text-amber-400">
+                            Deselected tables stop refreshing — their synced
+                            products will be marked unavailable on the next
+                            product sync.
+                          </p>
+                        ) : null}
+                      </>
                     )}
                   </div>
                 ) : null}
