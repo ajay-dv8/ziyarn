@@ -124,6 +124,7 @@ export function createDomainsService(deps: {
           ownerId: session.user.id,
           name: body.name,
           slug: body.slug,
+          logoUrl: body.logoUrl ?? null,
           embedSecret: randomBytes(32).toString("hex"),
           plan,
         })

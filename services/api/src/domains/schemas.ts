@@ -21,15 +21,19 @@ export const domainIdSchema = z.object({
   id: z.string().uuid("Invalid domain id"),
 });
 
+export const domainLogoUrlSchema = z.url().max(500);
+
 export const createDomainSchema = z.object({
   name: domainNameSchema,
   slug: domainSlugSchema,
+  logoUrl: domainLogoUrlSchema.optional().nullable(),
 });
 
 export const updateDomainSchema = z
   .object({
     name: domainNameSchema.optional(),
     slug: domainSlugSchema.optional(),
+    logoUrl: domainLogoUrlSchema.nullable().optional(),
   })
   .refine((data) => data.name !== undefined || data.slug !== undefined, {
     message: "Nothing to update",
