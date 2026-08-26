@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { ShineBorder } from "@repo/ui/components/shine-border";
+import { Paperclip } from "lucide-react";
 
 import { createDomainAction } from "@/lib/actions/domains";
 import { APP_ROUTES } from "@/constants/routes";
@@ -70,6 +71,7 @@ export function ConversationalOnboarding({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const firstName = userName.split(" ")[0] ?? "there";
 
   const scrollToBottom = useCallback(() => {
@@ -112,8 +114,13 @@ export function ConversationalOnboarding({
     setChoices(options);
   }, []);
 
-  // Kick off the conversation once on mount.
+  // Kick off the conversation once — guard against StrictMode's double
+  // effect invocation in development duplicating the greeting. The cleanup
+  // resets the guard so the remounted effect can run a fresh sequence.
+  const startedRef = useRef(false);
   useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
     let cancelled = false;
     void (async () => {
       await botSay(
@@ -134,6 +141,8 @@ export function ConversationalOnboarding({
     })();
     return () => {
       cancelled = true;
+      startedRef.current = false;
+      setTyping(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -160,10 +169,19 @@ export function ConversationalOnboarding({
     void slug;
     addMessage("user", value || slugSuggestion);
     await botSay("Got it.", undefined, 250);
-    await botSay("Do you have a logo? Paste an image URL, or skip.", {
+    await botSay("Do you have a logo? Attach one, paste an image URL, or skip.", {
       subText: ["It appears on your chat widget. Press Enter to skip."],
     });
     setStep("logoUrl");
+  }
+
+  async function promptAgent() {
+    await botSay("Perfect. Now let's bring in your AI agent.", undefined, 300);
+    await botSay("What should we call your agent?", {
+      emphasis: true,
+      subText: ["For example: Sales Assistant"],
+    });
+    setStep("agentName");
   }
 
   async function handleLogoUrl(value: string) {
@@ -177,12 +195,69 @@ export function ConversationalOnboarding({
     if (value) addMessage("user", value);
     else addMessage("user", "Skip logo");
     pendingLogoRef.current = value || null;
-    await botSay("Perfect. Now let's bring in your AI agent.", undefined, 300);
-    await botSay("What should we call your agent?", {
-      emphasis: true,
-      subText: ["For example: Sales Assistant"],
-    });
-    setStep("agentName");
+    await promptAgent();
+  }
+
+  async function handleLogoFile(file: File) {
+    const okType = [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/svg+xml",
+    ].includes(file.type);
+    if (!okType || file.size > 2 * 1024 * 1024) {
+      await botSay(
+        "That file isn't usable — logos must be PNG, JPG, WebP or SVG under 2 MB. Try another or press Enter to skip.",
+      );
+      return;
+    }
+
+    addMessage("user", `📎 ${file.name}`);
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/uploads/logo", {
+        method: "POST",
+        body: form,
+      });
+      const body = (await res.json().catch(() => null)) as {
+        url?: string;
+        error?: { message?: string };
+      } | null;
+      if (!res.ok || !body?.url) {
+        throw new Error(body?.error?.message ?? "Upload failed");
+      }
+      pendingLogoRef.current = body.url;
+      setBusy(false);
+      await botSay("Logo saved ✓");
+      await promptAgent();
+    } catch (error) {
+      setBusy(false);
+      await botSay(
+        `The upload didn't make it: ${
+          error instanceof Error ? error.message : "unknown error"
+        }. You can try again or continue without a logo.`,
+      );
+      showChoices([
+        {
+          label: "Try again",
+          onSelect: () => {
+            setChoices(null);
+            logoInputRef.current?.click();
+          },
+        },
+        {
+          label: "Continue without a logo",
+          variant: "outline",
+          onSelect: () => {
+            setChoices(null);
+            addMessage("user", "Skip logo");
+            void promptAgent();
+          },
+        },
+      ]);
+    }
   }
 
   const pendingLogoRef = useRef<string | null>(null);
@@ -372,7 +447,7 @@ export function ConversationalOnboarding({
     step === "finishing";
 
   return (
-    <Card className="relative flex h-[80svh] w-full max-w-lg flex-col overflow-hidden md:max-w-2xl">
+    <Card className="relative flex h-[80svh] w-full max-w-lg flex-col overflow-hidden md:max-w-4xl">
       <ShineBorder
         borderWidth={1.5}
         duration={10}
@@ -413,28 +488,44 @@ export function ConversationalOnboarding({
               Redirecting…
             </Button>
           ) : (
-            <ChatInput
-              disabled={inputDisabled}
-              allowEmpty={
-                step === "domainSlug" ||
-                step === "logoUrl" ||
-                step === "agentDescription"
-              }
-              placeholder={
-                step === "domainName"
-                  ? "e.g. Acme Support"
-                  : step === "domainSlug"
-                    ? slugSuggestion
-                      ? `${slugSuggestion} (press Enter to accept)`
-                      : "your-domain"
-                    : step === "logoUrl"
-                      ? "https://… (Enter to skip)"
-                      : step === "agentName"
-                        ? "e.g. Sales Assistant"
-                        : "Type your answer… (Enter to skip)"
-              }
-              onSubmit={(value) => {
-                void (async () => {
+            <div className="flex items-center gap-2">
+              {step === "logoUrl" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  disabled={inputDisabled}
+                  aria-label="Attach a logo from your device"
+                  title="Attach a logo from your device"
+                  onClick={() => logoInputRef.current?.click()}
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+              ) : null}
+              <div className="min-w-0 flex-1">
+                <ChatInput
+                  disabled={inputDisabled}
+                  allowEmpty={
+                    step === "domainSlug" ||
+                    step === "logoUrl" ||
+                    step === "agentDescription"
+                  }
+                  placeholder={
+                    step === "domainName"
+                      ? "e.g. Acme Support"
+                      : step === "domainSlug"
+                        ? slugSuggestion
+                          ? `${slugSuggestion} (press Enter to accept)`
+                          : "your-domain"
+                        : step === "logoUrl"
+                          ? "Paste an image URL, or press Enter to skip"
+                          : step === "agentName"
+                            ? "e.g. Sales Assistant"
+                            : "Type your answer… (Enter to skip)"
+                  }
+                  onSubmit={(value) => {
+                    void (async () => {
                   if (step === "intro") return;
                   if (step === "domainName") await handleDomainName(value);
                   else if (step === "domainSlug") await handleDomainSlug(value);
@@ -444,8 +535,22 @@ export function ConversationalOnboarding({
                     await handleAgentDescription(value);
                 })();
               }}
-            />
+                />
+              </div>
+            </div>
           )}
+
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) void handleLogoFile(file);
+            }}
+          />
 
           <input
             ref={fileInputRef}
