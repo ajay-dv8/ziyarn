@@ -1,0 +1,1 @@
+ALTER TABLE "data_source_tables" ADD COLUMN "include_products" boolean DEFAULT false NOT NULL;

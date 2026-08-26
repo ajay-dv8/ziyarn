@@ -141,6 +141,13 @@
       "when": 1787631003634,
       "tag": "0019_domain_logo",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1787711460641,
+      "tag": "0020_include_products",
+      "breakpoints": true
     }
   ]
 }
