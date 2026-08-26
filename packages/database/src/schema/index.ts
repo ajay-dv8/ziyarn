@@ -213,6 +213,7 @@ export const dataSourceTables = pgTable(
     rowCount: integer("row_count"),
     relevant: boolean("relevant").notNull().default(false),
     included: boolean("included").notNull().default(false),
+    includeProducts: boolean("include_products").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

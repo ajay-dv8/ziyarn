@@ -60,10 +60,17 @@ export const updateDataSourceTablesSchema = z.object({
   dataSourceId: z.uuid(),
   selections: z
     .array(
-      z.object({
-        tableName: z.string().trim().min(1).max(200),
-        included: z.boolean(),
-      }),
+      z
+        .object({
+          tableName: z.string().trim().min(1).max(200),
+          included: z.boolean().optional(),
+          includeProducts: z.boolean().optional(),
+        })
+        .refine(
+          (data) =>
+            data.included !== undefined || data.includeProducts !== undefined,
+          { message: "Each selection must set included or includeProducts" },
+        ),
     )
     .min(1)
     .max(500),

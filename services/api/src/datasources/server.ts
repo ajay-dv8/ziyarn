@@ -350,6 +350,8 @@ export function createDataSourcesService(deps: {
               rowCount: table.rowCount,
               relevant: isRelevantTable(table.name),
               included: isRelevantTable(table.name),
+              includeProducts:
+                mapProductColumns(table.columns) !== null,
             })),
           )
           .returning();
@@ -379,11 +381,22 @@ export function createDataSourcesService(deps: {
             rowCount: dataSourceTables.rowCount,
             relevant: dataSourceTables.relevant,
             included: dataSourceTables.included,
+            includeProducts: dataSourceTables.includeProducts,
           })
           .from(dataSourceTables)
           .where(eq(dataSourceTables.dataSourceId, source.id));
 
-        result.push({ ...source, credentialsEncrypted: undefined, tables });
+        result.push({
+          ...source,
+          credentialsEncrypted: undefined,
+          tables: tables.map((table) => ({
+            ...table,
+            productEligible:
+              mapProductColumns(
+                (table.columnsJson as Array<{ name: string; type: string }> | null) ?? [],
+              ) !== null,
+          })),
+        });
       }
       return result;
     },
@@ -400,9 +413,16 @@ export function createDataSourcesService(deps: {
       );
 
       for (const selection of input.selections) {
+        const patch: { included?: boolean; includeProducts?: boolean } = {};
+        if (selection.included !== undefined) {
+          patch.included = selection.included;
+        }
+        if (selection.includeProducts !== undefined) {
+          patch.includeProducts = selection.includeProducts;
+        }
         await db
           .update(dataSourceTables)
-          .set({ included: selection.included })
+          .set(patch)
           .where(
             and(
               eq(dataSourceTables.dataSourceId, source.id),
@@ -694,6 +714,26 @@ export function createDataSourcesService(deps: {
           }
           const driver = await createDriver(connection);
           try {
+            // Only tables the user flagged for product sync are considered.
+            const selected = await db
+              .select({ tableName: dataSourceTables.tableName })
+              .from(dataSourceTables)
+              .where(
+                and(
+                  eq(dataSourceTables.dataSourceId, source.id),
+                  eq(dataSourceTables.includeProducts, true),
+                ),
+              );
+            if (selected.length === 0) {
+              results.push({
+                label: source.label,
+                imported: 0,
+                error: "no product tables selected",
+              });
+              continue;
+            }
+            const selectedNames = new Set(selected.map((s) => s.tableName));
+
             let tables: Awaited<ReturnType<typeof driver.listTables>>;
             try {
               tables = await driver.listTables();
@@ -705,6 +745,7 @@ export function createDataSourcesService(deps: {
               );
             }
             for (const table of tables) {
+              if (!selectedNames.has(table.name)) continue;
               const mapping = mapProductColumns(table.columns);
               if (!mapping) continue;
               mappedTables += 1;
@@ -768,7 +809,7 @@ export function createDataSourcesService(deps: {
               label: source.label,
               imported: 0,
               error:
-                "no product-like tables found (tables need name + price columns)",
+                "selected tables produced no importable products (they need name + price columns)",
             });
             continue;
           }
