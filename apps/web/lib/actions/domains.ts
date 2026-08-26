@@ -14,7 +14,7 @@ import { DomainServiceError, PlanLimitError } from "@repo/api";
 import { domainsService } from "@/services/domains-service";
 
 export type ActionResult =
-  | { ok: true }
+  | { ok: true; domainId?: string }
   | { ok: false; error: string; fieldErrors?: Record<string, string[] | undefined> };
 
 function errorResult(error: unknown): Extract<ActionResult, { ok: false }> {
@@ -38,9 +38,12 @@ export async function createDomainAction(
   }
 
   try {
-    await domainsService.createDomain(parsed.data, await headers());
+    const domain = await domainsService.createDomain(parsed.data, await headers());
+    if (!domain) {
+      return { ok: false, error: "Could not create the domain" };
+    }
     revalidatePath("/dashboard/domains");
-    return { ok: true };
+    return { ok: true, domainId: domain.id };
   } catch (error) {
     return errorResult(error);
   }
