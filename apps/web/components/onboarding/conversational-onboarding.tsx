@@ -114,34 +114,44 @@ export function ConversationalOnboarding({
     setChoices(options);
   }, []);
 
-  // Kick off the conversation once — guard against StrictMode's double
-  // effect invocation in development duplicating the greeting. The cleanup
-  // resets the guard so the remounted effect can run a fresh sequence.
-  const startedRef = useRef(false);
+  // Kick off the conversation once. StrictMode mounts→unmounts→remounts in
+  // development; every mutation below honours `cancelled` so the aborted
+  // first pass emits nothing and the remount plays one clean sequence.
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
     let cancelled = false;
-    void (async () => {
-      await botSay(
-        `Welcome to Ziyarn, ${firstName}! 👋 Let's get your first workspace set up.`,
-        undefined,
-        250,
-      );
+
+    const push = (message: Omit<Message, "id">) => {
       if (cancelled) return;
-      await botSay("What should we name your domain?", {
+      setMessages((prev) => [...prev, { id: crypto.randomUUID(), ...message }]);
+    };
+    const showTyping = async (duration: number) => {
+      if (cancelled) return;
+      setTyping(true);
+      await new Promise((resolve) => setTimeout(resolve, duration));
+      if (!cancelled) setTyping(false);
+    };
+
+    void (async () => {
+      await showTyping(250);
+      push({
+        role: "bot",
+        content: `Welcome to Ziyarn, ${firstName}! 👋 Let's get your first workspace set up.`,
+      });
+      await showTyping(450);
+      push({
+        role: "bot",
         emphasis: true,
+        content: "What should we name your domain?",
         subText: [
-          "Your domain is your helpdesk home — it gets its own AI agent",
-          "and chat widget. Pick a name that identifies your business.",
-          "For example: Acme Support",
+          "Your domain is your helpdesk home — it gets its own AI agent and chat widget.",
+          "Pick a name that identifies your business. For example: Acme Support",
         ],
       });
       if (!cancelled) setStep("domainName");
     })();
+
     return () => {
       cancelled = true;
-      startedRef.current = false;
       setTyping(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
