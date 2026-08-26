@@ -42,7 +42,7 @@ export function SignUpForm({
       return;
     }
 
-    router.push(APP_ROUTES.DASHBOARD);
+    router.push(APP_ROUTES.ONBOARDING);
     router.refresh();
   };
 

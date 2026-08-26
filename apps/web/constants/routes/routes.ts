@@ -5,6 +5,7 @@ export const APP_ROUTES = {
   DOCS: "/docs",
   SIGN_IN: "/sign-in",
   SIGN_UP: "/sign-up",
+  ONBOARDING: "/onboarding",
   DASHBOARD: "/dashboard",
   DASHBOARD_DOMAINS: "/dashboard/domains",
   DASHBOARD_CONVERSATIONS: "/dashboard/conversations",
