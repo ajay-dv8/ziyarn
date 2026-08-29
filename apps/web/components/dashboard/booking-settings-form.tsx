@@ -50,7 +50,7 @@ export function BookingSettingsForm({
   const minNoticeDays = Math.round(form.minNoticeHours / 24);
 
   return (
-    <div className="space-y-6 py-1">
+    <div className="space-y-6 overflow-hidden py-1">
       <div className="space-y-4">
         <div>
           <p className="text-sm font-medium">Available Days</p>
@@ -58,7 +58,7 @@ export function BookingSettingsForm({
             Select the days visitors can book appointments.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mb-1">
           {DAY_VALUES.map((day) => (
             <Button
               key={day}
@@ -83,7 +83,7 @@ export function BookingSettingsForm({
             The time window when appointments can be scheduled.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="start" className="text-xs text-muted-foreground">
               Opens at
@@ -128,7 +128,7 @@ export function BookingSettingsForm({
             Control slot length and how far in advance visitors can book.
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="space-y-2">
             <Label htmlFor="duration" className="text-xs text-muted-foreground">
               Slot length
@@ -162,6 +162,7 @@ export function BookingSettingsForm({
                 min={0}
                 max={30}
                 value={minNoticeDays}
+                className="min-w-0"
                 onChange={(event) =>
                   setForm((previousForm) => ({
                     ...previousForm,
@@ -185,6 +186,7 @@ export function BookingSettingsForm({
                 min={1}
                 max={90}
                 value={form.maxAdvanceDays}
+                className="min-w-0"
                 onChange={(event) =>
                   setForm((previousForm) => ({
                     ...previousForm,
