@@ -2,17 +2,19 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import type Stripe from "stripe";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, desc, sql } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import {
   bookings,
+  bookingSettings,
   domains,
   payments,
   leads,
   stripeAccounts,
   type Booking,
   type Payment,
+  type BookingSetting,
 } from "@repo/database/schema";
 
 import {
@@ -30,6 +32,12 @@ import {
   paymentReceiptTemplate,
 } from "@repo/api/email/templates";
 import type { SendTransactional } from "@repo/api/email";
+
+import {
+  checkSlotAvailable,
+  getAvailableSlots,
+  getBookingSettings as getBookingSettingsFn,
+} from "@repo/api/portal/availability";
 
 export class PortalServiceError extends Error {
   constructor(
@@ -148,23 +156,12 @@ export function createPortalService(deps: {
       url: string;
     }> {
       const data = createBookingSchema.parse(input);
-      const taken = await db
-        .select({ id: bookings.id })
-        .from(bookings)
-        .where(
-          and(
-            eq(bookings.domainId, data.domainId),
-            eq(bookings.date, data.date),
-            eq(bookings.time, data.time),
-            inArray(bookings.status, ["pending", "confirmed"]),
-          ),
-        )
-        .limit(1);
-      if (taken.length > 0) {
+      const slotError = await checkSlotAvailable(db)(data.domainId, data.date, data.time);
+      if (slotError) {
         throw new PortalServiceError(
           409,
-          "SLOT_UNAVAILABLE",
-          "That time slot is already booked",
+          slotError.code,
+          slotError.message,
         );
       }
       const [booking] = await db
@@ -451,6 +448,103 @@ export function createPortalService(deps: {
         });
       }
       return { handled: true };
+    },
+
+    // ── Booking management (dashboard) ──
+
+    async listBookings(
+      domainId: string,
+      opts?: { status?: "pending" | "confirmed" | "cancelled"; limit?: number; offset?: number },
+    ): Promise<{ bookings: (Booking & { conversationTitle: string | null })[]; total: number }> {
+      const limit = opts?.limit ?? 50;
+      const offset = opts?.offset ?? 0;
+      const where = opts?.status
+        ? and(eq(bookings.domainId, domainId), eq(bookings.status, opts.status))
+        : eq(bookings.domainId, domainId);
+      const [countRow] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(bookings)
+        .where(where);
+      const rows = await db
+        .select({
+          id: bookings.id,
+          domainId: bookings.domainId,
+          conversationId: bookings.conversationId,
+          name: bookings.name,
+          email: bookings.email,
+          date: bookings.date,
+          time: bookings.time,
+          duration: bookings.duration,
+          timezone: bookings.timezone,
+          topic: bookings.topic,
+          status: bookings.status,
+          createdAt: bookings.createdAt,
+          updatedAt: bookings.updatedAt,
+          conversationTitle: sql<string | null>`null`,
+        })
+        .from(bookings)
+        .where(where)
+        .orderBy(desc(bookings.createdAt))
+        .limit(limit)
+        .offset(offset);
+      return { bookings: rows as (Booking & { conversationTitle: string | null })[], total: countRow?.count ?? 0 };
+    },
+
+    async getBooking(id: string): Promise<Booking> {
+      const [row] = await db.select().from(bookings).where(eq(bookings.id, id)).limit(1);
+      if (!row) {
+        throw new PortalServiceError(404, "NOT_FOUND", "Booking not found");
+      }
+      return row;
+    },
+
+    async updateBookingStatus(
+      id: string,
+      status: "pending" | "confirmed" | "cancelled",
+    ): Promise<Booking> {
+      const [updated] = await db
+        .update(bookings)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(bookings.id, id))
+        .returning();
+      if (!updated) {
+        throw new PortalServiceError(404, "NOT_FOUND", "Booking not found");
+      }
+      return updated;
+    },
+
+    // ── Booking settings ──
+
+    async upsertBookingSettings(
+      domainId: string,
+      data: Partial<Omit<BookingSetting, "id" | "domainId" | "createdAt" | "updatedAt">>,
+    ): Promise<BookingSetting> {
+      const [existing] = await db
+        .select()
+        .from(bookingSettings)
+        .where(eq(bookingSettings.domainId, domainId))
+        .limit(1);
+      if (existing) {
+        const [updated] = await db
+          .update(bookingSettings)
+          .set({ ...data, updatedAt: new Date() })
+          .where(eq(bookingSettings.domainId, domainId))
+          .returning();
+        return updated!;
+      }
+      const [created] = await db
+        .insert(bookingSettings)
+        .values({ domainId, ...data })
+        .returning();
+      return created!;
+    },
+
+    async getBookingSettingsForDomain(domainId: string): Promise<BookingSetting> {
+      return getBookingSettingsFn(db)(domainId);
+    },
+
+    async getAvailableSlotsForDomain(domainId: string, date: string): Promise<string[]> {
+      return getAvailableSlots(db)(domainId, date);
     },
   };
 }

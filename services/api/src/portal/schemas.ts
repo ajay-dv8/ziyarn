@@ -18,7 +18,29 @@ export const createBookingSchema = z.object({
   time: z
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "time must be HH:MM in 24h format"),
+  duration: z.number().int().min(15).max(480).optional(),
+  timezone: z.string().trim().max(50).optional(),
   topic: z.string().trim().max(500).optional(),
+});
+
+export const updateBookingStatusSchema = z.object({
+  status: z.enum(["pending", "confirmed", "cancelled"]),
+});
+
+export const listBookingsSchema = z.object({
+  domainId: z.string().uuid(),
+  status: z.enum(["pending", "confirmed", "cancelled"]).optional(),
+  limit: z.number().int().min(1).max(200).optional(),
+  offset: z.number().int().min(0).optional(),
+});
+
+export const bookingSettingsSchema = z.object({
+  availableDays: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+  availableStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "time must be HH:MM"),
+  availableEnd: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "time must be HH:MM"),
+  slotDuration: z.number().int().min(15).max(480),
+  minNoticeHours: z.number().int().min(0).max(168),
+  maxAdvanceDays: z.number().int().min(1).max(90),
 });
 
 export const createPaymentRequestSchema = z.object({
@@ -46,6 +68,8 @@ export const confirmBookingSchema = z.object({
 
 export type PortalTokenPayload = z.infer<typeof portalTokenSchema>;
 export type CreateBookingInput = z.infer<typeof createBookingSchema>;
+export type UpdateBookingStatusInput = z.infer<typeof updateBookingStatusSchema>;
+export type BookingSettingsInput = z.infer<typeof bookingSettingsSchema>;
 export type CreatePaymentRequestInput = z.infer<
   typeof createPaymentRequestSchema
 >;
