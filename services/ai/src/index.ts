@@ -42,6 +42,8 @@ const toolParameters = (properties: Record<string, unknown>, required: string[])
   required,
 });
 
+// Tool Description Prompts
+// Each tool has a description that acts as a behavioral instruction to the LLM
 const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: "function",

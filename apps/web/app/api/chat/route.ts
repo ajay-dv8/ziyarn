@@ -21,6 +21,10 @@ import { knowledgeService } from "@/services/knowledge-service";
 import { portalService } from "@/services/portal-service";
 import { chatRateLimiter } from "@/lib/rate-limit";
 
+// DEFAUT SYSTEM PROMT FOR ZIYARN
+// TODO: Find a way to identify users/customers of the company or get infor mation such as name and email of new users to provide a more personalized experience. 
+// TODO: Make this configurable per agent, and allow the agent to override it with their own system prompt.
+
 const DEFAULT_SYSTEM_PROMPT = `You are a friendly sales and support assistant for this business.
 Help visitors with their questions, qualify their interest, and move them toward booking a call or buying.
 Be concise, honest and helpful. Never invent company facts you are unsure about.
@@ -42,7 +46,11 @@ export function OPTIONS() {
 function jsonError(status: number, code: string, message: string) {
   return Response.json({ error: { code, message } }, { status, headers: CORS_HEADERS });
 }
-
+/**
+ * Dynamic system prompt
+ * Assembles the full system prompt from 7 parts concatenated at runtime:
+ *  
+ */
 function systemPromptFor(domain: { slug: string }, agent: {
   name: string | null;
   description: string | null;
@@ -60,7 +68,7 @@ function systemPromptFor(domain: { slug: string }, agent: {
         .join("\n")}`
     : "There are no products in the catalog yet. Direct purchase interest to create_payment for a custom amount, or offer to escalate.";
   const filterLine = filterQuestions.length > 0
-    ? `Before capturing an email or offering to sell, ask these filter questions one at a time (do not dump them all at once):\n${filterQuestions.map((q) => `- ${q}`).join("\n")}\nWhen the visitor has answered, call capture_email and include the answers in its answers argument.`
+    ? `Before capturing an email, name or offering to sell, ask these filter questions one at a time (do not dump them all at once):\n${filterQuestions.map((q) => `- ${q}`).join("\n")}\nWhen the visitor has answered, call capture_email and include the answers in its answers argument.`
     : "";
   const parts = [
     agent.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
