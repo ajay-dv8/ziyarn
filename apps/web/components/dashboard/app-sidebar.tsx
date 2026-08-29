@@ -25,6 +25,7 @@ import {
   BarChart3,
   BookOpen,
   Bot,
+  Calendar,
   ChevronRight,
   CreditCard,
   Gauge,
@@ -140,6 +141,16 @@ export function AppSidebar({
               >
                 <MessagesSquare />
                 <span>Conversations</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === APP_ROUTES.DASHBOARD_BOOKINGS}
+                tooltip="Bookings"
+                render={<Link href={APP_ROUTES.DASHBOARD_BOOKINGS} />}
+              >
+                <Calendar />
+                <span>Bookings</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
