@@ -41,8 +41,8 @@ export function ConfigureBookingButton({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button variant="outline" size="sm" />}>
-        <Settings className="mr-1.5 h-4 w-4" />
-        Configure
+        <Settings className="md:mr-1.5 h-4 w-4" />
+        <span className="hidden md:block">Configure</span>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
