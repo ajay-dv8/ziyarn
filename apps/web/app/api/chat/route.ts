@@ -9,8 +9,9 @@ import {
   createBookingSchema,
   createPaymentRequestSchema,
 } from "@repo/api/portal/schemas";
+import { checkSlotAvailable } from "@repo/api/portal/availability";
 import { db } from "@repo/database";
-import { leads, products } from "@repo/database/schema";
+import { leads, products, bookingSettings } from "@repo/database/schema";
 import { upsertCustomers } from "@repo/api/customers/server";
 import type { AgentToolName } from "@repo/ai";
 import { currencyCode, formatDecimal } from "@repo/money";
@@ -48,7 +49,7 @@ function jsonError(status: number, code: string, message: string) {
 }
 /**
  * Dynamic system prompt
- * Assembles the full system prompt from 7 parts concatenated at runtime:
+ * Assembles the full system prompt from 8 parts concatenated at runtime:
  *  
  */
 function systemPromptFor(domain: { slug: string }, agent: {
@@ -58,7 +59,14 @@ function systemPromptFor(domain: { slug: string }, agent: {
   systemPrompt: string | null;
   tools: string[] | null;
   filterQuestions: unknown;
-}, catalog: { name: string; priceCents: number; currency: string }[]): string {
+}, catalog: { name: string; priceCents: number; currency: string }[], bookingSettings?: {
+  availableDays: number[];
+  availableStart: string;
+  availableEnd: string;
+  slotDuration: number;
+  minNoticeHours: number;
+} | null): string {
+  const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const filterQuestions = Array.isArray(agent.filterQuestions)
     ? agent.filterQuestions.filter((q): q is string => typeof q === "string" && q.trim().length > 0)
     : [];
@@ -70,6 +78,9 @@ function systemPromptFor(domain: { slug: string }, agent: {
   const filterLine = filterQuestions.length > 0
     ? `Before capturing an email, name or offering to sell, ask these filter questions one at a time (do not dump them all at once):\n${filterQuestions.map((q) => `- ${q}`).join("\n")}\nWhen the visitor has answered, call capture_email and include the answers in its answers argument.`
     : "";
+  const bookingLine = bookingSettings
+    ? `Booking availability: ${DAY_NAMES.filter((_, i) => bookingSettings.availableDays.includes(i)).join(", ")}, ${bookingSettings.availableStart}–${bookingSettings.availableEnd} (slot: ${bookingSettings.slotDuration}min, min notice: ${bookingSettings.minNoticeHours}h). When the visitor suggests a time, verify it falls within these hours using book_appointment — the system will check availability.`
+    : "";
   const parts = [
     agent.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
     agent.description ? `About this business: ${agent.description}` : "",
@@ -79,6 +90,7 @@ function systemPromptFor(domain: { slug: string }, agent: {
       : "",
     `You are the assistant of the business on domain "${domain.slug}".`,
     "Appointments and payments are live: use book_appointment to schedule calls and create_payment (or sell_product) for purchases. Never create either without the visitor's agreement.",
+    bookingLine,
     filterLine,
     catalogLine,
   ];
@@ -188,6 +200,11 @@ export async function POST(request: Request) {
           eq(products.active, true),
         ),
       );
+    const [bookingConfig] = await db
+      .select()
+      .from(bookingSettings)
+      .where(eq(bookingSettings.domainId, domain.id))
+      .limit(1);
     const toolExecutor = async (
       name: AgentToolName,
       args: Record<string, unknown>,
@@ -278,6 +295,25 @@ export async function POST(request: Request) {
           });
           if (!parsed.success) {
             return `The appointment details were invalid (${parsed.error.issues[0]?.message ?? "bad input"}). Ask the visitor for a preferred date and time again.`;
+          }
+          const slotError = await checkSlotAvailable(db)(domain.id, parsed.data.date, parsed.data.time);
+          if (slotError) {
+            if (slotError.code === "SLOT_TAKEN") {
+              return "That time slot is already booked. Offer the visitor a different date or time.";
+            }
+            if (slotError.code === "OUTSIDE_HOURS") {
+              return `That time is outside business hours. ${slotError.message}. Offer a time within working hours.`;
+            }
+            if (slotError.code === "DAY_NOT_AVAILABLE") {
+              return "Bookings are not available on that day. Offer a different day.";
+            }
+            if (slotError.code === "TOO_SOON") {
+              return `That's too soon. ${slotError.message}. Offer a later time.`;
+            }
+            if (slotError.code === "TOO_FAR") {
+              return `That's too far ahead. ${slotError.message}. Offer a closer date.`;
+            }
+            return "That time is not available. Offer a different date or time.";
           }
           try {
             const { booking, url } = await portalService.createBooking(parsed.data);
@@ -400,7 +436,7 @@ export async function POST(request: Request) {
         let fullReply = "";
         try {
           for await (const event of aiService.streamChat({
-            systemPrompt: systemPromptFor(domain, agent, catalog),
+            systemPrompt: systemPromptFor(domain, agent, catalog, bookingConfig),
             messages: context,
             tools: agent.tools as AgentToolName[] | undefined,
             executeTool: toolExecutor,
