@@ -266,7 +266,7 @@
     .zy-composer button svg { width: 18px; height: 18px; }
 
     /* ---- Footer note ---- */
-    .zy-note { padding: 0 16px 12px; font-size: 12px; color: var(--zy-muted); text-align: center; flex-shrink: 0; }
+    .zy-note { padding: 0 16px 12px; font-size: 12px; color: var(--zy-muted); text-align: center; flex-shrink: 0; background: var(--zy-bg); }
 
     /* ---- Animations ---- */
     @keyframes zy-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
