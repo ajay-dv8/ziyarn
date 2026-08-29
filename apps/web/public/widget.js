@@ -211,6 +211,26 @@
     return node;
   }
 
+  function esc(s) {
+    return s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function renderMd(text) {
+    if (!text) return "";
+    var s = esc(text);
+    s = s.replace(/\u2014/g, " — ");
+    s = s.replace(/\u2013/g, " - ");
+    s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/\*(.+?)\*/g, "<em>$1</em>");
+    s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+    s = s.replace(/\n/g, "<br>");
+    return s;
+  }
+
   class ZyWidget extends HTMLElement {
     constructor() {
       super();
@@ -417,7 +437,13 @@
     }
 
     _appendMessage(kind, text) {
-      var node = el("div", "zy-msg zy-msg-" + kind, text);
+      var node = document.createElement("div");
+      node.className = "zy-msg zy-msg-" + kind;
+      if (kind === "agent") {
+        node.innerHTML = renderMd(text);
+      } else {
+        node.textContent = text;
+      }
       this._messages.appendChild(node);
       this._scrollToBottom();
       return node;
@@ -515,13 +541,13 @@
         if (event.type === "text") {
           reply += event.delta || "";
           typingNode.classList.remove("zy-msg-typing");
-          typingNode.textContent = reply;
+          typingNode.innerHTML = renderMd(reply);
           self._scrollToBottom();
         } else if (event.type === "escalate") {
-          self._setStatus("Connecting you with a human…");
+          self._setStatus("Connecting you with a human...");
           typingNode.classList.remove("zy-msg-typing");
           typingNode.textContent =
-            "I've asked a human teammate to take over — they'll join this chat shortly.";
+            "I've asked a human teammate to take over - they'll join this chat shortly.";
           self._scrollToBottom();
           self._startDelta();
         } else if (event.type === "done") {
