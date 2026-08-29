@@ -51,7 +51,9 @@ export function ConfigureBookingButton({
             Configure availability hours, slot duration, and booking window for this domain.
           </DialogDescription>
         </DialogHeader>
-        <BookingSettingsForm settings={settings} onSave={handleSave} />
+        <div className="max-h-[70vh] overflow-y-auto pr-1 -mr-1">
+          <BookingSettingsForm settings={settings} onSave={handleSave} />
+        </div>
       </DialogContent>
     </Dialog>
   );
