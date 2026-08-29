@@ -17,10 +17,33 @@
  *
  * Works in browsers and WebViews (no iframe). Styling is fully encapsulated
  * in the shadow root, so host page CSS cannot leak in or out.
+ *
+ * Architecture overview:
+ *   1. IIFE registers a <zy-widget> custom element via customElements.define()
+ *   2. When the element enters the DOM, connectedCallback() fires:
+ *      - Reads data-* attributes for config
+ *      - Creates Shadow DOM (fully isolated styles + markup)
+ *      - Generates a persistent visitor ID (localStorage)
+ *      - Restores any in-progress conversation from localStorage
+ *      - Wires up event listeners (launcher, send, keyboard, header close)
+ *      - Calls _init() to fetch agent config and load history
+ *   3. User messages are POSTed to /api/chat as SSE streams
+ *   4. The widget reads the SSE stream incrementally, rendering tokens
+ *      in real-time via renderMd() (lightweight markdown → HTML)
+ *   5. After the AI responds, a delta loop polls for owner (human) replies
+ *      via GET /api/chat?since=X&stream=1 (long-poll SSE)
  */
 (function () {
   "use strict";
 
+  // ---------------------------------------------------------------------------
+  // API base URL detection
+  // ---------------------------------------------------------------------------
+  // document.currentScript.src gives us the URL this script was loaded from.
+  // We use that to derive the API base (e.g. "https://ziyarn.vercel.app").
+  // Falls back to location.origin if the script is injected dynamically
+  // (e.g. via next/script afterInteractive, where currentScript may be null).
+  // The data-api attribute on <zy-widget> overrides this entirely.
   var SCRIPT_SRC = document.currentScript && document.currentScript.src;
   var DEFAULT_API_BASE = (function () {
     try {
@@ -30,7 +53,26 @@
     }
   })();
 
+  // ---------------------------------------------------------------------------
+  // Styles — injected as a <style> tag inside the Shadow DOM
+  // ---------------------------------------------------------------------------
+  // All styles are scoped to the shadow root. The host page's CSS cannot leak
+  // in, and these styles cannot leak out. CSS custom properties (--zy-*) are
+  // used so the host page can override colors via the element's attributes.
+  //
+  // :host targets the <zy-widget> element itself. `all: initial` resets every
+  // inherited property so the host page's fonts/colors don't bleed in.
+  //
+  // Layout structure inside the shadow DOM:
+  //   .zy-wrap (fixed-position wrapper)
+  //     .zy-panel (the chat window — hidden until data-open="true")
+  //       .zy-header (title, subtitle, status indicator, mobile close btn)
+  //       .zy-messages (scrollable message list)
+  //       .zy-composer (text input + send button)
+  //       .zy-note ("Powered by Ziyarn" footer)
+  //     .zy-launcher (the floating circle button — toggles the panel)
   var STYLE = `
+    /* ---- Reset & base ---- */
     :host {
       --zy-color: var(--zy-color, #10b981);
       --zy-text: var(--zy-text, #0f172a);
@@ -44,10 +86,11 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* ---- Fixed-position wrapper — anchors the panel and launcher to viewport ---- */
     .zy-wrap {
       position: fixed;
       bottom: 20px;
-      z-index: 2147483000;
+      z-index: 2147483000; /* above everything, including site z-index stacks */
       display: flex;
       flex-direction: column;
       align-items: flex-end;
@@ -59,6 +102,7 @@
     .zy-wrap[data-position="bottom-left"] { left: 20px; right: auto; align-items: flex-start; }
     .zy-wrap[data-position="bottom-right"] { right: 20px; left: auto; }
 
+    /* ---- Launcher — the floating chat bubble that toggles the panel open/closed ---- */
     .zy-launcher {
       width: 58px;
       height: 58px;
@@ -75,10 +119,13 @@
     }
     .zy-launcher:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 16px 44px rgba(15, 23, 42, 0.24); }
     .zy-launcher svg { width: 26px; height: 26px; }
+    /* Toggle between chat icon and close icon based on data-open */
     .zy-launcher .zy-close { display: none; }
     .zy-wrap[data-open="true"] .zy-launcher .zy-open { display: none; }
     .zy-wrap[data-open="true"] .zy-launcher .zy-close { display: block; }
 
+    /* ---- Chat panel — the main chat window ---- */
+    /* Hidden by default (display: none). Shown when data-open="true" on .zy-wrap. */
     .zy-panel {
       width: 382px;
       max-width: calc(100vw - 32px);
@@ -94,14 +141,34 @@
     }
     .zy-wrap[data-open="true"] .zy-panel { display: flex; }
 
+    /* ---- Header — agent name, description, online status, mobile close button ---- */
     .zy-header {
       background: var(--zy-color);
       color: #fff;
       padding: 14px 16px;
       flex-shrink: 0;
+      position: relative; /* anchor for the absolute-positioned close button */
     }
-    .zy-header-title { font-weight: 650; font-size: 16px; letter-spacing: -0.01em; }
+    .zy-header-title { font-weight: 650; font-size: 16px; letter-spacing: -0.01em; padding-right: 36px; /* room for close btn */ }
     .zy-header-sub { font-size: 12.5px; opacity: 0.92; margin-top: 2px; }
+    /* Close button inside the header — hidden on desktop, shown on mobile (≤480px) */
+    .zy-header-close {
+      display: none;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: none;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 6px;
+      line-height: 0;
+      transition: background 0.15s ease;
+    }
+    .zy-header-close:hover { background: rgba(255,255,255,0.18); }
+    .zy-header-close svg { width: 20px; height: 20px; }
+    /* Online status indicator — pulsing dot shown during escalated conversations */
     .zy-header-status { display: none; margin-top: 6px; font-size: 12px; opacity: 0.95; }
     .zy-header-status[data-visible="true"] { display: flex; align-items: center; gap: 6px; }
     .zy-header-status::before {
@@ -111,6 +178,10 @@
       animation: zy-pulse 1.4s ease-in-out infinite;
     }
 
+    /* ---- Messages container — scrollable list of chat bubbles ---- */
+    /* overscroll-behavior: contain prevents the page from scrolling when
+       the user scrolls to the top/bottom of the message list (important
+       on mobile where the panel is fullscreen). */
     .zy-messages {
       flex: 1;
       overflow-y: auto;
@@ -121,6 +192,7 @@
       background: #f8fafc;
       overscroll-behavior: contain;
     }
+    /* Individual message bubble styles */
     .zy-msg {
       max-width: 84%;
       padding: 9px 13px;
@@ -130,14 +202,30 @@
       word-break: break-word;
       animation: zy-in 0.16s ease;
     }
+    /* Agent (AI) messages — left-aligned, white background */
     .zy-msg-agent { background: #fff; border: 1px solid var(--zy-border); border-bottom-left-radius: 5px; align-self: flex-start; }
+    /* Owner (human support) messages — left-aligned, accent border, labeled */
     .zy-msg-owner { background: #fff; border: 1px solid var(--zy-color); border-bottom-left-radius: 5px; align-self: flex-start; }
     .zy-msg-owner::before { content: "Owner"; display: block; font-size: 11px; font-weight: 600; color: var(--zy-color); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+    /* User (visitor) messages — right-aligned, accent background, white text */
     .zy-msg-user { background: var(--zy-color); color: #fff; border-bottom-right-radius: 5px; align-self: flex-end; }
+    /* Error messages — centered, red background */
     .zy-msg-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; align-self: center; font-size: 13px; }
-    .zy-msg-typing { color: var(--zy-muted); font-size: 13.5px; }
-    .zy-msg-typing::after { content: "…"; animation: zy-dots 1.1s infinite; }
+    /* Typing indicator — bouncing dots while waiting for AI response */
+    .zy-msg-typing { padding: 9px 13px; }
+    .zy-typing-dots { display: inline-flex; align-items: center; gap: 12%; }
+    .zy-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--zy-muted);
+      animation: zy-bounce 1.4s ease-in-out infinite;
+    }
+    .zy-dot:nth-child(2) { animation-delay: 0.2s; }
+    .zy-dot:nth-child(3) { animation-delay: 0.4s; }
 
+    /* ---- Composer — input field + send button at the bottom of the panel ---- */
     .zy-composer {
       display: flex;
       gap: 8px;
@@ -177,33 +265,47 @@
     .zy-composer button:disabled { opacity: 0.45; cursor: not-allowed; }
     .zy-composer button svg { width: 18px; height: 18px; }
 
+    /* ---- Footer note ---- */
     .zy-note { padding: 0 16px 12px; font-size: 12px; color: var(--zy-muted); text-align: center; flex-shrink: 0; }
 
+    /* ---- Animations ---- */
     @keyframes zy-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
     @keyframes zy-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-    @keyframes zy-dots { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+    @keyframes zy-bounce { 0%, 100% { transform: scale(0.8); opacity: 0.5; } 50% { transform: scale(1.2); opacity: 1; } }
 
+    /* ---- Mobile: fullscreen panel (≤480px) ---- */
     @media (max-width: 480px) {
       .zy-panel {
         width: 100vw;
         max-width: none;
-        height: 100dvh;
+        height: 100dvh; /* dynamic viewport height — handles mobile browser chrome */
         max-height: none;
         border-radius: 0;
         border: none;
       }
       .zy-wrap, .zy-wrap[data-position] { left: 0; right: 0; bottom: 0; }
+      /* Keep the launcher as a floating bubble at the bottom */
       .zy-launcher { position: fixed; right: 16px; bottom: 16px; }
       .zy-wrap[data-position="bottom-left"] .zy-launcher { left: 16px; right: auto; }
+      /* When panel is open on mobile: hide the floating launcher (it would overlap
+         the send button), show the header close button instead */
+      .zy-wrap[data-open="true"] .zy-launcher { display: none; }
+      .zy-header-close { display: flex; }
     }
   `;
 
+  // ---------------------------------------------------------------------------
+  // SVG icons — inline, no external dependencies
+  // ---------------------------------------------------------------------------
   var ICONS = {
     chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
   };
 
+  // ---------------------------------------------------------------------------
+  // Helper: create a DOM element with optional className and text
+  // ---------------------------------------------------------------------------
   function el(tag, className, text) {
     var node = document.createElement(tag);
     if (className) node.className = className;
@@ -211,6 +313,12 @@
     return node;
   }
 
+  // ---------------------------------------------------------------------------
+  // Helper: escape HTML special characters (XSS prevention)
+  // ---------------------------------------------------------------------------
+  // Used by renderMd() to sanitize AI output before injecting HTML.
+  // Must be called BEFORE any markdown-to-HTML conversion so that raw HTML
+  // in AI responses (e.g. <script>) is neutralized.
   function esc(s) {
     return s
       .replace(/&/g, "&amp;")
@@ -219,11 +327,27 @@
       .replace(/"/g, "&quot;");
   }
 
+  // ---------------------------------------------------------------------------
+  // Lightweight markdown → HTML renderer
+  // ---------------------------------------------------------------------------
+  // Converts a small subset of markdown into HTML for agent messages.
+  // Order matters: esc() first (prevents XSS), then apply formatting tags.
+  //
+  // Supported syntax:
+  //   **bold**    → <strong>bold</strong>
+  //   *italic*    → <em>italic</em>
+  //   `code`      → <code>code</code>
+  //   \n          → <br>
+  //   em-dash (—) → " — " (spaced, for readability)
+  //   en-dash (–) → " - " (spaced, for readability)
+  //
+  // NOT supported (intentionally): tables, links, images, headers, lists.
+  // This keeps the renderer fast and safe for untrusted AI output.
   function renderMd(text) {
     if (!text) return "";
     var s = esc(text);
-    s = s.replace(/\u2014/g, " — ");
-    s = s.replace(/\u2013/g, " - ");
+    s = s.replace(/\u2014/g, " \u2014 "); // em-dash → spaced
+    s = s.replace(/\u2013/g, " - ");       // en-dash → hyphen
     s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
     s = s.replace(/\*(.+?)\*/g, "<em>$1</em>");
     s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
@@ -231,26 +355,45 @@
     return s;
   }
 
+  // ---------------------------------------------------------------------------
+  // ZyWidget — custom element class
+  // ---------------------------------------------------------------------------
+  // Lifecycle: constructor() → connectedCallback() → (user interacts) → disconnectedCallback()
+  // The widget manages its own state (open/closed, streaming, conversation ID)
+  // entirely within the Shadow DOM — no global variables or window pollution.
   class ZyWidget extends HTMLElement {
     constructor() {
       super();
-      this._open = false;
-      this._streaming = false;
-      this._apiBase = null;
-      this._conversationId = null;
-      this._visitorId = null;
-      this._slug = "";
-      this._secret = "";
-      this._title = "Chat with us";
-      this._subtitle = "We usually reply in minutes";
-      this._color = "#10b981";
-      this._position = "bottom-right";
+      // ---- State ----
+      this._open = false;            // whether the chat panel is visible
+      this._streaming = false;       // true while an AI response is being streamed in
+      this._apiBase = null;          // API base URL (e.g. "https://ziyarn.vercel.app")
+      this._conversationId = null;   // current conversation ID (persisted in localStorage)
+      this._visitorId = null;        // unique visitor ID (persisted in localStorage)
+      // ---- Config (from data-* attributes) ----
+      this._slug = "";               // domain slug — identifies which business/agent to talk to
+      this._secret = "";             // embed secret — authenticates widget requests
+      this._title = "Chat with us";  // header title (overridden by agent name after _init)
+      this._subtitle = "We usually reply in minutes"; // header subtitle
+      this._color = "#10b981";       // accent color for launcher, header, user messages
+      this._position = "bottom-right"; // "bottom-right" or "bottom-left"
     }
 
+    // -------------------------------------------------------------------------
+    // connectedCallback — called when <zy-widget> is inserted into the DOM
+    // -------------------------------------------------------------------------
+    // This is the main initialization entry point. It:
+    //   1. Reads data-* attributes
+    //   2. Creates the Shadow DOM (isolated styles + markup)
+    //   3. Caches references to key DOM elements for fast access
+    //   4. Restores visitor ID and conversation from localStorage
+    //   5. Wires up event listeners
+    //   6. Calls _init() to fetch agent config and load conversation history
     connectedCallback() {
-      if (this._rendered) return;
+      if (this._rendered) return; // prevent double-init (e.g. React re-renders)
       this._rendered = true;
 
+      // ---- Read configuration from data-* attributes ----
       this._slug = this.getAttribute("data-slug") || "";
       this._secret = this.getAttribute("data-secret") || "";
       this._title = this.getAttribute("data-title") || this._title;
@@ -260,6 +403,7 @@
       this._apiBase =
         this.getAttribute("data-api") || DEFAULT_API_BASE;
 
+      // ---- Validate required attributes ----
       if (!this._slug || !this._secret) {
         console.error(
           "[zy-widget] data-slug and data-secret attributes are required"
@@ -267,7 +411,20 @@
         return;
       }
 
+      // ---- Create Shadow DOM ----
+      // The shadow root encapsulates all styles and markup. The host page
+      // cannot access or style elements inside the shadow root.
       var root = this.attachShadow({ mode: "open" });
+
+      // ---- Build the DOM tree ----
+      // Structure:
+      //   <div class="zy-wrap">          — fixed-position wrapper
+      //     <div class="zy-panel">       — chat window (hidden until open)
+      //       <div class="zy-header">    — title bar with close button
+      //       <div class="zy-messages">  — scrollable message list
+      //       <div class="zy-composer">  — input + send button
+      //       <div class="zy-note">      — "Powered by Ziyarn"
+      //     <button class="zy-launcher"> — floating chat bubble
       root.innerHTML =
         "<style>" +
         STYLE +
@@ -280,10 +437,13 @@
         '<div class="zy-header-title"></div>' +
         '<div class="zy-header-sub"></div>' +
         '<div class="zy-header-status" data-visible="false"></div>' +
+        '<button type="button" class="zy-header-close" aria-label="Close chat">' +
+        ICONS.close +
+        "</button>" +
         "</div>" +
         '<div class="zy-messages"></div>' +
         '<div class="zy-composer">' +
-        '<input type="text" placeholder="Type a message…" autocomplete="off" />' +
+        '<input type="text" placeholder="Type a message\u2026" autocomplete="off" />' +
         '<button type="button" aria-label="Send message">' +
         ICONS.send +
         "</button>" +
@@ -299,9 +459,12 @@
         "</button>" +
         "</div>";
 
+      // ---- Apply accent color via CSS custom property ----
       var wrap = root.querySelector(".zy-wrap");
       wrap.style.setProperty("--zy-color", this._color);
 
+      // ---- Cache DOM references for fast access ----
+      // Avoids repeated querySelector calls during streaming/interaction.
       this._root = root;
       this._wrap = wrap;
       this._panel = root.querySelector(".zy-panel");
@@ -312,10 +475,15 @@
       this._titleEl = root.querySelector(".zy-header-title");
       this._subEl = root.querySelector(".zy-header-sub");
       this._statusEl = root.querySelector(".zy-header-status");
+      this._headerCloseBtn = root.querySelector(".zy-header-close");
       this._titleEl.textContent = this._title;
       this._subEl.textContent = this._subtitle;
       this._sendBtn.disabled = false;
 
+      // ---- Restore visitor ID from localStorage ----
+      // The visitor ID persists across page reloads so the backend can track
+      // conversation history per visitor. Generated via crypto.randomUUID()
+      // with a fallback for older browsers/private mode.
       this._visitorId = this._loadStore("visitor");
       if (!this._visitorId) {
         this._visitorId =
@@ -326,23 +494,33 @@
               Date.now().toString(36);
         this._saveStore("visitor", this._visitorId);
       }
-      this._conversationId = this._loadStore("conversation") || null;
-      this._lastMsgAt = null;
-      this._deltaActive = false;
-      this._deltaTimer = null;
 
+      // ---- Restore in-progress conversation from localStorage ----
+      this._conversationId = this._loadStore("conversation") || null;
+      this._lastMsgAt = null;      // timestamp of last message (for delta polling)
+      this._deltaActive = false;   // true while the delta SSE loop is running
+      this._deltaTimer = null;     // setTimeout ID for reconnecting the delta loop
+
+      // ---- Wire up event listeners ----
       this._launcher.addEventListener("click", this._toggle.bind(this));
+      this._headerCloseBtn.addEventListener("click", this._toggle.bind(this));
       this._input.addEventListener("keydown", this._onKey.bind(this));
       this._sendBtn.addEventListener("click", this._send.bind(this));
 
+      // ---- Bootstrap: fetch agent info + load conversation history ----
       this._init();
     }
 
+    // -------------------------------------------------------------------------
+    // localStorage helpers — persist visitor ID and conversation ID
+    // -------------------------------------------------------------------------
+    // Keys are namespaced with the domain slug so multiple widgets on the
+    // same page (different domains) don't collide.
     _loadStore(key) {
       try {
         return localStorage.getItem("zy:" + key + ":" + this._slug);
       } catch (_) {
-        return null;
+        return null; // private browsing or storage full
       }
     }
 
@@ -354,6 +532,14 @@
       }
     }
 
+    // -------------------------------------------------------------------------
+    // _init — bootstrap the widget after DOM is ready
+    // -------------------------------------------------------------------------
+    // Two things happen:
+    //   1. GET /api/chat → fetches the agent's name and description to
+    //      populate the header. This also validates the embed secret.
+    //   2. If there's a saved conversation, load its history. Otherwise,
+    //      show the default greeting message.
     _init() {
       var self = this;
       this._fetch(this._apiBase + "/api/chat", {
@@ -361,6 +547,7 @@
         headers: { "x-embed-secret": this._secret },
       })
         .then(function (data) {
+          // Update header with the agent's actual name and description
           if (data && data.agent) {
             if (data.agent.name) self._titleEl.textContent = data.agent.name;
             if (data.agent.description)
@@ -368,9 +555,11 @@
           }
         })
         .catch(function () {
-          /* keep attribute defaults */
+          /* keep attribute defaults — API might be unreachable */
         });
 
+      // If we have a saved conversation ID, load its message history.
+      // Otherwise, show the default greeting.
       if (this._conversationId) {
         this._loadHistory();
       } else {
@@ -378,6 +567,12 @@
       }
     }
 
+    // -------------------------------------------------------------------------
+    // _loadHistory — fetch and render previous messages for an existing conversation
+    // -------------------------------------------------------------------------
+    // Called when a conversation ID is found in localStorage (visitor returned
+    // to the page). Renders all messages in chronological order and resumes
+    // the delta loop if the conversation was escalated to a human agent.
     _loadHistory() {
       var self = this;
       var url =
@@ -390,19 +585,25 @@
       })
         .then(function (data) {
           if (data && Array.isArray(data.messages)) {
-            self._messages.textContent = "";
+            self._messages.textContent = ""; // clear greeting
             var latest = null;
             data.messages.forEach(function (m) {
+              // Route each message to the correct visual style:
+              //   "owner" = human support agent (green border, labeled "Owner")
+              //   "user"  = visitor (accent-colored bubble, right-aligned)
+              //   "assistant" = AI agent (white bubble, left-aligned)
               if (m.sender === "owner") self._appendMessage("owner", m.content);
               else if (m.role === "user") self._appendMessage("user", m.content);
               else if (m.role === "assistant")
                 self._appendMessage("agent", m.content);
               if (m.createdAt) latest = m.createdAt;
             });
+            // Track the latest message timestamp for delta polling
             if (latest) {
               var t = Date.parse(latest);
               if (!isNaN(t)) self._lastMsgAt = new Date(t);
             }
+            // If the conversation was escalated, start listening for human replies
             if (
               data.conversation &&
               data.conversation.status === "escalated"
@@ -416,6 +617,11 @@
         });
     }
 
+    // -------------------------------------------------------------------------
+    // _toggle — open/close the chat panel
+    // -------------------------------------------------------------------------
+    // Toggles the data-open attribute on .zy-wrap, which CSS uses to show/hide
+    // the panel and swap the launcher icon between chat/close.
     _toggle() {
       this._open = !this._open;
       this._wrap.setAttribute("data-open", String(this._open));
@@ -424,11 +630,17 @@
         this._open ? "Close chat" : "Open chat"
       );
       if (this._open) {
+        // Scroll to the latest message and focus the input
         this._messages.scrollTop = this._messages.scrollHeight;
         this._input.focus();
       }
     }
 
+    // -------------------------------------------------------------------------
+    // _onKey — handle keyboard input in the text field
+    // -------------------------------------------------------------------------
+    // Enter sends the message (unless Shift is held for a newline).
+    // Only sends when not currently streaming an AI response.
     _onKey(event) {
       if (event.key === "Enter" && !event.shiftKey && !this._streaming) {
         event.preventDefault();
@@ -436,6 +648,17 @@
       }
     }
 
+    // -------------------------------------------------------------------------
+    // _appendMessage — add a chat bubble to the message list
+    // -------------------------------------------------------------------------
+    // kind: "agent" | "user" | "owner" | "error"
+    //   - "agent" messages are rendered through renderMd() (supports bold,
+    //     italic, code, line breaks). This is safe because renderMd() escapes
+    //     HTML first, then applies only controlled formatting tags.
+    //   - "user" and "owner" messages use textContent (plain text only).
+    //
+    // Returns the created DOM node so callers can modify it later
+    // (e.g. streaming updates to the typing indicator).
     _appendMessage(kind, text) {
       var node = document.createElement("div");
       node.className = "zy-msg zy-msg-" + kind;
@@ -453,6 +676,11 @@
       this._messages.scrollTop = this._messages.scrollHeight;
     }
 
+    // -------------------------------------------------------------------------
+    // _setStatus — show/hide the status indicator in the header
+    // -------------------------------------------------------------------------
+    // Used during escalation to show "Connecting you with a human..."
+    // with a pulsing green dot.
     _setStatus(text) {
       if (text) {
         this._statusEl.textContent = text;
@@ -463,6 +691,22 @@
       }
     }
 
+    // -------------------------------------------------------------------------
+    // _send — send a user message to the AI
+    // -------------------------------------------------------------------------
+    // Flow:
+    //   1. Add the user's message to the chat UI
+    //   2. Add a "typing" indicator placeholder
+    //   3. POST /api/chat with the message, visitor ID, and conversation ID
+    //   4. The response is an SSE stream — read it incrementally via _readStream()
+    //   5. On error, show an error message in the typing bubble
+    //   6. On completion, re-enable the input and focus it
+    //
+    // The server streams SSE events:
+    //   data: {"type":"text","delta":"Hello"}      — incremental AI text
+    //   data: {"type":"escalate"}                   — handoff to human
+    //   data: {"type":"done","conversationId":"x"}  — response complete
+    //   data: {"type":"error","message":"..."}      — error occurred
     _send() {
       var text = this._input.value.trim();
       if (!text || this._streaming) return;
@@ -471,8 +715,10 @@
       this._appendMessage("user", text);
       this._streaming = true;
       this._sendBtn.disabled = true;
-      var typing = this._appendMessage("agent", "typing");
+      // Create a "typing" bubble with bouncing dots, updated as tokens stream in
+      var typing = this._appendMessage("agent", "");
       typing.classList.add("zy-msg-typing");
+      typing.innerHTML = '<span class="zy-typing-dots"><span class="zy-dot"></span><span class="zy-dot"></span><span class="zy-dot"></span></span>';
 
       var self = this;
       var body = JSON.stringify({
@@ -505,7 +751,7 @@
                 );
               });
           }
-          return response.body;
+          return response.body; // ReadableStream for SSE
         })
         .then(function (bodyStream) {
           if (!bodyStream) return Promise.resolve();
@@ -524,33 +770,48 @@
         });
     }
 
+    // -------------------------------------------------------------------------
+    // _readStream — consume the SSE stream from /api/chat and render tokens
+    // -------------------------------------------------------------------------
+    // The server sends Server-Sent Events (SSE) as:
+    //   data: {JSON}\n\n
+    //
+    // The reader accumulates chunks in a buffer, splits on "\n\n" boundaries,
+    // and processes each complete event. The "text" events append to the
+    // `reply` string and re-render the typing bubble with renderMd().
+    //
+    // After "done", the conversation ID is saved and the delta loop starts
+    // (to listen for human agent replies).
     _readStream(stream, typingNode) {
       var self = this;
       var reader = stream.getReader();
       var decoder = new TextDecoder();
-      var buffer = "";
-      var reply = "";
+      var buffer = "";  // partial SSE data that hasn't been fully received yet
+      var reply = "";   // accumulated AI response text
 
       function handleEvent(data) {
         var event;
         try {
           event = JSON.parse(data);
         } catch (_) {
-          return;
+          return; // ignore malformed events
         }
         if (event.type === "text") {
+          // Incremental text token — append and re-render
           reply += event.delta || "";
           typingNode.classList.remove("zy-msg-typing");
           typingNode.innerHTML = renderMd(reply);
           self._scrollToBottom();
         } else if (event.type === "escalate") {
+          // AI decided to hand off to a human agent
           self._setStatus("Connecting you with a human...");
           typingNode.classList.remove("zy-msg-typing");
           typingNode.textContent =
             "I've asked a human teammate to take over - they'll join this chat shortly.";
           self._scrollToBottom();
-          self._startDelta();
+          self._startDelta(); // start listening for human replies
         } else if (event.type === "done") {
+          // Response complete — save conversation ID and start delta loop
           if (event.conversationId) {
             self._conversationId = event.conversationId;
             self._saveStore("conversation", event.conversationId);
@@ -563,11 +824,14 @@
         }
       }
 
+      // pump() reads chunks from the stream, splits on SSE boundaries,
+      // and processes complete events. The leftover partial data stays
+      // in `buffer` for the next iteration.
       function pump(result) {
         if (result.done) return;
         buffer += decoder.decode(result.value, { stream: true });
         var parts = buffer.split("\n\n");
-        buffer = parts.pop();
+        buffer = parts.pop(); // last element may be incomplete
         parts.forEach(function (chunk) {
           var line = chunk.split("\n")[0];
           if (line.indexOf("data:") === 0) {
@@ -580,6 +844,11 @@
       return reader.read().then(pump);
     }
 
+    // -------------------------------------------------------------------------
+    // _fetch — wrapper around fetch() that throws on non-2xx responses
+    // -------------------------------------------------------------------------
+    // Parses the error body as JSON to extract the error message, falling
+    // back to a generic message if parsing fails.
     _fetch(url, options) {
       return fetch(url, options).then(function (response) {
         if (!response.ok) {
@@ -601,11 +870,23 @@
       });
     }
 
-    /**
-     * Realtime delta loop: holds an SSE stream to /api/chat?since&stream=1;
-     * the server pushes new messages (owner replies) and closes; we
-     * reconnect immediately. Runs while the widget exists.
-     */
+    // -------------------------------------------------------------------------
+    // Delta loop — realtime polling for owner (human) replies
+    // -------------------------------------------------------------------------
+    // After an AI response completes (or the conversation is escalated),
+    // the widget holds an SSE connection to:
+    //   GET /api/chat?conversationId=X&since=Y&stream=1
+    //
+    // The server long-polls Postgres for new owner messages, pushes them
+    // as SSE events, and closes the connection. The widget reconnects
+    // immediately with an updated `since` timestamp.
+    //
+    // This gives near-realtime updates without WebSockets.
+    //
+    // Events received:
+    //   {"type":"message","message":{...}} — new owner message
+    //   {"type":"done","serverTime":"..."} — server closed, reconnect
+    //   {"type":"error"}                   — error, retry after delay
     _startDelta() {
       var self = this;
       if (this._deltaActive || !this._conversationId || !this._lastMsgAt) {
@@ -631,7 +912,7 @@
         })
         .catch(function () {
           self._deltaActive = false;
-          self._scheduleDelta(2500);
+          self._scheduleDelta(2500); // retry after 2.5s on error
         });
     }
 
@@ -643,6 +924,12 @@
       }, delay);
     }
 
+    // -------------------------------------------------------------------------
+    // _readDelta — consume the SSE stream for realtime owner replies
+    // -------------------------------------------------------------------------
+    // Same SSE parsing pattern as _readStream(), but for a different event
+    // shape. The delta stream only carries "message", "done", and "error"
+    // events (no "text" tokens).
     _readDelta(stream) {
       var self = this;
       var reader = stream.getReader();
@@ -658,6 +945,7 @@
         }
         if (event.type === "message" && event.message) {
           var m = event.message;
+          // Only render owner messages (human support agent replies)
           if (m.sender === "owner" && m.content) {
             self._appendMessage("owner", m.content);
           }
@@ -666,6 +954,7 @@
             if (!isNaN(t)) self._lastMsgAt = new Date(t);
           }
         } else if (event.type === "done") {
+          // Server closed the connection — reconnect quickly
           self._deltaActive = false;
           if (event.serverTime) {
             var t = Date.parse(event.serverTime);
@@ -673,6 +962,7 @@
           }
           self._scheduleDelta(200);
         } else if (event.type === "error") {
+          // Error — back off and retry
           self._deltaActive = false;
           self._scheduleDelta(2000);
         }
@@ -680,6 +970,7 @@
 
       function pump(result) {
         if (result.done) {
+          // Stream ended unexpectedly — reconnect
           self._deltaActive = false;
           self._scheduleDelta(200);
           return;
@@ -700,6 +991,12 @@
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Register the custom element
+  // ---------------------------------------------------------------------------
+  // Guard against browsers that don't support Web Components.
+  // The try/catch handles the case where the script is loaded multiple times
+  // (e.g. hot reload, dual script tags) — re-defining throws an error.
   if (!("customElements" in window)) {
     console.error("[zy-widget] customElements is not supported in this browser");
     return;
