@@ -28,6 +28,8 @@ export const bookings = pgTable(
     email: text("email"),
     date: text("date").notNull(),
     time: text("time").notNull(),
+    duration: integer("duration").notNull().default(30),
+    timezone: text("timezone").notNull().default("UTC"),
     topic: text("topic"),
     status: text("status", {
       enum: ["pending", "confirmed", "cancelled"],
@@ -104,9 +106,34 @@ export const stripeAccounts = pgTable(
   (table) => [uniqueIndex("stripe_accounts_owner_id_idx").on(table.ownerId)],
 );
 
+export const bookingSettings = pgTable(
+  "booking_settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    domainId: uuid("domain_id")
+      .notNull()
+      .references(() => domains.id, { onDelete: "cascade" }),
+    availableDays: integer("available_days").array().notNull().default([1, 2, 3, 4, 5]),
+    availableStart: text("available_start").notNull().default("09:00"),
+    availableEnd: text("available_end").notNull().default("17:00"),
+    slotDuration: integer("slot_duration").notNull().default(30),
+    minNoticeHours: integer("min_notice_hours").notNull().default(24),
+    maxAdvanceDays: integer("max_advance_days").notNull().default(30),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [uniqueIndex("booking_settings_domain_id_idx").on(table.domainId)],
+);
+
 export type Booking = typeof bookings.$inferSelect;
 export type NewBooking = typeof bookings.$inferInsert;
 export type Payment = typeof payments.$inferSelect;
 export type NewPayment = typeof payments.$inferInsert;
 export type StripeAccount = typeof stripeAccounts.$inferSelect;
 export type NewStripeAccount = typeof stripeAccounts.$inferInsert;
+export type BookingSetting = typeof bookingSettings.$inferSelect;
+export type NewBookingSetting = typeof bookingSettings.$inferInsert;
