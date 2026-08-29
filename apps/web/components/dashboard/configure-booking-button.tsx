@@ -44,7 +44,7 @@ export function ConfigureBookingButton({
         <Settings className="mr-1.5 h-4 w-4" />
         Configure
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Booking Settings</DialogTitle>
           <DialogDescription>

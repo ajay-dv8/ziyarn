@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
+import { Separator } from "@repo/ui/components/separator";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_VALUES = [0, 1, 2, 3, 4, 5, 6];
@@ -49,15 +50,15 @@ export function BookingSettingsForm({
   const minNoticeDays = Math.round(form.minNoticeHours / 24);
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
+    <div className="space-y-6 py-1">
+      <div className="space-y-4">
         <div>
           <p className="text-sm font-medium">Available Days</p>
           <p className="text-xs text-muted-foreground">
             Select the days visitors can book appointments.
           </p>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           {DAY_VALUES.map((day) => (
             <Button
               key={day}
@@ -65,7 +66,7 @@ export function BookingSettingsForm({
               size="sm"
               variant={form.availableDays.includes(day) ? "default" : "outline"}
               onClick={() => toggleDay(day)}
-              className="h-9 flex-1 text-xs font-medium"
+              className="h-10 flex-1 text-xs font-medium"
             >
               {DAY_NAMES[day]}
             </Button>
@@ -73,15 +74,17 @@ export function BookingSettingsForm({
         </div>
       </div>
 
-      <div className="space-y-3">
+      <Separator className="bg-border/50" />
+
+      <div className="space-y-4">
         <div>
           <p className="text-sm font-medium">Working Hours</p>
           <p className="text-xs text-muted-foreground">
             The time window when appointments can be scheduled.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
             <Label htmlFor="start" className="text-xs text-muted-foreground">
               Opens at
             </Label>
@@ -97,7 +100,7 @@ export function BookingSettingsForm({
               }
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label htmlFor="end" className="text-xs text-muted-foreground">
               Closes at
             </Label>
@@ -116,15 +119,17 @@ export function BookingSettingsForm({
         </div>
       </div>
 
-      <div className="space-y-3">
+      <Separator className="bg-border/50" />
+
+      <div className="space-y-4">
         <div>
           <p className="text-sm font-medium">Scheduling Rules</p>
           <p className="text-xs text-muted-foreground">
             Control slot length and how far in advance visitors can book.
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="space-y-1.5">
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2">
             <Label htmlFor="duration" className="text-xs text-muted-foreground">
               Slot length
             </Label>
@@ -146,7 +151,7 @@ export function BookingSettingsForm({
               ))}
             </select>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label htmlFor="notice" className="text-xs text-muted-foreground">
               Minimum notice
             </Label>
@@ -169,7 +174,7 @@ export function BookingSettingsForm({
               </span>
             </div>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label htmlFor="advance" className="text-xs text-muted-foreground">
               Max advance
             </Label>
@@ -194,6 +199,8 @@ export function BookingSettingsForm({
           </div>
         </div>
       </div>
+
+      <Separator className="bg-border/50" />
 
       <Button onClick={handleSave} disabled={saving} className="w-full">
         {saving ? "Saving..." : "Save Settings"}
