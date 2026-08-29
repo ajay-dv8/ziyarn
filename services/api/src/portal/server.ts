@@ -173,6 +173,8 @@ export function createPortalService(deps: {
           email: data.email ?? null,
           date: data.date,
           time: data.time,
+          duration: data.duration ?? 30,
+          timezone: data.timezone ?? "UTC",
           topic: data.topic ?? null,
         })
         .returning();
