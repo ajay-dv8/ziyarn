@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, sql } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import { agents, conversations, domains, messages } from "@repo/database/schema";
@@ -225,6 +225,26 @@ export function createChatService(deps: { db: Database }) {
           unread,
         };
       });
+    },
+
+    /** Total unread message count across all conversations for an owner. */
+    getTotalUnreadCount: async (ownerId: string) => {
+      const ownerConversations = db
+        .select({ id: conversations.id })
+        .from(conversations)
+        .innerJoin(agents, eq(conversations.agentId, agents.id))
+        .innerJoin(domains, eq(agents.domainId, domains.id))
+        .where(eq(domains.ownerId, ownerId));
+
+      const [row] = await db
+        .select({
+          total: sql<number>`coalesce(sum(case when ${messages.sender} <> 'owner' and ${messages.createdAt} > ${conversations.ownerSeenAt} then 1 else 0 end), 0)`,
+        })
+        .from(messages)
+        .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+        .where(inArray(conversations.id, ownerConversations));
+
+      return row?.total ?? 0;
     },
 
     /** Messages created after `since`, optionally restricted to a sender. */

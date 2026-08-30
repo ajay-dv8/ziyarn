@@ -130,6 +130,18 @@ export type ConversationListRow = {
   } | null;
 };
 
+export async function getTotalUnreadAction(): Promise<
+  ActionResult & { totalUnread?: number }
+> {
+  try {
+    const user = await requireOwner();
+    const totalUnread = await chatService.getTotalUnreadCount(user.id);
+    return { ok: true, totalUnread };
+  } catch (error) {
+    return errorResult(error);
+  }
+}
+
 export async function setConversationStatusAction(input: {
   id: string;
   status: "active" | "escalated" | "resolved" | "closed";
