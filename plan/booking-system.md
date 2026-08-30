@@ -96,7 +96,7 @@ Add a full booking/appointment system to Ziyarn: availability configuration, AI-
 ## Next Steps
 - [ ] Apply migration to Neon when network is available
 - [ ] Wire up booking-settings-form `onSave` to `PUT /api/booking-settings` (needs client-side fetch wrapper)
-- [ ] Wire up bookings-table `onUpdateStatus` to `PATCH /api/bookings/[id]`
-- [ ] Add booking confirmation email triggers in `updateBookingStatus`
-- [ ] Add booking analytics to analytics page
-- [ ] Visitor-facing booking settings page improvements
+- [x] Wire up bookings-table `onUpdateStatus` to `PATCH /api/bookings/[id]`
+- [x] Add booking confirmation email triggers in `updateBookingStatus`
+- [x] Add booking analytics to analytics page
+- [x] Visitor-facing booking settings page improvements
