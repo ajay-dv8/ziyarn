@@ -180,6 +180,15 @@ export default async function AnalyticsPage({
           <div className="grid gap-4 lg:grid-cols-3">
             <Card>
               <CardHeader>
+                <CardTitle className="text-base">Bookings by status</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <StatusBars rows={data.bookingsByStatus} color="bg-amber-500" />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle className="text-base">Payments by status</CardTitle>
               </CardHeader>
               <CardContent>

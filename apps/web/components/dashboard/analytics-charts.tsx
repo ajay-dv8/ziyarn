@@ -10,6 +10,7 @@ export function SeriesBars({ series }: { series: DayBucket[] }) {
   const shown = series.slice(-MAX_BARS);
   const maxConversations = Math.max(1, ...shown.map((d) => d.conversations));
   const maxLeads = Math.max(1, ...shown.map((d) => d.leads));
+  const maxBookings = Math.max(1, ...shown.map((d) => d.bookings));
   const maxPayments = Math.max(1, ...shown.map((d) => d.payments));
 
   return (
@@ -22,6 +23,9 @@ export function SeriesBars({ series }: { series: DayBucket[] }) {
           <span className="h-2.5 w-2.5 rounded-sm bg-blue-400" /> Leads
         </span>
         <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-amber-500" /> Bookings
+        </span>
+        <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" /> Payments
         </span>
       </div>
@@ -30,19 +34,23 @@ export function SeriesBars({ series }: { series: DayBucket[] }) {
           <div
             key={point.date}
             className="group flex flex-1 flex-col items-center gap-0.5"
-            title={`${point.date} — ${point.conversations} conversations, ${point.leads} leads, ${point.payments} payments`}
+            title={`${point.date} — ${point.conversations} conversations, ${point.leads} leads, ${point.bookings} bookings, ${point.payments} payments`}
           >
             <div className="flex h-36 w-full items-end justify-center gap-px">
               <div
-                className="w-1/3 rounded-t-sm bg-primary/80 transition-colors group-hover:bg-primary"
+                className="w-1/4 rounded-t-sm bg-primary/80 transition-colors group-hover:bg-primary"
                 style={{ height: `${Math.max(4, (point.conversations / maxConversations) * 100)}%` }}
               />
               <div
-                className="w-1/3 rounded-t-sm bg-blue-400/80 transition-colors group-hover:bg-blue-400"
+                className="w-1/4 rounded-t-sm bg-blue-400/80 transition-colors group-hover:bg-blue-400"
                 style={{ height: `${Math.max(4, (point.leads / maxLeads) * 100)}%` }}
               />
               <div
-                className="w-1/3 rounded-t-sm bg-emerald-500/80 transition-colors group-hover:bg-emerald-500"
+                className="w-1/4 rounded-t-sm bg-amber-500/80 transition-colors group-hover:bg-amber-500"
+                style={{ height: `${Math.max(4, (point.bookings / maxBookings) * 100)}%` }}
+              />
+              <div
+                className="w-1/4 rounded-t-sm bg-emerald-500/80 transition-colors group-hover:bg-emerald-500"
                 style={{ height: `${Math.max(4, (point.payments / maxPayments) * 100)}%` }}
               />
             </div>
