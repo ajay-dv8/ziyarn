@@ -28,6 +28,7 @@ import {
 } from "@repo/api/portal/schemas";
 
 import {
+  bookingCancelledTemplate,
   bookingConfirmationTemplate,
   paymentReceiptTemplate,
 } from "@repo/api/email/templates";
@@ -504,14 +505,56 @@ export function createPortalService(deps: {
       id: string,
       status: "pending" | "confirmed" | "cancelled",
     ): Promise<Booking> {
+      // Join on domains to get domainName for email templates
+      const [row] = await db
+        .select({ booking: bookings, domainName: domains.name })
+        .from(bookings)
+        .innerJoin(domains, eq(domains.id, bookings.domainId))
+        .where(eq(bookings.id, id))
+        .limit(1);
+      if (!row) {
+        throw new PortalServiceError(404, "NOT_FOUND", "Booking not found");
+      }
+
       const [updated] = await db
         .update(bookings)
         .set({ status, updatedAt: new Date() })
         .where(eq(bookings.id, id))
         .returning();
       if (!updated) {
-        throw new PortalServiceError(404, "NOT_FOUND", "Booking not found");
+        throw new PortalServiceError(500, "UPDATE_FAILED", "Failed to update booking");
       }
+
+      // Send email notification on confirm or cancel (best-effort, never throw)
+      if (sendTransactional && updated.email) {
+        const templateInput = {
+          domainName: row.domainName,
+          booking: {
+            name: updated.name,
+            date: updated.date,
+            time: updated.time,
+            topic: updated.topic,
+          },
+        };
+        if (status === "confirmed") {
+          const template = bookingConfirmationTemplate(templateInput);
+          await sendTransactional({
+            to: updated.email,
+            subject: template.subject,
+            text: template.text,
+            html: template.html,
+          });
+        } else if (status === "cancelled") {
+          const template = bookingCancelledTemplate(templateInput);
+          await sendTransactional({
+            to: updated.email,
+            subject: template.subject,
+            text: template.text,
+            html: template.html,
+          });
+        }
+      }
+
       return updated;
     },
 
