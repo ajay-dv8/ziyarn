@@ -197,66 +197,68 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-      <Card>
-        <CardContent className="p-2">
+    <div className="grid h-full gap-4 lg:grid-cols-[320px_1fr]">
+      <Card className="flex min-h-0 flex-col overflow-hidden">
+        <CardContent className="flex min-h-0 flex-1 flex-col p-2">
           {conversations.length === 0 && (
             <p className="p-4 text-sm text-muted-foreground">
               No conversations yet — widget visitors appear here.
             </p>
           )}
-          <ul className="space-y-1">
-            {conversations.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  onClick={() => openConversation(c.id)}
-                  className={cn(
-                    "flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted",
-                    selectedId === c.id && "bg-muted",
-                  )}
-                >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-medium">
-                      {c.title ?? c.visitorId ?? "Visitor"}
-                    </span>
-                    <Badge
-                      variant={
-                        c.status === "escalated" ? "default" : "secondary"
-                      }
-                    >
-                      {STATUS_LABEL[c.status]}
-                    </Badge>
-                  </span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {c.lastMessage
-                      ? c.lastMessage.content
-                      : c.domainName + " · no messages yet"}
-                  </span>
-                  <span className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="truncate">@{c.domainSlug}</span>
-                    {c.unread > 0 && (
-                      <span className="ml-2 rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
-                        {c.unread} new
-                      </span>
+          <ScrollArea className="min-h-0 flex-1">
+            <ul className="space-y-1">
+              {conversations.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => openConversation(c.id)}
+                    className={cn(
+                      "flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted",
+                      selectedId === c.id && "bg-muted",
                     )}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-medium">
+                        {c.title ?? c.visitorId ?? "Visitor"}
+                      </span>
+                      <Badge
+                        variant={
+                          c.status === "escalated" ? "default" : "secondary"
+                        }
+                      >
+                        {STATUS_LABEL[c.status]}
+                      </Badge>
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {c.lastMessage
+                        ? c.lastMessage.content
+                        : c.domainName + " · no messages yet"}
+                    </span>
+                    <span className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="truncate">@{c.domainSlug}</span>
+                      {c.unread > 0 && (
+                        <span className="ml-2 rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                          {c.unread} new
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </ScrollArea>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="p-0">
+      <Card className="flex min-h-0 flex-col overflow-hidden">
+        <CardContent className="flex min-h-0 flex-1 flex-col p-0">
           {!selected ? (
-            <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
+            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
               Select a conversation to open the messenger
             </div>
           ) : (
-            <div className="flex h-[60vh] flex-col">
-              <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">
                     {selected.agentName
@@ -306,7 +308,7 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
               </div>
 
               {lead ? (
-                <div className="border-b bg-muted/40 px-4 py-2.5 text-xs">
+                <div className="shrink-0 border-b bg-muted/40 px-4 py-2.5 text-xs">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
                     <span className="font-medium text-foreground">
                       {lead.name ?? "Lead"}
@@ -341,8 +343,8 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
                 </div>
               ) : null}
 
-              <ScrollArea className="flex-1">
-                <div ref={messagesRef} className="space-y-2 overflow-y-auto p-4">
+              <ScrollArea className="min-h-0 flex-1">
+                <div ref={messagesRef} className="space-y-2 p-4">
                   {messages.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       No messages yet.
@@ -354,7 +356,7 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
                 </div>
               </ScrollArea>
 
-              <div className="flex gap-2 border-t p-3">
+              <div className="flex shrink-0 gap-2 border-t p-3">
                 <Input
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
