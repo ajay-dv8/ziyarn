@@ -202,3 +202,37 @@ export function paymentReceiptTemplate(
     html: render(domainName, body),
   };
 }
+
+export type EscalationTemplateInput = {
+  domainName: string;
+  dashboardUrl: string;
+  conversationId: string;
+  firstMessage: string | null;
+};
+
+export function escalationNotificationTemplate(
+  input: EscalationTemplateInput,
+): { subject: string; text: string; html: string } {
+  const { domainName, dashboardUrl, conversationId, firstMessage } = input;
+  const messageHtml = firstMessage
+    ? `<div style="background-color:#f4f4f5;border-radius:8px;padding:16px 20px;margin-bottom:20px;"><div style="font-size:13px;color:#71717a;">Visitor message</div><div style="font-size:14px;color:#18181b;margin-top:4px;">"${escapeHtml(firstMessage.length > 200 ? firstMessage.slice(0, 200) + "…" : firstMessage)}"</div></div>`
+    : "";
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;color:#18181b;">New escalation</h1>
+    <p style="margin:0 0 20px;font-size:15px;color:#52525b;">A visitor in <strong>${escapeHtml(domainName)}</strong> has been escalated to a human agent and is waiting for a response.</p>
+    ${messageHtml}
+    <a href="${escapeHtml(dashboardUrl)}" style="display:inline-block;background-color:#18181b;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 24px;border-radius:8px;">Open conversation</a>`;
+  const text = [
+    "New escalation",
+    "",
+    `A visitor in ${domainName} has been escalated to a human agent and is waiting for a response.`,
+    ...(firstMessage ? [`Visitor: "${firstMessage.length > 200 ? firstMessage.slice(0, 200) + "…" : firstMessage}"`] : []),
+    "",
+    `Open: ${dashboardUrl}`,
+  ].join("\n");
+  return {
+    subject: `Escalation in ${domainName} — waiting for response`,
+    text,
+    html: render(domainName, body),
+  };
+}

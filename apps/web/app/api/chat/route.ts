@@ -11,10 +11,12 @@ import {
 } from "@repo/api/portal/schemas";
 import { checkSlotAvailable } from "@repo/api/portal/availability";
 import { db } from "@repo/database";
-import { leads, products, bookingSettings } from "@repo/database/schema";
+import { leads, products, bookingSettings, domains, users } from "@repo/database/schema";
 import { upsertCustomers } from "@repo/api/customers/server";
 import type { AgentToolName } from "@repo/ai";
 import { currencyCode, formatDecimal } from "@repo/money";
+import { escalationNotificationTemplate } from "@repo/api/email/templates";
+import { sendTransactional } from "@repo/api/email/server";
 
 import { aiService, chatService, logger } from "@/services/chat-service";
 import { authService } from "@/services/auth-service";
@@ -400,6 +402,39 @@ export async function POST(request: Request) {
         case "escalate":
           await chatService.setConversationStatus(conversationId, "escalated");
           logger.info({ conversationId }, "conversation_escalated");
+          // Best-effort email notification to domain owner
+          try {
+            const [domainRow] = await db
+              .select({ ownerId: domains.ownerId, domainName: domains.name })
+              .from(domains)
+              .where(eq(domains.id, domain.id))
+              .limit(1);
+            if (domainRow) {
+              const [ownerRow] = await db
+                .select({ email: users.email })
+                .from(users)
+                .where(eq(users.id, domainRow.ownerId))
+                .limit(1);
+              if (ownerRow?.email) {
+                const firstMsg = await chatService.contextMessages(conversationId, 1);
+                const dashboardUrl = `${process.env.BETTER_AUTH_URL ?? ""}/dashboard/conversations?conversationId=${conversationId}`;
+                const template = escalationNotificationTemplate({
+                  domainName: domainRow.domainName,
+                  dashboardUrl,
+                  conversationId,
+                  firstMessage: firstMsg[0]?.content ?? null,
+                });
+                await sendTransactional({
+                  to: ownerRow.email,
+                  subject: template.subject,
+                  text: template.text,
+                  html: template.html,
+                });
+              }
+            }
+          } catch (emailError) {
+            logger.error({ err: emailError, conversationId }, "escalation_email_failed");
+          }
           return "The visitor has been connected to a human agent.";
         case "answer_knowledge": {
           const query =
