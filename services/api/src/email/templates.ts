@@ -131,6 +131,40 @@ export function bookingConfirmationTemplate(
   };
 }
 
+export function bookingCancelledTemplate(
+  input: BookingTemplateInput,
+): { subject: string; text: string; html: string } {
+  const { domainName, booking } = input;
+  const greeting = booking.name ? `Hi ${escapeHtml(booking.name)},` : "Hi there,";
+  const topicHtml = booking.topic
+    ? `<p style="margin:0 0 4px;font-size:13px;color:#71717a;">Topic</p><p style="margin:0 0 20px;font-size:15px;color:#18181b;">${escapeHtml(booking.topic)}</p>`
+    : "";
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;color:#18181b;">Booking cancelled</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#52525b;">${greeting} Your booking with ${escapeHtml(domainName)} has been cancelled. Here were the details:</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+      ${detailsRow("Date", formatDate(booking.date))}
+      ${detailsRow("Time", formatTime(booking.time))}
+    </table>
+    ${topicHtml}
+    <p style="margin:0;font-size:14px;color:#71717a;">If this was a mistake, please contact us to rebook.</p>`;
+  const text = [
+    "Booking cancelled",
+    "",
+    `${greeting} Your booking with ${domainName} has been cancelled.`,
+    `Date: ${formatDate(booking.date)}`,
+    `Time: ${formatTime(booking.time)}`,
+    ...(booking.topic ? [`Topic: ${booking.topic}`] : []),
+    "",
+    "If this was a mistake, please contact us to rebook.",
+  ].join("\n");
+  return {
+    subject: `Booking cancelled with ${domainName}`,
+    text,
+    html: render(domainName, body),
+  };
+}
+
 export function paymentReceiptTemplate(
   input: PaymentTemplateInput,
 ): { subject: string; text: string; html: string } {
