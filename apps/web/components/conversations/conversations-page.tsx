@@ -37,6 +37,12 @@ const STATUS_LABEL: Record<ConversationRow["status"], string> = {
   closed: "Closed",
 };
 
+/**
+ * ConversationsPage — two-panel layout for managing live chat conversations.
+ * Left panel: scrollable list of all conversations with status badges.
+ * Right panel: messenger view with real-time SSE streaming, lead info, and reply input.
+ * Layout fills the parent container (h-full) so scrolling is handled per-panel, not the page.
+ */
 export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
   const [conversations, setConversations] = useState(initial);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -45,83 +51,101 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
   const [busy, setBusy] = useState(false);
   const [lead, setLead] = useState<LeadInfo | null>(null);
 
-  const esRef = useRef<EventSource | null>(null);
-  const sinceRef = useRef<string | null>(null);
-  const seenRef = useRef<Set<string>>(new Set());
-  const selectedRef = useRef<string | null>(null);
+  // Refs for EventSource SSE connection and cursor tracking
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const sinceCursorRef = useRef<string | null>(null);
+  const seenMessageIdsRef = useRef<Set<string>>(new Set());
+  const selectedConversationRef = useRef<string | null>(null);
   const connectRef = useRef<(since: string) => void>(() => {});
-  const messagesRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  /** Scroll the messages container to the bottom */
   const scrollToBottom = useCallback(() => {
-    const el = messagesRef.current;
+    const el = messagesEndRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, []);
 
+  /**
+   * Open an SSE connection to receive real-time messages for the selected conversation.
+   * Uses a polling pattern: server holds connection up to ~8s, pushes messages, closes.
+   * Client reconnects immediately on close/error with the latest cursor position.
+   */
   const connect = useCallback((since: string) => {
-    if (!selectedRef.current) return;
-    if (esRef.current) {
-      esRef.current.close();
-      esRef.current = null;
+    if (!selectedConversationRef.current) return;
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
     const url =
       "/api/chat?conversationId=" +
-      encodeURIComponent(selectedRef.current) +
+      encodeURIComponent(selectedConversationRef.current) +
       "&since=" +
       encodeURIComponent(since) +
       "&stream=1";
-    const es = new EventSource(url);
-    esRef.current = es;
+    const eventSource = new EventSource(url);
+    eventSourceRef.current = eventSource;
 
-    es.onmessage = (ev) => {
-      let event: {
+    eventSource.onmessage = (event) => {
+      let parsed: {
         type?: string;
         message?: MessageRow;
         serverTime?: string;
         error?: string;
       };
       try {
-        event = JSON.parse(ev.data);
+        parsed = JSON.parse(event.data);
       } catch {
         return;
       }
-      if (event.type === "message" && event.message) {
-        const m = event.message;
-        seenRef.current.add(m.id);
+      if (parsed.type === "message" && parsed.message) {
+        const incomingMessage = parsed.message;
+        seenMessageIdsRef.current.add(incomingMessage.id);
+        // Deduplicate by id before appending
         setMessages((prev) =>
-          prev.some((x) => x.id === m.id) ? prev : [...prev, m],
+          prev.some((existing) => existing.id === incomingMessage.id)
+            ? prev
+            : [...prev, incomingMessage],
         );
-        sinceRef.current = m.createdAt;
-        connectRef.current(m.createdAt);
+        sinceCursorRef.current = incomingMessage.createdAt;
+        // Reconnect with updated cursor for next batch
+        connectRef.current(incomingMessage.createdAt);
         scrollToBottom();
-      } else if (event.type === "done") {
-        es.close();
-        esRef.current = null;
+      } else if (parsed.type === "done") {
+        eventSource.close();
+        eventSourceRef.current = null;
+        // Use server-provided timestamp to avoid client clock skew
         const cursor =
-          typeof event.serverTime === "string" ? event.serverTime : since;
-        sinceRef.current = cursor;
+          typeof parsed.serverTime === "string"
+            ? parsed.serverTime
+            : since;
+        sinceCursorRef.current = cursor;
         setTimeout(() => connectRef.current(cursor), 100);
-      } else if (event.type === "error") {
-        es.close();
-        esRef.current = null;
+      } else if (parsed.type === "error") {
+        eventSource.close();
+        eventSourceRef.current = null;
         setTimeout(() => {
-          if (sinceRef.current) connectRef.current(sinceRef.current);
+          if (sinceCursorRef.current)
+            connectRef.current(sinceCursorRef.current);
         }, 2000);
       }
     };
 
-    es.onerror = () => {
-      if (esRef.current !== es) return;
-      es.close();
-      esRef.current = null;
+    eventSource.onerror = () => {
+      if (eventSourceRef.current !== eventSource) return;
+      eventSource.close();
+      eventSourceRef.current = null;
       setTimeout(() => {
-        if (sinceRef.current) connectRef.current(sinceRef.current);
+        if (sinceCursorRef.current)
+          connectRef.current(sinceCursorRef.current);
       }, 2000);
     };
   }, [scrollToBottom]);
 
+  // Keep refs in sync with current state (stable callback pattern)
   connectRef.current = connect;
-  selectedRef.current = selectedId;
+  selectedConversationRef.current = selectedId;
 
+  // Poll conversation list every 10s for unread badge updates
   useEffect(() => {
     const timer = setInterval(async () => {
       const res = await listConversationsAction();
@@ -130,38 +154,48 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
     return () => clearInterval(timer);
   }, []);
 
-  async function openConversation(id: string) {
-    setSelectedId(id);
+  /** Load conversation history and open SSE stream */
+  async function openConversation(conversationId: string) {
+    setSelectedId(conversationId);
     setMessages([]);
     setLead(null);
-    seenRef.current = new Set();
-    markConversationSeenAction({ conversationId: id });
+    seenMessageIdsRef.current = new Set();
+    markConversationSeenAction({ conversationId });
+    // Optimistically clear unread badge
     setConversations((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, unread: 0 } : c)),
+      prev.map((conv) =>
+        conv.id === conversationId ? { ...conv, unread: 0 } : conv,
+      ),
     );
 
-    const res = await fetch("/api/chat?conversationId=" + encodeURIComponent(id));
+    // Fetch full message history
+    const res = await fetch(
+      "/api/chat?conversationId=" + encodeURIComponent(conversationId),
+    );
     if (res.ok) {
       const data = await res.json();
-      const msgs: MessageRow[] = data.messages ?? [];
-      msgs.forEach((m) => seenRef.current.add(m.id));
-      setMessages(msgs);
-      const last = msgs[msgs.length - 1];
+      const history: MessageRow[] = data.messages ?? [];
+      history.forEach((msg) => seenMessageIdsRef.current.add(msg.id));
+      setMessages(history);
+      // Set cursor to last message or server time for SSE reconnect
+      const lastMessage = history[history.length - 1];
       const cursor =
-        last?.createdAt ??
+        lastMessage?.createdAt ??
         (typeof data.serverTime === "string" ? data.serverTime : undefined);
       if (!cursor) return;
-      sinceRef.current = cursor;
+      sinceCursorRef.current = cursor;
       connect(cursor);
       requestAnimationFrame(scrollToBottom);
     }
 
-    const leadRes = await getConversationLeadAction({ conversationId: id });
+    // Fetch lead info (filter question answers) for this conversation
+    const leadRes = await getConversationLeadAction({ conversationId });
     if (leadRes.ok) {
       setLead(leadRes.lead ?? null);
     }
   }
 
+  /** Send an owner reply to the current conversation */
   async function sendReply() {
     const text = draft.trim();
     if (!text || !selectedId || busy) return;
@@ -173,31 +207,39 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
     setBusy(false);
     if (res.ok && res.message) {
       setDraft("");
-      const m = res.message;
-      seenRef.current.add(m.id);
-      setMessages((prev) => [...prev, m]);
-      sinceRef.current = m.createdAt;
-      connect(m.createdAt);
+      const sentMessage = res.message;
+      seenMessageIdsRef.current.add(sentMessage.id);
+      setMessages((prev) => [...prev, sentMessage]);
+      sinceCursorRef.current = sentMessage.createdAt;
+      connect(sentMessage.createdAt);
       scrollToBottom();
     }
   }
 
+  /** Update conversation status (resolve, close, reopen) */
   async function changeStatus(
-    id: string,
+    conversationId: string,
     status: "active" | "escalated" | "resolved" | "closed",
   ) {
-    const res = await setConversationStatusAction({ id, status });
+    const res = await setConversationStatusAction({
+      id: conversationId,
+      status,
+    });
     if (res.ok) {
       setConversations((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, status } : c)),
+        prev.map((conv) =>
+          conv.id === conversationId ? { ...conv, status } : conv,
+        ),
       );
     }
   }
 
-  const selected = conversations.find((c) => c.id === selectedId) ?? null;
+  const selectedConversation =
+    conversations.find((conv) => conv.id === selectedId) ?? null;
 
   return (
     <div className="grid h-full gap-4 lg:grid-cols-[320px_1fr]">
+      {/* Left panel — conversation list */}
       <Card className="flex min-h-0 flex-col overflow-hidden">
         <CardContent className="flex min-h-0 flex-1 flex-col p-2">
           {conversations.length === 0 && (
@@ -207,38 +249,44 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
           )}
           <ScrollArea className="min-h-0 flex-1">
             <ul className="space-y-1">
-              {conversations.map((c) => (
-                <li key={c.id}>
+              {conversations.map((conversation) => (
+                <li key={conversation.id}>
                   <button
                     type="button"
-                    onClick={() => openConversation(c.id)}
+                    onClick={() => openConversation(conversation.id)}
                     className={cn(
                       "flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted",
-                      selectedId === c.id && "bg-muted",
+                      selectedId === conversation.id && "bg-muted",
                     )}
                   >
                     <span className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-medium">
-                        {c.title ?? c.visitorId ?? "Visitor"}
+                        {conversation.title ??
+                          conversation.visitorId ??
+                          "Visitor"}
                       </span>
                       <Badge
                         variant={
-                          c.status === "escalated" ? "default" : "secondary"
+                          conversation.status === "escalated"
+                            ? "default"
+                            : "secondary"
                         }
                       >
-                        {STATUS_LABEL[c.status]}
+                        {STATUS_LABEL[conversation.status]}
                       </Badge>
                     </span>
                     <span className="truncate text-xs text-muted-foreground">
-                      {c.lastMessage
-                        ? c.lastMessage.content
-                        : c.domainName + " · no messages yet"}
+                      {conversation.lastMessage
+                        ? conversation.lastMessage.content
+                        : conversation.domainName + " · no messages yet"}
                     </span>
                     <span className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span className="truncate">@{c.domainSlug}</span>
-                      {c.unread > 0 && (
+                      <span className="truncate">
+                        @{conversation.domainSlug}
+                      </span>
+                      {conversation.unread > 0 && (
                         <span className="ml-2 rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
-                          {c.unread} new
+                          {conversation.unread} new
                         </span>
                       )}
                     </span>
@@ -250,36 +298,40 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
         </CardContent>
       </Card>
 
+      {/* Right panel — messenger */}
       <Card className="flex min-h-0 flex-col overflow-hidden">
         <CardContent className="flex min-h-0 flex-1 flex-col p-0">
-          {!selected ? (
+          {!selectedConversation ? (
             <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
               Select a conversation to open the messenger
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col">
+              {/* Conversation header — agent info + status actions */}
               <div className="flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">
-                    {selected.agentName
-                      ? `${selected.domainName} · ${selected.agentName}`
-                      : selected.domainName}
+                    {selectedConversation.agentName
+                      ? `${selectedConversation.domainName} · ${selectedConversation.agentName}`
+                      : selectedConversation.domainName}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {STATUS_LABEL[selected.status]}
-                    {selected.visitorId
-                      ? ` · visitor ${selected.visitorId.slice(0, 8)}`
+                    {STATUS_LABEL[selectedConversation.status]}
+                    {selectedConversation.visitorId
+                      ? ` · visitor ${selectedConversation.visitorId.slice(0, 8)}`
                       : ""}
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-1.5">
-                  {(selected.status === "active" ||
-                    selected.status === "escalated") && (
+                  {(selectedConversation.status === "active" ||
+                    selectedConversation.status === "escalated") && (
                     <>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => changeStatus(selected.id, "resolved")}
+                        onClick={() =>
+                          changeStatus(selectedConversation.id, "resolved")
+                        }
                       >
                         <CheckCircle2 />
                         Resolve
@@ -287,18 +339,22 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => changeStatus(selected.id, "closed")}
+                        onClick={() =>
+                          changeStatus(selectedConversation.id, "closed")
+                        }
                       >
                         Close
                       </Button>
                     </>
                   )}
-                  {(selected.status === "resolved" ||
-                    selected.status === "closed") && (
+                  {(selectedConversation.status === "resolved" ||
+                    selectedConversation.status === "closed") && (
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => changeStatus(selected.id, "escalated")}
+                      onClick={() =>
+                        changeStatus(selectedConversation.id, "escalated")
+                      }
                     >
                       <CornerUpLeft />
                       Reopen
@@ -307,6 +363,7 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
                 </div>
               </div>
 
+              {/* Lead info — captured from filter questions + email */}
               {lead ? (
                 <div className="shrink-0 border-b bg-muted/40 px-4 py-2.5 text-xs">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
@@ -321,21 +378,21 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
                         {lead.email}
                       </a>
                     ) : null}
-                    {lead.company ? (
-                      <span>{lead.company}</span>
-                    ) : null}
+                    {lead.company ? <span>{lead.company}</span> : null}
                     {lead.interest ? (
                       <span className="capitalize">{lead.interest}</span>
                     ) : null}
                   </div>
                   {lead.answers && lead.answers.length > 0 ? (
                     <ul className="mt-1.5 space-y-1">
-                      {lead.answers.map((a, index) => (
+                      {lead.answers.map((answer, index) => (
                         <li key={index}>
                           <span className="text-muted-foreground">
-                            {a.question}:{" "}
+                            {answer.question}:{" "}
                           </span>
-                          <span className="text-foreground">{a.answer}</span>
+                          <span className="text-foreground">
+                            {answer.answer}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -343,26 +400,28 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
                 </div>
               ) : null}
 
+              {/* Messages — scrollable chat area */}
               <ScrollArea className="min-h-0 flex-1">
-                <div ref={messagesRef} className="space-y-2 p-4">
+                <div ref={messagesEndRef} className="space-y-2 p-4">
                   {messages.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       No messages yet.
                     </p>
                   )}
-                  {messages.map((m) => (
-                    <MessageBubble key={m.id} message={m} />
+                  {messages.map((msg) => (
+                    <MessageBubble key={msg.id} message={msg} />
                   ))}
                 </div>
               </ScrollArea>
 
+              {/* Reply input */}
               <div className="flex shrink-0 gap-2 border-t p-3">
                 <Input
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
                       sendReply();
                     }
                   }}
@@ -382,6 +441,11 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
   );
 }
 
+/**
+ * MessageBubble — renders a single chat message.
+ * Visitor messages align right (primary bg), owner messages align left (bordered),
+ * assistant messages align left (bordered, neutral).
+ */
 function MessageBubble({ message }: { message: MessageRow }) {
   const align = message.sender === "visitor" ? "flex-end" : "flex-start";
   return (
