@@ -13,6 +13,7 @@ export const APP_ROUTES = {
   DASHBOARD_BOOKINGS: "/dashboard/bookings",
   DASHBOARD_CAMPAIGNS: "/dashboard/campaigns",
   DASHBOARD_CUSTOMERS: "/dashboard/customers",
+  DASHBOARD_ORDERS: "/dashboard/orders",
   DASHBOARD_INTEGRATIONS: "/dashboard/integrations",
   DASHBOARD_PRODUCTS: "/dashboard/products",
   DASHBOARD_AGENTS: "/dashboard/agents",

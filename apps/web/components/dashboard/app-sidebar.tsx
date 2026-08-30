@@ -33,6 +33,7 @@ import {
   LayoutDashboard,
   Mail,
   MessagesSquare,
+  Package,
   Plug,
   Settings,
   ShoppingBag,
@@ -208,6 +209,16 @@ export function AppSidebar({
               >
                 <UsersRound />
                 <span>Customers</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === APP_ROUTES.DASHBOARD_ORDERS}
+                tooltip="Orders"
+                render={<Link href={APP_ROUTES.DASHBOARD_ORDERS} />}
+              >
+                <Package />
+                <span>Orders</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
