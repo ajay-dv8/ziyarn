@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, CornerUpLeft, Send } from "lucide-react";
+import { CheckCircle2, Clock, CornerUpLeft, Send } from "lucide-react";
 
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
@@ -9,6 +9,8 @@ import { Card, CardContent } from "@repo/ui/components/card";
 import { Input } from "@repo/ui/components/input";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { cn } from "@repo/ui/lib/utils";
+
+import { formatFullDateTime, formatRelativeTime } from "@/lib/utils";
 
 import {
   getConversationLeadAction,
@@ -284,11 +286,17 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
                       <span className="truncate">
                         @{conversation.domainSlug}
                       </span>
-                      {conversation.unread > 0 && (
-                        <span className="ml-2 rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
-                          {conversation.unread} new
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        {conversation.unread > 0 && (
+                          <span className="rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                            {conversation.unread} new
+                          </span>
+                        )}
+                        <span className="flex items-center gap-0.5">
+                          <Clock className="h-3 w-3" />
+                          {formatRelativeTime(conversation.createdAt)}
                         </span>
-                      )}
+                      </span>
                     </span>
                   </button>
                 </li>
@@ -316,13 +324,25 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
                       : selectedConversation.domainName}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {STATUS_LABEL[selectedConversation.status]}
-                    {selectedConversation.visitorId
-                      ? ` · visitor ${selectedConversation.visitorId.slice(0, 8)}`
-                      : ""}
+                    {lead?.name ?? lead?.email
+                      ? lead.name ?? lead.email
+                      : selectedConversation.visitorId
+                        ? `visitor ${selectedConversation.visitorId.slice(0, 8)}`
+                        : "Unknown visitor"}
+                    {" · "}
+                    {formatFullDateTime(selectedConversation.createdAt)}
                   </p>
                 </div>
-                <div className="flex shrink-0 gap-1.5">
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Badge
+                    variant={
+                      selectedConversation.status === "escalated"
+                        ? "default"
+                        : "secondary"
+                    }
+                  >
+                    {STATUS_LABEL[selectedConversation.status]}
+                  </Badge>
                   {(selectedConversation.status === "active" ||
                     selectedConversation.status === "escalated") && (
                     <>
