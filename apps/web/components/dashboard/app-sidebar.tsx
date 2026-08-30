@@ -43,6 +43,7 @@ import {
 import { ZiyarnLogo } from "@/assets/logo/ziyarn-logo";
 import { APP_ROUTES } from "@/constants/routes";
 import { CreateDomainButton } from "@/components/domains/create-domain-button";
+import { useUnreadCount } from "@/hooks/use-unread-count";
 
 const COMING_SOON: { title: string; icon: typeof Settings }[] = [];
 
@@ -60,6 +61,7 @@ export function AppSidebar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeDomainId = searchParams.get("domainId");
+  const totalUnread = useUnreadCount();
   const [domainsOpen, setDomainsOpen] = useState(
     pathname.startsWith("/dashboard/domains") ||
       pathname.startsWith("/dashboard/agents") ||
@@ -142,6 +144,11 @@ export function AppSidebar({
                 <MessagesSquare />
                 <span>Conversations</span>
               </SidebarMenuButton>
+              {totalUnread > 0 && (
+                <SidebarMenuBadge className="bg-destructive text-destructive-foreground">
+                  {totalUnread}
+                </SidebarMenuBadge>
+              )}
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
