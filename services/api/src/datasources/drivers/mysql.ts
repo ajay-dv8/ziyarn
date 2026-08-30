@@ -76,6 +76,14 @@ export async function createMysqlDriver(
       return rows as Record<string, unknown>[];
     },
 
+    async queryRows(tableName, opts) {
+      const safeLimit = Math.min(opts.limit, 200);
+      const [rows] = await conn.query<RowDataPacket[]>(
+        `SELECT * FROM ${quoteIdent(tableName)} LIMIT ${safeLimit} OFFSET ${Math.max(opts.offset, 0)}`,
+      );
+      return rows as Record<string, unknown>[];
+    },
+
     async close() {
       await conn.end().catch(() => undefined);
     },

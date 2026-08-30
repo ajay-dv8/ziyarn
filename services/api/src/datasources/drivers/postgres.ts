@@ -142,6 +142,16 @@ export async function createPostgresDriver(
       });
     },
 
+    async queryRows(tableName, opts) {
+      return withClient(async (client) => {
+        const safeLimit = Math.min(opts.limit, 200);
+        const rows = await client.query(
+          `SELECT * FROM ${quoteIdent(tableName)} LIMIT ${safeLimit} OFFSET ${Math.max(opts.offset, 0)}`,
+        );
+        return rows.rows as Record<string, unknown>[];
+      });
+    },
+
     async close() {},
   };
 }

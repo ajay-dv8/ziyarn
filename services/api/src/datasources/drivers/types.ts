@@ -51,5 +51,6 @@ export type DbDriver = {
   testConnection(): Promise<void>;
   listTables(): Promise<IntrospectedTable[]>;
   sampleRows(tableName: string, limit: number): Promise<SampleRow[]>;
+  queryRows(tableName: string, opts: { limit: number; offset: number }): Promise<SampleRow[]>;
   close(): Promise<void>;
 };

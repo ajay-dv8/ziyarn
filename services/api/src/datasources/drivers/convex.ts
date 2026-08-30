@@ -199,6 +199,16 @@ export async function createConvexDriver(
       });
     },
 
+    async queryRows(tableName, opts) {
+      const docs = await sampleDocuments(tableName, opts.limit + opts.offset);
+      const sliced = docs.slice(opts.offset, opts.offset + opts.limit);
+      return sliced.map((doc) => {
+        const copy = { ...doc };
+        delete copy._creationTime;
+        return copy;
+      });
+    },
+
     async close() {},
   };
 }

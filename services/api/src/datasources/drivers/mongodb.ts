@@ -77,6 +77,20 @@ export async function createMongodbDriver(
       ) as Record<string, unknown>[];
     },
 
+    async queryRows(tableName, opts) {
+      const db = client.db(databaseName);
+      const safeLimit = Math.min(opts.limit, 200);
+      const docs = await db
+        .collection(tableName)
+        .find()
+        .skip(opts.offset)
+        .limit(safeLimit)
+        .toArray();
+      return docs.map((doc) =>
+        JSON.parse(JSON.stringify(doc)),
+      ) as Record<string, unknown>[];
+    },
+
     async close() {
       await client.close().catch(() => undefined);
     },
