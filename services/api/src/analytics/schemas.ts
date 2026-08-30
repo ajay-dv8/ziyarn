@@ -63,6 +63,7 @@ export type DomainAnalytics = {
   };
   series: DayBucket[];
   conversationsByStatus: CountedValue[];
+  bookingsByStatus: CountedValue[];
   paymentsByStatus: CountedValue[];
   topProducts: TopProduct[];
   campaigns: CampaignSummary[];

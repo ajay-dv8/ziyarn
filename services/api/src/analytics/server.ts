@@ -219,6 +219,18 @@ export function createAnalyticsService(deps: {
           and(eq(bookings.domainId, body.domainId), gte(bookings.createdAt, from)),
         );
 
+      const bookingsByStatusRows = await db
+        .select({
+          label: bookings.status,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(bookings)
+        .where(
+          and(eq(bookings.domainId, body.domainId), gte(bookings.createdAt, from)),
+        )
+        .groupBy(bookings.status)
+        .orderBy(sql`count(*) DESC`);
+
       const conversationStatusRows = await db
         .select({
           label: conversations.status,
@@ -341,6 +353,10 @@ export function createAnalyticsService(deps: {
         totals,
         series,
         conversationsByStatus: conversationStatusRows.map((row) => ({
+          label: row.label,
+          count: row.count,
+        })),
+        bookingsByStatus: bookingsByStatusRows.map((row) => ({
           label: row.label,
           count: row.count,
         })),
