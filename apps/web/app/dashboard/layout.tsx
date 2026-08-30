@@ -11,6 +11,8 @@ import { Separator } from "@repo/ui/components/separator";
 
 import { UserMenu } from "@/components/dashboard/user-menu";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
+import { DashboardTitleUpdater } from "@/components/dashboard/dashboard-title-updater";
+import { DashboardToastListener } from "@/components/dashboard/dashboard-toast-listener";
 import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
@@ -42,6 +44,8 @@ export default async function DashboardLayout({
 
   return (
     <SidebarProvider>
+      <DashboardTitleUpdater />
+      <DashboardToastListener />
       <AppSidebar
         plan={plan}
         domainCount={domains.length}
