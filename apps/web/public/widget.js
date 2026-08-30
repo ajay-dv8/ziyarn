@@ -719,6 +719,9 @@
       var typing = this._appendMessage("agent", "");
       typing.classList.add("zy-msg-typing");
       typing.innerHTML = '<span class="zy-typing-dots"><span class="zy-dot"></span><span class="zy-dot"></span><span class="zy-dot"></span></span>';
+      // Track when typing started so we can enforce a minimum display time
+      this._typingStartedAt = Date.now();
+      this._typingMinimumMs = 600;
 
       var self = this;
       var body = JSON.stringify({
@@ -788,6 +791,15 @@
       var decoder = new TextDecoder();
       var buffer = "";  // partial SSE data that hasn't been fully received yet
       var reply = "";   // accumulated AI response text
+      var typingRevealed = false; // true once the typing indicator has been replaced
+      var typingTimer = null;    // setTimeout ID for delayed typing reveal
+
+      function cancelTypingTimer() {
+        if (typingTimer) {
+          clearTimeout(typingTimer);
+          typingTimer = null;
+        }
+      }
 
       function handleEvent(data) {
         var event;
@@ -799,10 +811,27 @@
         if (event.type === "text") {
           // Incremental text token — append and re-render
           reply += event.delta || "";
-          typingNode.classList.remove("zy-msg-typing");
-          typingNode.innerHTML = renderMd(reply);
-          self._scrollToBottom();
+          function renderReply() {
+            typingNode.classList.remove("zy-msg-typing");
+            typingNode.innerHTML = renderMd(reply);
+            self._scrollToBottom();
+          }
+          if (typingRevealed) {
+            // Minimum time already enforced — render immediately
+            renderReply();
+          } else {
+            // First text token — enforce minimum typing display time
+            typingRevealed = true;
+            var elapsed = Date.now() - self._typingStartedAt;
+            var remaining = self._typingMinimumMs - elapsed;
+            if (remaining > 0) {
+              typingTimer = setTimeout(renderReply, remaining);
+            } else {
+              renderReply();
+            }
+          }
         } else if (event.type === "escalate") {
+          cancelTypingTimer();
           // AI decided to hand off to a human agent
           self._setStatus("Connecting you with a human...");
           typingNode.classList.remove("zy-msg-typing");
@@ -819,6 +848,7 @@
           self._lastMsgAt = new Date(event.serverTime || Date.now());
           self._startDelta();
         } else if (event.type === "error") {
+          cancelTypingTimer();
           typingNode.classList.remove("zy-msg-typing");
           typingNode.textContent = event.message || "Something went wrong";
         }
