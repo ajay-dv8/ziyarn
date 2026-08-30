@@ -27,12 +27,14 @@ export default async function Conversations() {
   }));
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold">Conversations</h1>
-      <p className="text-sm text-muted-foreground">
-        Chat with visitors who escalated to a human.
-      </p>
-      <div className="mt-6">
+    <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden">
+      <div className="shrink-0">
+        <h1 className="text-2xl font-semibold">Conversations</h1>
+        <p className="text-sm text-muted-foreground">
+          Chat with visitors who escalated to a human.
+        </p>
+      </div>
+      <div className="mt-4 min-h-0 flex-1">
         <ConversationsPage initial={conversations} />
       </div>
     </div>
