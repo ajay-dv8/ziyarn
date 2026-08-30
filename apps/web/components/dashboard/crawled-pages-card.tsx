@@ -99,7 +99,7 @@ export function CrawledPagesCard({
   crawledPages: KnowledgeDocumentRow[];
   domainId: string;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <Card>
@@ -111,29 +111,29 @@ export function CrawledPagesCard({
           className="flex w-full items-center justify-between text-left"
         >
           <div>
-            <CardTitle className="flex items-center gap-1.5">
-              <ChevronDown
-                className={`h-4 w-4 transition-transform ${
-                  expanded ? "" : "-rotate-90"
-                }`}
-              />
+            <CardTitle>
               Pages ({crawledPages.length})
             </CardTitle>
-            <CardDescription className="mt-1 pl-6">
+            <CardDescription className="mt-1">
               {crawledPages.length} crawled page(s) in this agent&apos;s
               knowledge base.
             </CardDescription>
           </div>
+          <ChevronDown
+            className={`h-4 w-4 shrink-0 transition-transform ${
+              expanded ? "" : "-rotate-90"
+            }`}
+          />
         </button>
       </CardHeader>
       {expanded ? (
         <CardContent>
           {crawledPages.length === 0 ? (
-            <p className="pl-6 text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               No pages yet. Crawl your website above to add its pages here.
             </p>
           ) : (
-            <div className="space-y-2 pl-6">
+            <div className="space-y-2">
               {crawledPages.map((document) => (
                 <DocumentListItem
                   key={document.id}
