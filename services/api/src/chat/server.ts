@@ -198,8 +198,20 @@ export function createChatService(deps: { db: Database }) {
             m.sender !== "owner" &&
             m.createdAt.getTime() > conversation.ownerSeenAt.getTime(),
         ).length;
+
+        // Derive title from the first user message (truncated to 60 chars)
+        const firstUserMsg = msgs.find((m) => m.role === "user");
+        const derivedTitle =
+          conversation.title ??
+          (firstUserMsg
+            ? firstUserMsg.content.length > 60
+              ? firstUserMsg.content.slice(0, 60) + "…"
+              : firstUserMsg.content
+            : null);
+
         return {
           ...conversation,
+          title: derivedTitle,
           agentName,
           domainSlug,
           domainName,
