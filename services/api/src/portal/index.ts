@@ -4,6 +4,7 @@ export {
   createPaymentRequestSchema,
   updateBookingStatusSchema,
   listBookingsSchema,
+  listPaymentsSchema,
   bookingSettingsSchema,
   portalTokenSchema,
 } from "@repo/api/portal/schemas";

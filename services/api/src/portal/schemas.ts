@@ -34,6 +34,14 @@ export const listBookingsSchema = z.object({
   offset: z.number().int().min(0).optional(),
 });
 
+export const listPaymentsSchema = z.object({
+  domainId: z.string().uuid(),
+  source: z.enum(["chat", "db"]).optional(),
+  q: z.string().trim().max(120).optional(),
+  limit: z.number().int().min(1).max(200).optional(),
+  offset: z.number().int().min(0).optional(),
+});
+
 export const bookingSettingsSchema = z.object({
   availableDays: z.array(z.number().int().min(0).max(6)).min(1).max(7),
   availableStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "time must be HH:MM"),

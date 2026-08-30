@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import type Stripe from "stripe";
 
-import { and, eq, desc, sql } from "drizzle-orm";
+import { and, eq, desc, sql, ilike, isNull, isNotNull } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import {
@@ -12,6 +12,9 @@ import {
   payments,
   leads,
   stripeAccounts,
+  products,
+  dataSources,
+  dataSourceTables,
   type Booking,
   type Payment,
   type BookingSetting,
@@ -590,6 +593,107 @@ export function createPortalService(deps: {
 
     async getAvailableSlotsForDomain(domainId: string, date: string): Promise<string[]> {
       return getAvailableSlots(db)(domainId, date);
+    },
+
+    // ── Orders / Payments (dashboard) ──
+
+    async listPayments(
+      domainId: string,
+      opts?: { source?: "chat" | "db"; q?: string; limit?: number; offset?: number },
+    ): Promise<{
+      orders: Array<{
+        id: string;
+        email: string | null;
+        description: string | null;
+        amountMinor: number;
+        currency: string;
+        status: string;
+        source: "chat" | "db";
+        sourceLabel: string | null;
+        createdAt: Date;
+      }>;
+      counts: { all: number; chat: number; db: number };
+    }> {
+      const limit = opts?.limit ?? 50;
+      const offset = opts?.offset ?? 0;
+
+      // ── Widget orders (payments table) ──
+      const paymentConditions = [eq(payments.domainId, domainId)];
+      if (opts?.source === "chat") {
+        // Only payments with a conversation (created via widget)
+        paymentConditions.push(isNotNull(payments.conversationId));
+      } else if (opts?.source === "db") {
+        // Payments linked to a synced product (has dataSourceId)
+        paymentConditions.push(isNotNull(payments.productId));
+      }
+      if (opts?.q) {
+        paymentConditions.push(
+          ilike(payments.email, `%${opts.q}%`),
+        );
+      }
+
+      const paymentRows = await db
+        .select({
+          id: payments.id,
+          email: payments.email,
+          description: payments.description,
+          amountMinor: payments.amountMinor,
+          currency: payments.currency,
+          status: payments.status,
+          createdAt: payments.createdAt,
+          hasConversation: isNotNull(payments.conversationId),
+          productId: payments.productId,
+        })
+        .from(payments)
+        .where(and(...paymentConditions))
+        .orderBy(desc(payments.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      // ── Count widget orders by source ──
+      const [chatCountRow] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(payments)
+        .where(and(eq(payments.domainId, domainId), isNotNull(payments.conversationId)));
+      const [dbCountRow] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(payments)
+        .where(and(eq(payments.domainId, domainId), isNotNull(payments.productId)));
+
+      const chatCount = chatCountRow?.count ?? 0;
+      const dbProductCount = dbCountRow?.count ?? 0;
+
+      // ── Map payment rows to common order shape ──
+      const orders: Array<{
+        id: string;
+        email: string | null;
+        description: string | null;
+        amountMinor: number;
+        currency: string;
+        status: string;
+        source: "chat" | "db";
+        sourceLabel: string | null;
+        createdAt: Date;
+      }> = paymentRows.map((row) => ({
+        id: row.id,
+        email: row.email,
+        description: row.description,
+        amountMinor: row.amountMinor,
+        currency: row.currency,
+        status: row.status,
+        source: row.hasConversation ? "chat" : "db",
+        sourceLabel: null,
+        createdAt: row.createdAt,
+      }));
+
+      return {
+        orders,
+        counts: {
+          all: chatCount + dbProductCount,
+          chat: chatCount,
+          db: dbProductCount,
+        },
+      };
     },
   };
 }
