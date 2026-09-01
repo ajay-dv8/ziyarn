@@ -1,0 +1,87 @@
+---
+title: Getting Started
+description: Set up Ziyarn in under 5 minutes.
+---
+
+# Getting Started
+
+This guide walks you through creating your first domain, configuring an agent, and embedding the widget.
+
+## Prerequisites
+
+- A Ziyarn account ([sign up](/sign-up))
+- A website where you can add HTML/JavaScript
+
+## Step 1: Create a Domain
+
+1. Go to **Dashboard → Domains**
+2. Click **Create Domain**
+3. Enter a name, slug, and description
+4. Click **Create**
+
+Your domain gets a unique ID and embed secret. Copy the embed secret — you'll need it next.
+
+## Step 2: Configure Your Agent
+
+1. Go to **Dashboard → Agents**
+2. Select your domain
+3. Set a system prompt that defines how your agent behaves
+
+Example system prompt:
+
+```
+You are a helpful support agent for Acme Corp. 
+You answer questions about our products, help with orders, 
+and can book appointments. Be friendly and concise.
+If you can't help, escalate to a human agent.
+```
+
+## Step 3: Add Knowledge
+
+Your agent needs information to answer questions. Add knowledge from:
+
+### Websites
+
+1. Go to **Dashboard → Knowledge**
+2. Click **Crawl Website**
+3. Enter your website URL
+4. Wait for the crawl to complete
+
+### Documents
+
+1. Go to **Dashboard → Knowledge**
+2. Click **Upload Document**
+3. Select a PDF, text, or markdown file
+
+### Manual Entries
+
+Add specific Q&A pairs for common questions.
+
+## Step 4: Embed the Widget
+
+Add this code before the closing `</body>` tag of your HTML:
+
+```html
+<zy-widget
+  data-api="https://your-api.com"
+  data-domain="YOUR_DOMAIN_ID"
+  data-secret="YOUR_EMBED_SECRET"
+></zy-widget>
+<script src="https://ziyarn.vercel.app/widget.js"></script>
+```
+
+Replace the values with your actual domain ID and embed secret.
+
+## Step 5: Test It
+
+1. Open your website
+2. Click the chat widget in the bottom-right corner
+3. Send a message
+4. Your agent should respond using the knowledge you provided
+
+## What's Next?
+
+- [Widget Installation](/docs/widget) — platform-specific guides
+- [Database Integration](/docs/database) — sync products and orders
+- [Agent Configuration](/docs/agents) — customize personality and tools
+- [Knowledge Base](/docs/knowledge) — add more training data

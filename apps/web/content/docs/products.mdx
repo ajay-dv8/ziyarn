@@ -1,0 +1,143 @@
+---
+title: Products
+description: Manage your product catalog and sell through chat.
+---
+
+# Products
+
+Your agent can look up products, answer questions, and process payments — all within the chat widget.
+
+## Product Sources
+
+### From Database
+
+Sync products from connected databases:
+
+1. Go to **Dashboard → Integrations**
+2. Connect a database (see [Database Integration](/docs/database))
+3. Select a products table
+4. Map fields (name, price, description, image)
+5. Enable **Include Products**
+
+### Manual Products
+
+Add products directly:
+
+1. Go to **Dashboard → Products**
+2. Click **Add Product**
+3. Enter:
+   - **Name** — Product title
+   - **Description** — Product details
+   - **Price** — Price in cents (e.g., 2999 for $29.99)
+   - **Currency** — Currency code (USD, EUR, etc.)
+   - **Image URL** — Product image
+   - **In Stock** — Availability
+4. Click **Save**
+
+## Product Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| Name | ✅ | Product title |
+| Description | ✅ | Product details |
+| Price | ✅ | Price in smallest currency unit |
+| Currency | ❌ | Default: USD |
+| Image URL | ❌ | Product image |
+| In Stock | ❌ | Default: true |
+
+## How It Works
+
+### Product Lookup
+
+When a visitor asks about products:
+
+1. Agent receives the question
+2. Searches product catalog
+3. Returns matching products with details
+4. Can show images and prices
+
+Example conversation:
+
+> **Visitor:** "Show me your red dresses"
+>
+> **Agent:** "I found 2 red dresses:
+>
+> 1. **Red Summer Dress** — $59.99
+>    A lightweight cotton dress perfect for summer.
+>
+> 2. **Red Cocktail Dress** — $89.99
+>    An elegant dress for special occasions.
+>
+> Would you like to purchase one?"
+
+### Payment Processing
+
+When a visitor wants to buy:
+
+1. Agent confirms the product and price
+2. Creates a payment request
+3. Shows a payment link or collects card details
+4. Processes the payment via Stripe or Paystack
+5. Confirms the order
+
+### Order Tracking
+
+After purchase:
+- Order appears in **Dashboard → Orders**
+- Customer receives confirmation email
+- Status updates in real-time
+
+## Product Variants
+
+For products with variants (size, color, etc.):
+
+### Database Products
+
+Map variant columns:
+- `size` — Size variant
+- `color` — Color variant
+- `sku` — Stock keeping unit
+
+### Manual Products
+
+Add variants as separate products or use JSON metadata:
+
+```json
+{
+  "variants": [
+    { "size": "S", "price": 2999 },
+    { "size": "M", "price": 2999 },
+    { "size": "L", "price": 3499 }
+  ]
+}
+```
+
+## Best Practices
+
+1. **Keep descriptions clear** — Agent uses them for responses
+2. **Use high-quality images** — Better visuals improve sales
+3. **Update stock regularly** — Prevent overselling
+4. **Set competitive prices** — Agent shows prices to visitors
+5. **Test purchase flow** — Verify end-to-end process
+
+## Troubleshooting
+
+### Products not showing
+
+1. Check database connection is active
+2. Verify table is enabled for products
+3. Confirm field mappings are correct
+4. Test with a manual product first
+
+### Payment fails
+
+1. Verify Stripe/Paystack is configured
+2. Check API keys are correct
+3. Test with a small amount
+4. Check payment provider status
+
+### Wrong prices
+
+1. Verify price field mapping
+2. Check currency code
+3. Ensure prices are in smallest unit (cents)

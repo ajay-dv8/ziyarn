@@ -1,0 +1,88 @@
+---
+title: Ziyarn Documentation
+description: Everything you need to build, deploy, and manage your AI-powered customer support platform.
+---
+
+# Ziyarn Documentation
+
+Welcome to Ziyarn — an AI-powered customer support and sales platform that turns your website into an intelligent helpdesk.
+
+## What is Ziyarn?
+
+Ziyarn provides a chat widget you embed on your site. Behind it sits an AI agent powered by your knowledge base, connected databases, and product catalog. It answers questions, handles bookings, processes payments, and escalates to humans when needed.
+
+## Core Concepts
+
+### Domains
+
+A **domain** represents one website or property. Each domain gets its own:
+- AI agent with custom personality
+- Embed secret for widget authentication
+- Knowledge base, product catalog, and conversation history
+- Booking settings and campaign configurations
+
+### Agents
+
+Each domain has an **AI agent** that:
+- Responds to visitor messages using your knowledge base
+- Looks up products from your connected database
+- Creates bookings and processes payments
+- Escalates to human agents when needed
+
+### Knowledge Base
+
+Your agent learns from:
+- **Crawled websites** — automatically indexes your site content
+- **Uploaded documents** — PDFs, text files, markdown
+- **Manual entries** — custom Q&A pairs
+- **Connected databases** — real-time product lookups
+
+### Chat Widget
+
+A lightweight vanilla JS web component with zero dependencies. It runs in a Shadow DOM for style isolation and works on any website or framework.
+
+## Quick Start
+
+### 1. Create a Domain
+
+Sign in to the [dashboard](/dashboard/domains) and create your first domain. Give it a name, slug, and description.
+
+### 2. Copy Your Embed Secret
+
+Each domain has an embed secret that authorizes the widget. Keep it private — never commit it to public repositories.
+
+### 3. Add the Widget
+
+Paste this before the closing `</body>` tag of your page:
+
+```html
+<zy-widget
+  data-api="https://your-api-url.com"
+  data-domain="your-domain-id"
+  data-secret="YOUR_EMBED_SECRET"
+></zy-widget>
+<script src="https://ziyarn.vercel.app/widget.js"></script>
+```
+
+That's it. The widget handles conversations, escalation, and real-time replies.
+
+## Dashboard Sections
+
+| Section | Purpose |
+|---------|---------|
+| [Domains](/docs/domains) | Create and manage your helpdesk domains |
+| [Agents](/docs/agents) | Configure AI agent personality and behavior |
+| [Knowledge](/docs/knowledge) | Upload documents and crawl websites |
+| [Products](/docs/products) | Sync product catalogs from databases |
+| [Campaigns](/docs/campaigns) | Set up automated email campaigns |
+| [Bookings](/docs/bookings) | Configure appointment scheduling |
+| [Customers](/docs/customers) | View customer profiles and history |
+| [Conversations](/docs/conversations) | Monitor and manage chat conversations |
+| [Billing](/docs/billing) | Manage subscription and payments |
+
+## Next Steps
+
+- [Install the Widget](/docs/widget) — platform-specific guides
+- [Connect a Database](/docs/database) — sync products and orders
+- [Set Up Your Agent](/docs/agents) — customize personality and behavior
+- [API Reference](/docs/api-reference) — build custom integrations

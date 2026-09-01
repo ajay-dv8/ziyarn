@@ -1,0 +1,224 @@
+---
+title: Database Integration
+description: Connect external databases to sync products, orders, and more.
+---
+
+# Database Integration
+
+Ziyarn can connect to your existing databases to sync products, orders, and other data. Your agent uses this data to answer questions and process transactions in real-time.
+
+## Supported Databases
+
+| Database | Status | Notes |
+|----------|--------|-------|
+| PostgreSQL | ✅ Full support | Neon, Supabase, Railway, self-hosted |
+| MySQL | ✅ Full support | PlanetScale, Railway, self-hosted |
+| MongoDB | ✅ Full support | Atlas, self-hosted |
+| Convex | ✅ Full support | Convex platform |
+| Firebase | 🔜 Coming soon | Firestore |
+| Turso | 🔜 Coming soon | LibSQL |
+
+## Connecting a Database
+
+### Step 1: Go to Integrations
+
+1. Open **Dashboard → Integrations**
+2. Click **Add Database Connection**
+
+### Step 2: Configure Connection
+
+Select your database type and enter connection details:
+
+#### PostgreSQL
+
+```json
+{
+  "host": "ep-cool-mountain.us-east-2.aws.neon.tech",
+  "port": 5432,
+  "database": "mydb",
+  "user": "neondb_owner",
+  "password": "your-password",
+  "ssl": true
+}
+```
+
+#### MySQL
+
+```json
+{
+  "host": "aws.connect.psdb.cloud",
+  "port": 3306,
+  "database": "mydb",
+  "user": "your-username",
+  "password": "your-password",
+  "ssl": true
+}
+```
+
+#### MongoDB
+
+```json
+{
+  "connectionString": "mongodb+srv://user:pass@cluster.mongodb.net/mydb"
+}
+```
+
+### Step 3: Select Tables
+
+After connecting, Ziyarn discovers your tables. For each table:
+
+1. **Enable the table** — toggle it on
+2. **Map fields** — select which columns contain:
+   - Product name, description, price, image
+   - Order ID, customer email, status, amount
+3. **Set options**:
+   - `includeProducts` — sync as product catalog
+   - `includeOrders` — display in orders dashboard
+
+### Step 4: Test Connection
+
+Click **Test Connection** to verify:
+- Database is reachable
+- Tables are accessible
+- Field mappings are correct
+
+## Table Configuration
+
+### Products Table
+
+Map your product table columns:
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| ID | Unique identifier | `id`, `product_id` |
+| Name | Product name | `name`, `title` |
+| Description | Product description | `description`, `body` |
+| Price | Price in smallest currency unit | `price`, `amount` |
+| Currency | Currency code | `currency` (default: `usd`) |
+| Image URL | Product image | `image`, `image_url` |
+| In Stock | Availability | `in_stock`, `available` |
+
+### Orders Table
+
+Map your order table columns:
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| ID | Unique identifier | `id`, `order_id` |
+| Customer Email | Buyer's email | `email`, `customer_email` |
+| Amount | Total amount | `total`, `amount` |
+| Status | Order status | `status`, `state` |
+| Description | Order description | `description`, `notes` |
+| Created At | Order date | `created_at`, `date` |
+
+## How It Works
+
+### Product Lookups
+
+When a visitor asks about products, your agent:
+
+1. Receives the question
+2. Queries your database for matching products
+3. Returns formatted results with images and prices
+4. Can process payments for selected products
+
+Example conversation:
+
+> **Visitor:** "What laptops do you have?"
+>
+> **Agent:** "I found 3 laptops in our catalog:
+> 1. MacBook Pro 14" — $1,999
+> 2. Dell XPS 15 — $1,499
+> 3. ThinkPad X1 Carbon — $1,299
+>
+> Would you like details on any of these?"
+
+### Order Tracking
+
+When `includeOrders` is enabled:
+
+1. Orders appear in **Dashboard → Orders**
+2. Filter by source (chat vs database)
+3. View customer details and status
+4. Track revenue from chat sales
+
+### Real-Time Data
+
+The agent queries your database in real-time:
+- No caching delays
+- Always shows current stock/availability
+- Updates reflected immediately
+
+## Connection Security
+
+### SSL/TLS
+
+Always use SSL connections in production:
+
+- **Neon**: `ssl: true` (required)
+- **PlanetScale**: `ssl: true` (required)
+- **MongoDB Atlas**: `ssl: true` (default)
+
+### Credentials
+
+- Credentials are encrypted at rest
+- Connections use your database's native auth
+- No data is stored by Ziyarn — queries run live
+
+### IP Whitelisting
+
+If your database uses IP whitelisting, add Ziyarn's IP addresses:
+- Contact support for current IP list
+- Or use a connection pooler with a static IP
+
+## Troubleshooting
+
+### Connection Timeout
+
+```
+Error: Connection timed out
+```
+
+**Solutions:**
+1. Check host and port are correct
+2. Verify database is running
+3. Check firewall rules
+4. Ensure SSL is enabled if required
+
+### Authentication Failed
+
+```
+Error: Authentication failed for user
+```
+
+**Solutions:**
+1. Verify username and password
+2. Check user has necessary permissions
+3. Ensure user can connect from external IPs
+
+### Table Not Found
+
+```
+Error: relation "products" does not exist
+```
+
+**Solutions:**
+1. Verify table name is correct (case-sensitive)
+2. Check table is in the selected schema
+3. Ensure user has SELECT permission
+
+### Slow Queries
+
+If product lookups are slow:
+
+1. Add indexes on searched columns (name, description)
+2. Limit result set size in table configuration
+3. Use specific column mappings instead of `SELECT *`
+
+### Network Issues
+
+If connection is intermittent:
+
+1. Check database provider status page
+2. Verify no network restrictions on your machine
+3. Try connecting from a different network

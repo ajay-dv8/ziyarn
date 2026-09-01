@@ -1,0 +1,133 @@
+---
+title: Knowledge Base
+description: Train your agent with documents, websites, and manual entries.
+---
+
+# Knowledge Base
+
+Your agent learns from your knowledge base. Add websites, documents, and manual entries to improve response quality.
+
+## Adding Knowledge
+
+### Websites
+
+Crawl your website to index content:
+
+1. Go to **Dashboard → Knowledge**
+2. Click **Crawl Website**
+3. Enter your website URL
+4. Wait for the crawl to complete
+
+The crawler:
+- Follows internal links
+- Extracts text content
+- Indexes pages for search
+- Respects `robots.txt`
+
+### Documents
+
+Upload files for the agent to reference:
+
+1. Go to **Dashboard → Knowledge**
+2. Click **Upload Document**
+3. Select a file (PDF, TXT, MD)
+4. Wait for processing
+
+Supported formats:
+- **PDF** — Extracts text from pages
+- **Text files** — Plain text content
+- **Markdown** — Formatted documentation
+
+### Manual Entries
+
+Add specific Q&A pairs:
+
+1. Go to **Dashboard → Knowledge**
+2. Click **Add Entry**
+3. Enter:
+   - **Question** — What visitors might ask
+   - **Answer** — How the agent should respond
+4. Click **Save**
+
+Example entries:
+
+| Question | Answer |
+|----------|--------|
+| What are your hours? | We're open Mon-Fri 9am-6pm EST. |
+| Do you offer refunds? | Yes, within 30 days of purchase. |
+| How do I contact support? | Email support@acme.com or call 555-0123. |
+
+## Knowledge Organization
+
+### Categories
+
+Organize knowledge by topic:
+- Products
+- Shipping
+- Returns
+- Billing
+- Technical support
+
+### Priority
+
+Set priority for conflicting information:
+- Manual entries override crawled content
+- Higher priority entries take precedence
+
+### Tags
+
+Tag entries for filtering:
+- `#billing` — Billing-related questions
+- `#technical` — Technical support
+- `#urgent` — High-priority topics
+
+## How It Works
+
+When a visitor asks a question:
+
+1. Agent searches knowledge base for relevant content
+2. Finds matching entries
+3. Generates a response using the knowledge
+4. Cites sources when appropriate
+
+### Search Algorithm
+
+The agent uses semantic search to find relevant knowledge:
+- Understands context and meaning
+- Handles rephrased questions
+- Ranks results by relevance
+
+### Context Window
+
+The agent has a limited context window:
+- Most relevant knowledge is included first
+- Older or less relevant content may be excluded
+- Keep entries concise for better coverage
+
+## Best Practices
+
+1. **Be concise** — Short, clear entries work best
+2. **Cover common questions** — Check conversation history for gaps
+3. **Update regularly** — Keep information current
+4. **Test responses** — Verify agent uses knowledge correctly
+5. **Avoid duplicates** — Remove redundant entries
+
+## Troubleshooting
+
+### Agent doesn't use my knowledge
+
+1. Check entry is saved and enabled
+2. Verify the question matches the entry
+3. Test with exact phrasing first, then variations
+
+### Wrong information
+
+1. Check for conflicting entries
+2. Verify entry priority
+3. Update or disable incorrect entries
+
+### Slow responses
+
+1. Reduce knowledge base size
+2. Remove outdated entries
+3. Split large documents into smaller files

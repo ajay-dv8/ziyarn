@@ -1,0 +1,165 @@
+---
+title: Integrations
+description: Connect third-party services and build custom integrations.
+---
+
+# Integrations
+
+Connect external services and build custom integrations with Ziyarn.
+
+## Available Integrations
+
+### Databases
+
+- **PostgreSQL** — Neon, Supabase, Railway
+- **MySQL** — PlanetScale, Railway
+- **MongoDB** — Atlas
+- **Convex** — Convex platform
+
+### Payments
+
+- **Stripe** — International payments
+- **Paystack** — African payments
+
+### Calendar
+
+- **Google Calendar** — Sync bookings
+- **Outlook Calendar** — Sync bookings
+
+### Email
+
+- **Transactional email** — Booking confirmations, notifications
+- **Campaigns** — Marketing emails
+
+## Webhooks
+
+Send real-time events to your server:
+
+### Event Types
+
+| Event | Description |
+|-------|-------------|
+| `conversation.created` | New conversation started |
+| `conversation.ended` | Conversation resolved |
+| `message.received` | Visitor sent a message |
+| `escalation.triggered` | Conversation escalated |
+| `booking.created` | New booking made |
+| `payment.completed` | Payment successful |
+| `contact.created` | New contact added |
+
+### Webhook Payload
+
+```json
+{
+  "event": "conversation.created",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "data": {
+    "id": "conv_abc123",
+    "domain_id": "dom_xyz789",
+    "customer_email": "user@example.com",
+    "message": "Hello, I need help"
+  }
+}
+```
+
+### Setting Up Webhooks
+
+1. Go to **Dashboard → Integrations → Webhooks**
+2. Click **Add Webhook**
+3. Enter your endpoint URL
+4. Select events to listen for
+5. Save
+
+### Verifying Webhooks
+
+Verify webhook signatures:
+
+```typescript
+import crypto from "crypto";
+
+function verifyWebhook(payload, signature, secret) {
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(payload)
+    .digest("hex");
+  return signature === expected;
+}
+```
+
+## REST API
+
+Build custom integrations with the API:
+
+### Authentication
+
+```bash
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+  https://api.ziyarn.com/v1/domains
+```
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/v1/domains` | List domains |
+| GET | `/v1/domains/:id` | Get domain |
+| POST | `/v1/conversations` | Create conversation |
+| GET | `/v1/conversations/:id` | Get conversation |
+| POST | `/v1/messages` | Send message |
+| GET | `/v1/customers` | List customers |
+| GET | `/v1/products` | List products |
+
+### Rate Limits
+
+- 100 requests per minute per API key
+- 1000 requests per hour per API key
+
+### Error Responses
+
+```json
+{
+  "error": {
+    "code": "unauthorized",
+    "message": "Invalid API key"
+  }
+}
+```
+
+## Custom Integrations
+
+### Using the SDK
+
+```typescript
+import { ZiyarnClient } from "@ziyarn/sdk";
+
+const client = new ZiyarnClient({
+  apiKey: "your-api-key",
+  baseUrl: "https://api.ziyarn.com",
+});
+
+// List conversations
+const conversations = await client.conversations.list();
+
+// Send a message
+await client.messages.send({
+  conversationId: "conv_abc123",
+  content: "Hello from custom integration",
+});
+```
+
+### Building a Custom Widget
+
+Use the API to build a custom chat interface:
+
+1. Authenticate with API key
+2. Create or join a conversation
+3. Send and receive messages
+4. Handle events via webhooks
+
+## Best Practices
+
+1. **Use webhooks** — Real-time events are more efficient than polling
+2. **Verify signatures** — Ensure webhooks are authentic
+3. **Handle errors** — Implement retry logic
+4. **Respect rate limits** — Don't exceed API quotas
+5. **Store credentials securely** — Never expose API keys

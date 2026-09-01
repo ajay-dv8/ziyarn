@@ -1,0 +1,30 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "getting-started",
+    "---Widget---",
+    "widget",
+    "---Database---",
+    "database",
+    "---Platform---",
+    "domains",
+    "agents",
+    "knowledge",
+    "products",
+    "---Features---",
+    "campaigns",
+    "bookings",
+    "customers",
+    "conversations",
+    "---Billing---",
+    "billing",
+    "---Developer---",
+    "integrations",
+    "api-reference",
+    "deployment",
+    "---Updates---",
+    "changelog"
+  ]
+}

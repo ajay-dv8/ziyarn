@@ -1,0 +1,114 @@
+---
+title: Campaigns
+description: Set up automated email campaigns to engage customers.
+---
+
+# Campaigns
+
+Create automated email campaigns to re-engage visitors, promote products, and build relationships.
+
+## Creating a Campaign
+
+1. Go to **Dashboard → Campaigns**
+2. Click **Create Campaign**
+3. Enter:
+   - **Name** — Campaign name
+   - **Subject** — Email subject line
+   - **Content** — Email body (HTML supported)
+4. Set triggers and schedule
+5. Click **Save**
+
+## Campaign Types
+
+### Welcome Campaign
+
+Send a welcome email to new contacts:
+- Trigger: First conversation
+- Content: Introduction, links to help center
+- Goal: Build relationship
+
+### Follow-Up Campaign
+
+Re-engage inactive contacts:
+- Trigger: No activity for 7 days
+- Content: "We miss you" message
+- Goal: Bring users back
+
+### Promotional Campaign
+
+Promote products or offers:
+- Trigger: Manual or scheduled
+- Content: Product highlights, discounts
+- Goal: Drive sales
+
+### Feedback Campaign
+
+Collect customer feedback:
+- Trigger: After conversation ends
+- Content: Survey link, rating request
+- Goal: Improve service
+
+## Triggers
+
+### Automatic Triggers
+
+| Trigger | Description |
+|---------|-------------|
+| First conversation | New contact signs up |
+| Conversation ended | Chat session completes |
+| Product purchased | Successful payment |
+| Inactivity | No activity for X days |
+| Date/time | Scheduled send |
+
+### Manual Triggers
+
+Send campaigns manually:
+1. Select a campaign
+2. Click **Send Now**
+3. Choose recipients
+4. Confirm send
+
+## Email Templates
+
+### Basic Template
+
+```html
+<h2>Welcome to {{company_name}}!</h2>
+<p>Hi {{contact_name}},</p>
+<p>Thanks for reaching out. We're here to help.</p>
+<p>Best regards,<br>The Team</p>
+```
+
+### Variables
+
+| Variable | Description |
+|----------|-------------|
+| `{{contact_name}}` | Customer's name |
+| `{{company_name}}` | Your company name |
+| `{{conversation_link}}` | Link to conversation |
+| `{{unsubscribe_link}}` | Unsubscribe link |
+
+## Analytics
+
+Track campaign performance:
+
+- **Open Rate** — Percentage who opened the email
+- **Click Rate** — Percentage who clicked links
+- **Unsubscribe Rate** — Percentage who unsubscribed
+- **Conversion Rate** — Percentage who completed a goal
+
+## Best Practices
+
+1. **Segment your audience** — Target specific groups
+2. **Personalize content** — Use variables for relevance
+3. **Test before sending** — Send test emails first
+4. **Monitor metrics** — Track performance and adjust
+5. **Respect preferences** — Honor unsubscribe requests
+
+## Compliance
+
+Follow email regulations:
+- Include unsubscribe link
+- Honor opt-out requests
+- Don't send to opted-out contacts
+- Include your physical address

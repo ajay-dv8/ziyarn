@@ -1,0 +1,103 @@
+---
+title: AI Agents
+description: Configure your AI agent's personality, behavior, and capabilities.
+---
+
+# AI Agents
+
+Each domain has a dedicated AI agent that handles customer conversations. Configure how it responds, what it can do, and when it escalates.
+
+## Agent Configuration
+
+Go to **Dashboard → Agents** and select your domain.
+
+### System Prompt
+
+The system prompt defines your agent's personality and behavior:
+
+```
+You are a helpful support agent for Acme Corp.
+
+Your role:
+- Answer questions about our products and services
+- Help with orders and returns
+- Book appointments when requested
+- Escalate complex issues to human agents
+
+Tone: Friendly, professional, concise.
+Rules:
+- Always be polite and helpful
+- If you don't know something, say so honestly
+- For billing issues, always escalate to a human
+- Never share internal company information
+```
+
+### Model Selection
+
+Choose which AI model powers your agent:
+
+| Model | Best For | Speed |
+|-------|----------|-------|
+| Gemini Flash | General support | Fast |
+| GPT-4o | Complex reasoning | Medium |
+| Claude | Detailed responses | Medium |
+
+### Fallback Behavior
+
+Configure what happens when the agent can't help:
+
+1. **Escalate to human** — Transfer to a human agent
+2. **Collect information** — Gather details and create a ticket
+3. **Apologize and close** — End the conversation politely
+
+## Agent Tools
+
+Your agent has built-in tools:
+
+### Product Lookup
+
+Search your connected database for products:
+- Find products by name or description
+- Show prices and availability
+- Process payments for selected items
+
+### Booking
+
+Schedule appointments:
+- Check available time slots
+- Create bookings
+- Send confirmation emails
+
+### Escalation
+
+Transfer to humans when needed:
+- Detect complex issues
+- Gather context before transfer
+- Notify human agents via email/dashboard
+
+## Multi-Agent Setup
+
+For complex setups, you can have multiple agents:
+
+- **Support Agent** — Handles general questions
+- **Sales Agent** — Focuses on product sales
+- **Booking Agent** — Manages appointments
+
+Configure agent routing in **Dashboard → Settings → Agent Routing**.
+
+## Testing Your Agent
+
+1. Go to **Dashboard → Conversations**
+2. Start a new conversation
+3. Send test messages
+4. Verify responses match your system prompt
+
+Or use the widget on your test site.
+
+## Best Practices
+
+1. **Be specific** — Clear instructions produce better responses
+2. **Set boundaries** — Define what the agent should and shouldn't do
+3. **Include examples** — Show the agent how to handle common scenarios
+4. **Test regularly** — Verify behavior after changes
+5. **Monitor conversations** — Check for issues and adjust prompts

@@ -1,0 +1,163 @@
+---
+title: Bookings
+description: Configure appointment scheduling and calendar integration.
+---
+
+# Bookings
+
+Let visitors book appointments directly through the chat widget. Your agent checks availability, creates bookings, and sends confirmations.
+
+## Setup
+
+### Step 1: Enable Bookings
+
+1. Go to **Dashboard → Bookings**
+2. Select your domain
+3. Toggle **Bookings Enabled** on
+
+### Step 2: Set Available Hours
+
+Configure when bookings are available:
+
+- **Days** — Monday through Friday
+- **Hours** — 9:00 AM to 5:00 PM
+- **Timezone** — Your timezone (e.g., EST)
+
+### Step 3: Set Slot Duration
+
+Choose appointment length:
+- 15 minutes
+- 30 minutes
+- 60 minutes
+- Custom duration
+
+### Step 4: Buffer Time
+
+Add buffer between appointments:
+- 0 minutes — No buffer
+- 15 minutes — Standard buffer
+- 30 minutes — Long buffer
+
+## How It Works
+
+### Visitor Flow
+
+1. Visitor asks to book an appointment
+2. Agent asks for preferred date
+3. Agent shows available time slots
+4. Visitor selects a time
+5. Agent collects contact details
+6. Agent confirms the booking
+7. Visitor receives confirmation email
+
+### Agent Behavior
+
+The agent handles:
+- Checking availability
+- Suggesting alternative times
+- Creating bookings
+- Sending confirmations
+- Handling cancellations
+
+Example conversation:
+
+> **Visitor:** "I'd like to book a meeting for next week"
+>
+> **Agent:** "I'd be happy to help! What day works best for you?"
+>
+> **Visitor:** "Tuesday"
+>
+> **Agent:** "Tuesday works! Here are available times:
+> - 9:00 AM
+> - 10:30 AM
+> - 2:00 PM
+> - 3:30 PM
+>
+> Which would you prefer?"
+
+## Public Booking Page
+
+Each domain gets a public booking page:
+
+```
+https://your-domain.com/portal/book?domainId=YOUR_DOMAIN_ID
+```
+
+Share this link in emails, social media, or your website.
+
+## Notifications
+
+### Email Notifications
+
+Configure who receives booking notifications:
+
+1. Go to **Dashboard → Settings**
+2. Enter notification email addresses
+3. Choose notification types:
+   - New booking
+   - Cancellation
+   - Reschedule
+
+### Dashboard Notifications
+
+Bookings appear in **Dashboard → Bookings**:
+- View all upcoming appointments
+- Filter by status (pending, confirmed, cancelled)
+- See customer details
+
+## Calendar Integration
+
+### Google Calendar
+
+Sync bookings to Google Calendar:
+1. Go to **Dashboard → Settings → Calendar**
+2. Connect Google account
+3. Select calendar for events
+4. Events auto-sync
+
+### Outlook Calendar
+
+Sync to Outlook Calendar:
+1. Connect Microsoft account
+2. Select calendar
+3. Events appear automatically
+
+## Booking Settings
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Duration | Appointment length | 30 minutes |
+| Buffer | Time between appointments | 15 minutes |
+| Advance booking | How far ahead to book | 30 days |
+| Minimum notice | Minimum time before appointment | 2 hours |
+
+## Best Practices
+
+1. **Set realistic hours** — Don't overbook
+2. **Add buffer time** — Prevent back-to-back meetings
+3. **Configure notifications** — Never miss a booking
+4. **Test the flow** — Book a test appointment
+5. **Monitor bookings** — Check Dashboard → Bookings regularly
+
+## Troubleshooting
+
+### No available slots
+
+1. Check available hours are set
+2. Verify timezone is correct
+3. Ensure no other bookings exist for that time
+4. Check slot duration isn't too long
+
+### Booking not created
+
+1. Verify bookings are enabled
+2. Check agent has booking tool access
+3. Test with manual booking first
+4. Check database for errors
+
+### No email sent
+
+1. Verify email service is configured
+2. Check notification settings
+3. Test with a manual booking
+4. Check spam folder

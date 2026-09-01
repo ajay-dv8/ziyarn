@@ -1,0 +1,256 @@
+---
+title: Deployment
+description: Deploy Ziyarn to Vercel, self-host, or use Docker.
+---
+
+# Deployment
+
+Deploy Ziyarn to the cloud or run it on your own infrastructure.
+
+## Vercel (Recommended)
+
+The easiest way to deploy Ziyarn.
+
+### Prerequisites
+
+- Vercel account
+- GitHub repository
+- Neon or other PostgreSQL database
+
+### Steps
+
+1. Fork the repository
+2. Import to Vercel
+3. Configure environment variables
+4. Deploy
+
+### Environment Variables
+
+```bash
+DATABASE_URL=postgresql://...
+BETTER_AUTH_SECRET=your-secret
+BETTER_AUTH_URL=https://your-domain.com
+NEXT_PUBLIC_BETTER_AUTH_URL=https://your-domain.com
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+```
+
+### Custom Domain
+
+1. Go to Vercel project settings
+2. Add your domain
+3. Configure DNS
+4. SSL is automatic
+
+## Self-Hosted
+
+Run Ziyarn on your own server.
+
+### Prerequisites
+
+- Node.js 20+
+- PostgreSQL database
+- pnpm package manager
+
+### Steps
+
+```bash
+# Clone the repository
+git clone https://github.com/your-org/ziyarn.git
+cd ziyarn
+
+# Install dependencies
+pnpm install
+
+# Build the application
+pnpm build
+
+# Start the server
+pnpm start
+```
+
+### Process Manager
+
+Use PM2 for production:
+
+```bash
+npm install -g pm2
+pm2 start pnpm --name ziyarn -- start
+pm2 save
+pm2 startup
+```
+
+### Nginx Reverse Proxy
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+## Docker
+
+Run Ziyarn in containers.
+
+### Dockerfile
+
+```dockerfile
+FROM node:20-alpine AS base
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+FROM base AS deps
+COPY package.json pnpm-lock.yaml ./
+RUN corepack enable pnpm && pnpm install --frozen-lockfile
+
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN corepack enable pnpm && pnpm build
+
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV production
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+### Docker Compose
+
+```yaml
+version: "3.8"
+services:
+  ziyarn:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/ziyarn
+      - BETTER_AUTH_SECRET=your-secret
+      - BETTER_AUTH_URL=http://localhost:3000
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16
+    environment:
+      - POSTGRES_DB=ziyarn
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+```
+
+### Running
+
+```bash
+docker-compose up -d
+```
+
+## Environment Variables
+
+### Required
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `BETTER_AUTH_SECRET` | Auth secret key |
+| `BETTER_AUTH_URL` | Application URL |
+| `NEXT_PUBLIC_BETTER_AUTH_URL` | Public application URL |
+
+### Optional
+
+| Variable | Description |
+|----------|-------------|
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `GEMINI_API_KEY` | Gemini API key for AI |
+| `OPENROUTER_API_KEY` | OpenRouter fallback key |
+| `STRIPE_SECRET_KEY` | Stripe secret key |
+| `PAYSTACK_SECRET_KEY` | Paystack secret key |
+
+## Database Setup
+
+### Neon (Recommended)
+
+1. Create a Neon account
+2. Create a new project
+3. Copy the connection string
+4. Run migrations:
+
+```bash
+pnpm --filter @repo/database exec drizzle-kit migrate
+```
+
+### Supabase
+
+1. Create a Supabase project
+2. Get the connection string from Settings → Database
+3. Run migrations
+
+### Self-Hosted PostgreSQL
+
+```bash
+# Create database
+createdb ziyarn
+
+# Run migrations
+DATABASE_URL=postgresql://localhost:5432/ziyarn pnpm --filter @repo/database exec drizzle-kit migrate
+```
+
+## SSL/TLS
+
+### Let's Encrypt
+
+Use Certbot for free SSL:
+
+```bash
+sudo certbot --nginx -d your-domain.com
+```
+
+### Cloudflare
+
+1. Add domain to Cloudflare
+2. Enable proxy
+3. SSL is automatic
+
+## Monitoring
+
+### Health Check
+
+```http
+GET /api/health
+```
+
+### Logs
+
+Vercel: Dashboard → Logs
+Self-hosted: Check PM2 or Docker logs
+
+### Analytics
+
+Built-in analytics in Dashboard → Analytics.
+
+## Best Practices
+
+1. **Use environment variables** — Never hardcode secrets
+2. **Enable SSL** — Always use HTTPS
+3. **Set up monitoring** — Track uptime and errors
+4. **Backup database** — Regular automated backups
+5. **Update regularly** — Keep dependencies current

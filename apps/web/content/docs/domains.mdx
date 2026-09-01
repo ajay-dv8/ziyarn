@@ -1,0 +1,76 @@
+---
+title: Domains
+description: Create and manage your helpdesk domains.
+---
+
+# Domains
+
+A domain represents one website or property. Each domain gets its own AI agent, knowledge base, product catalog, and conversation history.
+
+## Creating a Domain
+
+1. Go to **Dashboard → Domains**
+2. Click **Create Domain**
+3. Enter:
+   - **Name** — Display name (e.g., "Acme Support")
+   - **Slug** — URL-friendly identifier (e.g., "acme")
+   - **Description** — Brief description of the domain
+4. Click **Create**
+
+## Domain Settings
+
+Each domain has:
+
+### Embed Secret
+
+A secret key that authorizes the widget. Found in **Dashboard → Domains → [Domain] → Embed**.
+
+:::warning
+Never commit your embed secret to public repositories. Use environment variables.
+:::
+
+### Agent
+
+Each domain has a dedicated AI agent. Configure it in **Dashboard → Agents**.
+
+### Knowledge Base
+
+Upload documents, crawl websites, and add manual entries. Found in **Dashboard → Knowledge**.
+
+### Products
+
+Sync product catalogs from connected databases. Found in **Dashboard → Products**.
+
+## Multiple Domains
+
+You can create multiple domains for:
+
+- **Different websites** — separate helpdesks for each site
+- **Different environments** — staging and production
+- **Different brands** — distinct personas per brand
+
+Each domain is independent with its own:
+- Agent and personality
+- Knowledge base
+- Product catalog
+- Conversation history
+- Booking settings
+
+## Embedding the Widget
+
+Once you have a domain, embed the widget:
+
+```html
+<zy-widget
+  data-api="https://your-api.com"
+  data-domain="YOUR_DOMAIN_ID"
+  data-secret="YOUR_EMBED_SECRET"
+></zy-widget>
+<script src="https://ziyarn.vercel.app/widget.js"></script>
+```
+
+## Domain Limits
+
+Free plans have domain limits. Check your plan in **Dashboard → Billing**.
+
+To create more domains, upgrade your plan or contact support.

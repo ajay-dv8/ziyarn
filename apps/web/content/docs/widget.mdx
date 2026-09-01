@@ -1,0 +1,388 @@
+---
+title: Widget Integration
+description: Add the Ziyarn chat widget to any website or framework.
+---
+
+# Widget Integration
+
+The Ziyarn widget is a vanilla JavaScript web component that runs in a Shadow DOM for complete style isolation. It has zero dependencies and works on any website.
+
+## Basic Installation
+
+Add this code before the closing `</body>` tag:
+
+```html
+<zy-widget
+  data-api="https://your-api.com"
+  data-domain="YOUR_DOMAIN_ID"
+  data-secret="YOUR_EMBED_SECRET"
+></zy-widget>
+<script src="https://ziyarn.vercel.app/widget.js"></script>
+```
+
+## Configuration Options
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `data-api` | string | — | Backend API URL (required) |
+| `data-domain` | string | — | Domain ID or slug (required) |
+| `data-secret` | string | — | Embed secret for authentication (required) |
+| `data-color` | string | `#000000` | Primary color (CSS hex value) |
+| `data-position` | string | `bottom-right` | Widget position: `bottom-right` or `bottom-left` |
+| `data-greeting` | string | — | Custom welcome message |
+| `data-title` | string | — | Widget header title |
+| `data-subtitle` | string | — | Widget header subtitle |
+
+:::warning
+The `data-color` attribute expects a CSS hex value (`#000000`), NOT Tailwind classes like `bg-blue-500`.
+:::
+
+## Platform Guides
+
+### HTML / Vanilla JS
+
+The simplest installation. Add the code before `</body>`:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Website</title>
+</head>
+<body>
+  <!-- Your content -->
+
+  <zy-widget
+    data-api="https://api.example.com"
+    data-domain="my-domain"
+    data-secret="secret_abc123"
+    data-color="#6366f1"
+    data-title="Support"
+    data-subtitle="How can we help?"
+  ></zy-widget>
+  <script src="https://ziyarn.vercel.app/widget.js"></script>
+</body>
+</html>
+```
+
+### React / Next.js
+
+In React, use `"use client"` and add the widget via `useEffect` or a script tag:
+
+```tsx
+"use client";
+
+import { useEffect } from "react";
+
+export function ChatWidget() {
+  useEffect(() => {
+    // Widget auto-initializes from the HTML elements
+  }, []);
+
+  return (
+    <>
+      <zy-widget
+        data-api={process.env.NEXT_PUBLIC_API_URL}
+        data-domain="my-domain"
+        data-secret="secret_abc123"
+      />
+      <script src="https://ziyarn.vercel.app/widget.js" />
+    </>
+  );
+}
+```
+
+Add to your root layout:
+
+```tsx
+import { ChatWidget } from "@/components/chat-widget";
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        {children}
+        <ChatWidget />
+      </body>
+    </html>
+  );
+}
+```
+
+### Next.js with Script Component
+
+Use Next.js `Script` component for optimal loading:
+
+```tsx
+"use client";
+
+import Script from "next/script";
+
+export function ChatWidget() {
+  return (
+    <>
+      <zy-widget
+        data-api={process.env.NEXT_PUBLIC_API_URL}
+        data-domain="my-domain"
+        data-secret="secret_abc123"
+      />
+      <Script
+        src="https://ziyarn.vercel.app/widget.js"
+        strategy="lazyOnload"
+      />
+    </>
+  );
+}
+```
+
+### Vue / Nuxt
+
+In Vue, use `<ClientOnly>` to prevent SSR issues:
+
+```vue
+<template>
+  <ClientOnly>
+    <zy-widget
+      :data-api="apiUrl"
+      data-domain="my-domain"
+      data-secret="secret_abc123"
+    />
+    <script src="https://ziyarn.vercel.app/widget.js" />
+  </ClientOnly>
+</template>
+
+<script setup>
+const apiUrl = import.meta.env.VITE_API_URL;
+</script>
+```
+
+For Nuxt, add to `app.vue` or a layout:
+
+```vue
+<template>
+  <NuxtPage />
+  <ClientOnly>
+    <zy-widget
+      data-api="https://api.example.com"
+      data-domain="my-domain"
+      data-secret="secret_abc123"
+    />
+    <script src="https://ziyarn.vercel.app/widget.js" />
+  </ClientOnly>
+</template>
+```
+
+### Svelte / SvelteKit
+
+Use `onMount` to ensure client-side rendering:
+
+```svelte
+<script>
+  import { onMount } from "svelte";
+
+  let mounted = false;
+
+  onMount(() => {
+    mounted = true;
+  });
+</script>
+
+{#if mounted}
+  <zy-widget
+    data-api="https://api.example.com"
+    data-domain="my-domain"
+    data-secret="secret_abc123"
+  />
+  <script src="https://ziyarn.vercel.app/widget.js" />
+{/if}
+```
+
+### Angular
+
+In Angular, add to your main component and configure `CUSTOM_ELEMENTS_SCHEMA`:
+
+```typescript
+// app.component.ts
+import { Component } from "@angular/core";
+
+@Component({
+  selector: "app-root",
+  template: `
+    <zy-widget
+      data-api="https://api.example.com"
+      data-domain="my-domain"
+      data-secret="secret_abc123"
+    ></zy-widget>
+    <script src="https://ziyarn.vercel.app/widget.js"></script>
+  `,
+})
+export class AppComponent {}
+```
+
+```typescript
+// app.module.ts
+import { NgModule, CUSTOM_ELEMENTS_SCHEMA } from "@angular/core";
+
+@NgModule({
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  // ...
+})
+export class AppModule {}
+```
+
+### WordPress
+
+Add to your theme's `footer.php` or use a plugin:
+
+```php
+<!-- Add before closing </body> tag -->
+<zy-widget
+  data-api="https://api.example.com"
+  data-domain="my-domain"
+  data-secret="secret_abc123"
+></zy-widget>
+<script src="https://ziyarn.vercel.app/widget.js"></script>
+```
+
+Or use a custom HTML widget in your sidebar/footer.
+
+### Shopify
+
+Add to your theme's `theme.liquid` before `</body>`:
+
+```liquid
+<!-- In themes/YOUR_THEME/layout/theme.liquid -->
+{{ content_for_header }}
+
+<!-- Add before closing </body> -->
+<zy-widget
+  data-api="https://api.example.com"
+  data-domain="my-domain"
+  data-secret="secret_abc123"
+></zy-widget>
+<script src="https://ziyarn.vercel.app/widget.js"></script>
+```
+
+## Middleware / CSP Configuration
+
+If your site uses Content Security Policy headers, you need to allow the widget domain.
+
+### Next.js Middleware
+
+```typescript
+// middleware.ts
+import { NextResponse } from "next/server";
+
+export function middleware(request) {
+  const response = NextResponse.next();
+  
+  response.headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://your-api.com; style-src 'self' 'unsafe-inline';"
+  );
+  
+  return response;
+}
+```
+
+### Nginx
+
+```nginx
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://your-api.com; style-src 'self' 'unsafe-inline';";
+```
+
+### Apache
+
+```apache
+Header set Content-Security-Policy "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://your-api.com; style-src 'self' 'unsafe-inline';"
+```
+
+### Cloudflare Workers
+
+```javascript
+addEventListener("fetch", (event) => {
+  const response = await fetch(event.request);
+  response.headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://your-api.com; style-src 'self' 'unsafe-inline';"
+  );
+  return response;
+});
+```
+
+## TypeScript Support
+
+The widget is a vanilla JS web component. For TypeScript support, add this to your project:
+
+```typescript
+// ziyarn-widget.d.ts
+declare namespace JSX {
+  interface IntrinsicElements {
+    "zy-widget": {
+      "data-api"?: string;
+      "data-domain"?: string;
+      "data-secret"?: string;
+      "data-color"?: string;
+      "data-position"?: "bottom-right" | "bottom-left";
+      "data-greeting"?: string;
+      "data-title"?: string;
+      "data-subtitle"?: string;
+      className?: string;
+      style?: React.CSSProperties;
+    };
+  }
+}
+```
+
+Or use the global declaration:
+
+```typescript
+// global.d.ts
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      "zy-widget": {
+        "data-api"?: string;
+        "data-domain"?: string;
+        "data-secret"?: string;
+        "data-color"?: string;
+        "data-position"?: "bottom-right" | "bottom-left";
+        "data-greeting"?: string;
+        "data-title"?: string;
+        "data-subtitle"?: string;
+      };
+    }
+  }
+}
+
+export {};
+```
+
+## Troubleshooting
+
+### Widget doesn't appear
+
+1. Check that the script is loaded (open DevTools → Network tab)
+2. Verify `data-domain` and `data-secret` are correct
+3. Ensure no CSP headers are blocking the script
+
+### Widget appears but doesn't respond
+
+1. Check that `data-api` points to your backend URL
+2. Verify the backend is running and accessible
+3. Check browser console for CORS errors
+
+### Styles conflict with my site
+
+The widget runs in a Shadow DOM, so styles shouldn't conflict. If you see issues:
+
+1. Check for `all: initial` or `all: revert` in your CSS
+2. Ensure no global reset is affecting Shadow DOM elements
+
+### Console errors
+
+Open DevTools → Console tab. Common errors:
+
+- `Failed to fetch` — API URL is wrong or backend is down
+- `Unauthorized` — embed secret is incorrect
+- `Domain not found` — domain ID/slug doesn't exist
