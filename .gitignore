@@ -37,3 +37,9 @@ yarn-error.log*
 .DS_Store
 *.pem
 .uploads
+
+# Fumadocs generated
+.source/
+
+# Local tool config
+.opencode/
