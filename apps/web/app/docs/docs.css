@@ -1,0 +1,28 @@
+@import "fumadocs-ui/style.css";
+
+/*
+ * Fix sticky sidebar.
+ *
+ * position: sticky works by sticking the element within its nearest
+ * scrollable ancestor. If an ancestor creates a scroll container
+ * (via overflow: hidden/auto/scroll) but doesn't actually scroll
+ * (because it grows via min-height), sticky has no effect.
+ *
+ * Two elements create non-scrolling scroll containers:
+ * 1. body — overflow-x: hidden (from @repo/ui globals.css) forces
+ *    overflow-y to auto, making body a scroll container. But body
+ *    has min-height: 100vh so it grows instead of scrolling.
+ * 2. #nd-docs-layout — overflow-x: clip (Tailwind class) forces
+ *    overflow-y to auto. Same problem: grows via min-height.
+ *
+ * Fix: overflow: clip on body and #nd-docs-layout. clip does NOT
+ * create a scroll container, while still clipping overflowing content.
+ * The viewport (html) remains the sole scroll container.
+ */
+body {
+  overflow: clip !important;
+}
+
+#nd-docs-layout {
+  overflow: clip;
+}
