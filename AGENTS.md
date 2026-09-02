@@ -68,6 +68,12 @@ See `plan/rebuild_divesai.md` for the roadmap and `plan/*.md` for architecture.
   `import * as schema from "@repo/database/schema"`.
 - All service boundaries use zod validation; server actions/API routes must
   verify ownership. No module-level mutable state.
+- **NEVER use single-character variable names.** Use descriptive names instead.
+  Examples: `q` → `question`, `p` → `product`/`catalogItem`, `m` → `message`,
+  `a` → `answerEntry`, `i` → `dayIndex`/`index`, `s` → `since`. The only
+  exception is `for (const x of ...)` loops where the variable is immediately
+  used and its meaning is obvious from context. This applies to all new code
+  and should be enforced during code review.
 
 ## Env vars (apps/web/.env)
 
