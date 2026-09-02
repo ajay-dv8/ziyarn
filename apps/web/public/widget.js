@@ -219,7 +219,7 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--zy-muted);
+      background: var(--zy-color);
       animation: zy-bounce 1.4s ease-in-out infinite;
     }
     .zy-dot:nth-child(2) { animation-delay: 0.2s; }
