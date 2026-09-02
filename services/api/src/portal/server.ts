@@ -12,9 +12,6 @@ import {
   payments,
   leads,
   stripeAccounts,
-  products,
-  dataSources,
-  dataSourceTables,
   type Booking,
   type Payment,
   type BookingSetting,
@@ -618,13 +615,20 @@ export function createPortalService(deps: {
       const offset = opts?.offset ?? 0;
 
       // ── Widget orders (payments table) ──
-      const paymentConditions = [eq(payments.domainId, domainId)];
+      const paymentConditions: ReturnType<typeof eq>[] = [
+        eq(payments.domainId, domainId),
+      ];
       if (opts?.source === "chat") {
         // Only payments with a conversation (created via widget)
         paymentConditions.push(isNotNull(payments.conversationId));
       } else if (opts?.source === "db") {
-        // Payments linked to a synced product (has dataSourceId)
-        paymentConditions.push(isNotNull(payments.productId));
+        // Payments synced from a database (have externalKey, no conversation)
+        paymentConditions.push(
+          and(
+            isNotNull(payments.externalKey),
+            isNull(payments.conversationId),
+          )!,
+        );
       }
       if (opts?.q) {
         paymentConditions.push(
@@ -642,7 +646,7 @@ export function createPortalService(deps: {
           status: payments.status,
           createdAt: payments.createdAt,
           hasConversation: isNotNull(payments.conversationId),
-          productId: payments.productId,
+          hasExternalKey: isNotNull(payments.externalKey),
         })
         .from(payments)
         .where(and(...paymentConditions))
@@ -658,10 +662,16 @@ export function createPortalService(deps: {
       const [dbCountRow] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(payments)
-        .where(and(eq(payments.domainId, domainId), isNotNull(payments.productId)));
+        .where(
+          and(
+            eq(payments.domainId, domainId),
+            isNotNull(payments.externalKey),
+            isNull(payments.conversationId),
+          ),
+        );
 
       const chatCount = chatCountRow?.count ?? 0;
-      const dbProductCount = dbCountRow?.count ?? 0;
+      const dbCount = dbCountRow?.count ?? 0;
 
       // ── Map payment rows to common order shape ──
       const orders: Array<{
@@ -689,9 +699,9 @@ export function createPortalService(deps: {
       return {
         orders,
         counts: {
-          all: chatCount + dbProductCount,
+          all: chatCount + dbCount,
           chat: chatCount,
-          db: dbProductCount,
+          db: dbCount,
         },
       };
     },
