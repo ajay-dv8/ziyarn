@@ -34,7 +34,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={cn("font-sans", inter.variable)}
     >
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased `}>
         <ThemeProvider>{children}</ThemeProvider>
         <Toaster position="bottom-right" richColors />
       </body>
