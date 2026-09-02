@@ -2,9 +2,17 @@ export {
   createChatService,
   ConversationServiceError,
   CONTEXT_WINDOW_MESSAGES,
+  CORS_HEADERS,
+  jsonError,
+  systemPromptFor,
+  handleChatPost,
+  handleChatConfig,
+  handleChatHistory,
 } from "@repo/api/chat/server";
 
 export type { ChatService } from "@repo/api/chat/server";
+
+export { createToolExecutor } from "@repo/api/chat/tool-executor";
 
 export {
   appendMessageSchema,
