@@ -65,11 +65,17 @@ export const updateDataSourceTablesSchema = z.object({
           tableName: z.string().trim().min(1).max(200),
           included: z.boolean().optional(),
           includeProducts: z.boolean().optional(),
+          includeOrders: z.boolean().optional(),
         })
         .refine(
           (data) =>
-            data.included !== undefined || data.includeProducts !== undefined,
-          { message: "Each selection must set included or includeProducts" },
+            data.included !== undefined ||
+            data.includeProducts !== undefined ||
+            data.includeOrders !== undefined,
+          {
+            message:
+              "Each selection must set included, includeProducts, or includeOrders",
+          },
         ),
     )
     .min(1)

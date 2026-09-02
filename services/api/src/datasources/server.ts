@@ -9,6 +9,7 @@ import {
   documentChunks,
   embeddings,
   knowledgeDocuments,
+  payments,
   products,
 } from "@repo/database/schema";
 import { chunkText } from "@repo/api/knowledge/chunker";
@@ -32,6 +33,11 @@ import {
   mapProductRow,
   type MappedProduct,
 } from "@repo/api/datasources/product-columns";
+import {
+  mapOrderColumns,
+  mapOrderRow,
+  type MappedOrder,
+} from "@repo/api/datasources/order-columns";
 import {
   SAMPLE_ROW_LIMIT,
   type ConnectDataSourceInput,
@@ -98,6 +104,51 @@ async function upsertSyncedProducts(
         updatedAt: new Date(),
       },
     });
+
+  return input.rows.length;
+}
+
+/**
+ * Upserts database-synced orders by (domainId, externalKey). Orders without
+ * an external key are never touched. Returns the number of rows processed.
+ */
+async function upsertSyncedOrders(
+  db: Database,
+  input: {
+    domainId: string;
+    dataSourceId: string;
+    rows: MappedOrder[];
+  },
+): Promise<number> {
+  if (input.rows.length === 0) return 0;
+
+  // Insert one at a time to handle unique constraint on externalKey
+  // gracefully (last-wins semantics within a batch).
+  for (const row of input.rows) {
+    await db
+      .insert(payments)
+      .values({
+        domainId: input.domainId,
+        externalKey: row.externalKey,
+        email: row.email,
+        description: row.description,
+        amountMinor: row.amountMinor,
+        currency: row.currency,
+        status: row.status as "pending" | "requires_payment" | "paid" | "failed",
+        createdAt: row.createdAt ?? new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [payments.domainId, payments.externalKey],
+        set: {
+          email: sql`excluded.email`,
+          description: sql`excluded.description`,
+          amountMinor: sql`excluded.amount_minor`,
+          currency: sql`excluded.currency`,
+          status: sql`excluded.status`,
+          updatedAt: new Date(),
+        },
+      });
+  }
 
   return input.rows.length;
 }
@@ -413,12 +464,19 @@ export function createDataSourcesService(deps: {
       );
 
       for (const selection of input.selections) {
-        const patch: { included?: boolean; includeProducts?: boolean } = {};
+        const patch: {
+          included?: boolean;
+          includeProducts?: boolean;
+          includeOrders?: boolean;
+        } = {};
         if (selection.included !== undefined) {
           patch.included = selection.included;
         }
         if (selection.includeProducts !== undefined) {
           patch.includeProducts = selection.includeProducts;
+        }
+        if (selection.includeOrders !== undefined) {
+          patch.includeOrders = selection.includeOrders;
         }
         await db
           .update(dataSourceTables)
@@ -867,6 +925,178 @@ export function createDataSourcesService(deps: {
       }
 
       return { totalUpserted, markedUnavailable: totalMarkedUnavailable, sources: results };
+    },
+
+    /**
+     * Order-only fetch: reads order tables from every data source attached
+     * to the domain's agents and upserts them into the payments table.
+     * Rows that vanish from the source are deactivated (status → "failed"),
+     * never deleted.
+     */
+    syncOrders: async (
+      input: { domainId: string },
+      headers: Headers,
+    ) => {
+      await requireOwnedAgent(input.domainId, null, headers);
+
+      const sources = await db
+        .select({
+          id: dataSources.id,
+          label: dataSources.label,
+          credentialsEncrypted: dataSources.credentialsEncrypted,
+        })
+        .from(dataSources)
+        .innerJoin(agents, eq(dataSources.agentId, agents.id))
+        .where(eq(agents.domainId, input.domainId));
+
+      const results: Array<{
+        label: string;
+        imported: number;
+        error?: string;
+      }> = [];
+      let totalUpserted = 0;
+
+      for (const source of sources) {
+        const seenKeys = new Set<string>();
+        const skippedTables: string[] = [];
+        let importedForSource = 0;
+        let mappedTables = 0;
+
+        try {
+          let connection: AnyConnection;
+          try {
+            connection = decryptJson<AnyConnection>(
+              source.credentialsEncrypted,
+            );
+          } catch (error) {
+            throw new Error(
+              `decrypting credentials: ${
+                error instanceof Error ? error.message : "unknown"
+              }`,
+            );
+          }
+          const driver = await createDriver(connection);
+          try {
+            // Only tables the user flagged for order sync are considered.
+            const selected = await db
+              .select({ tableName: dataSourceTables.tableName })
+              .from(dataSourceTables)
+              .where(
+                and(
+                  eq(dataSourceTables.dataSourceId, source.id),
+                  eq(dataSourceTables.includeOrders, true),
+                ),
+              );
+            if (selected.length === 0) {
+              results.push({
+                label: source.label,
+                imported: 0,
+                error: "no order tables selected",
+              });
+              continue;
+            }
+            const selectedNames = new Set(selected.map((s) => s.tableName));
+
+            let tables: Awaited<ReturnType<typeof driver.listTables>>;
+            try {
+              tables = await driver.listTables();
+            } catch (error) {
+              throw new Error(
+                `listing tables: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              );
+            }
+            for (const table of tables) {
+              if (!selectedNames.has(table.name)) continue;
+              const mapping = mapOrderColumns(table.columns);
+              if (!mapping) continue;
+              mappedTables += 1;
+
+              let rows: Record<string, unknown>[] = [];
+              try {
+                rows = await driver.sampleRows(
+                  table.name,
+                  CONTACT_IMPORT_LIMIT,
+                );
+              } catch (error) {
+                console.error(
+                  `[syncOrders] skipping table ${table.name}:`,
+                  error,
+                );
+                skippedTables.push(table.name);
+                continue;
+              }
+              // Dedupe by externalKey within the batch.
+              const byKey = new Map<string, MappedOrder>();
+              for (const row of rows) {
+                const mapped = mapOrderRow({
+                  row,
+                  tableName: table.name,
+                  mapping,
+                });
+                if (!mapped) continue;
+                seenKeys.add(mapped.externalKey);
+                byKey.set(mapped.externalKey, mapped);
+              }
+
+              const mappedRows = Array.from(byKey.values());
+
+              try {
+                const upserted = await upsertSyncedOrders(db, {
+                  domainId: input.domainId,
+                  dataSourceId: source.id,
+                  rows: mappedRows,
+                });
+                importedForSource += upserted;
+              } catch (error) {
+                throw new Error(
+                  `saving orders from ${table.name}: ${
+                    error instanceof Error ? error.message : "upsert failed"
+                  }`,
+                );
+              }
+            }
+          } finally {
+            await driver.close();
+          }
+
+          if (mappedTables === 0) {
+            results.push({
+              label: source.label,
+              imported: 0,
+              error:
+                "selected tables produced no importable orders (they need an amount column)",
+            });
+            continue;
+          }
+
+          totalUpserted += importedForSource;
+          results.push({
+            label: source.label,
+            imported: importedForSource,
+            error:
+              skippedTables.length > 0
+                ? `skipped tables (read errors): ${skippedTables.join(", ")}`
+                : undefined,
+          });
+        } catch (error) {
+          console.error(
+            `[syncOrders] source ${source.label} failed:`,
+            error,
+          );
+          results.push({
+            label: source.label,
+            imported: 0,
+            error:
+              error instanceof Error
+                ? error.message.slice(0, 240)
+                : "could not read source",
+          });
+        }
+      }
+
+      return { totalUpserted, sources: results };
     },
 
     /** Removes a data source; its tables and derived documents cascade. */
