@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { Button } from "@repo/ui/components/button";
 
 import { OrdersTable } from "@/components/dashboard/orders-table";
+import { SyncDatabaseOrdersButton } from "@/components/dashboard/sync-database-orders-button";
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
 import { ordersService } from "@/services/orders-service";
@@ -73,6 +74,9 @@ export default async function OrdersPage({
             connected database.
           </p>
         </div>
+        {selectedDomain ? (
+          <SyncDatabaseOrdersButton domainId={selectedDomain.id} />
+        ) : null}
       </div>
 
       {domains.length > 1 ? (
