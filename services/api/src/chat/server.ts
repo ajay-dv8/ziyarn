@@ -656,6 +656,7 @@ type AiService = {
     messages: { role: "user" | "assistant"; content: string }[];
     tools?: AgentToolName[];
     executeTool: (name: AgentToolName, args: Record<string, unknown>) => Promise<string>;
+    signal?: AbortSignal;
   }) => AsyncIterable<{ type: string; delta?: string; name?: AgentToolName }>;
 };
 
@@ -784,12 +785,15 @@ export async function handleChatPost(
           );
 
         let fullReply = "";
+        const abortController = new AbortController();
+        const abortTimer = setTimeout(() => abortController.abort(), 60_000);
         try {
           for await (const event of aiService.streamChat({
             systemPrompt: systemPromptFor(domain, agent, catalog, bookingConfig),
             messages: context,
             tools: agent.tools as AgentToolName[] | undefined,
             executeTool: toolExecutor,
+            signal: abortController.signal,
           })) {
             if (event.type === "text") {
               fullReply += event.delta!;
@@ -820,6 +824,7 @@ export async function handleChatPost(
               error instanceof Error ? error.message : "AI request failed",
           });
         } finally {
+          clearTimeout(abortTimer);
           controller.close();
         }
       },
