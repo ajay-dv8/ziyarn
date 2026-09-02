@@ -724,38 +724,52 @@
       this._typingMinimumMs = 600;
 
       var self = this;
-      var body = JSON.stringify({
+      var payload = {
         message: text,
         visitorId: this._visitorId,
         conversationId: this._conversationId || undefined,
-      });
+      };
 
-      fetch(this._apiBase + "/api/chat", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-embed-secret": this._secret,
-        },
-        body: body,
-      })
-        .then(function (response) {
+      function doFetch(body) {
+        return fetch(self._apiBase + "/api/chat", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-embed-secret": self._secret,
+          },
+          body: JSON.stringify(body),
+        }).then(function (response) {
           if (!response.ok) {
             return response
               .json()
               .catch(function () {
                 return {};
               })
-              .then(function (payload) {
-                var err = payload && payload.error;
-                throw new Error(
+              .then(function (data) {
+                var err = data && data.error;
+                var msg =
                   err && err.message
                     ? err.message
-                    : "Request failed (" + response.status + ")"
-                );
+                    : "Request failed (" + response.status + ")";
+                var code = err && err.code;
+                // Stale conversation — clear it and retry as a new conversation
+                if (code === "NOT_FOUND" && self._conversationId) {
+                  self._conversationId = null;
+                  self._saveStore("conversation", "");
+                  var retry = {
+                    message: text,
+                    visitorId: self._visitorId,
+                  };
+                  return doFetch(retry);
+                }
+                throw new Error(msg);
               });
           }
-          return response.body; // ReadableStream for SSE
-        })
+          return response.body;
+        });
+      }
+
+      doFetch(payload)
         .then(function (bodyStream) {
           if (!bodyStream) return Promise.resolve();
           return self._readStream(bodyStream, typing);
