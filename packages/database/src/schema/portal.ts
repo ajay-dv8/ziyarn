@@ -63,6 +63,7 @@ export const payments = pgTable(
     productId: uuid("product_id").references(() => products.id, {
       onDelete: "set null",
     }),
+    externalKey: text("external_key"),
     email: text("email"),
     description: text("description"),
     amountMinor: integer("amount_minor").notNull(),
@@ -80,7 +81,13 @@ export const payments = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("payments_domain_id_idx").on(table.domainId)],
+  (table) => [
+    index("payments_domain_id_idx").on(table.domainId),
+    uniqueIndex("payments_domain_external_key_idx").on(
+      table.domainId,
+      table.externalKey,
+    ),
+  ],
 );
 
 export const stripeAccounts = pgTable(
