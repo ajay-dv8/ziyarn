@@ -815,7 +815,22 @@
         }
       }
 
+      var STREAM_TIMEOUT_MS = 90000;
+      var inactivityTimer = null;
+
+      function resetInactivityTimer() {
+        clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(function () {
+          reader.cancel();
+          cancelTypingTimer();
+          typingNode.classList.remove("zy-msg-typing");
+          typingNode.classList.add("zy-msg-error");
+          typingNode.textContent = "Response timed out. Please try again.";
+        }, STREAM_TIMEOUT_MS);
+      }
+
       function handleEvent(data) {
+        resetInactivityTimer();
         var event;
         try {
           event = JSON.parse(data);
@@ -872,7 +887,11 @@
       // and processes complete events. The leftover partial data stays
       // in `buffer` for the next iteration.
       function pump(result) {
-        if (result.done) return;
+        if (result.done) {
+          clearTimeout(inactivityTimer);
+          return;
+        }
+        resetInactivityTimer();
         buffer += decoder.decode(result.value, { stream: true });
         var parts = buffer.split("\n\n");
         buffer = parts.pop(); // last element may be incomplete
@@ -885,6 +904,7 @@
         return reader.read().then(pump);
       }
 
+      resetInactivityTimer();
       return reader.read().then(pump);
     }
 
