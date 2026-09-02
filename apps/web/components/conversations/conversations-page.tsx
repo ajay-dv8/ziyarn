@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, Clock, CornerUpLeft, Send } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, CornerUpLeft, Send } from "lucide-react";
 
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
@@ -242,7 +242,7 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
   return (
     <div className="grid h-full gap-4 lg:grid-cols-[320px_1fr]">
       {/* Left panel — conversation list */}
-      <Card className="flex min-h-0 flex-col overflow-hidden">
+      <Card className={cn("flex min-h-0 flex-col overflow-hidden", selectedId && "hidden", "lg:flex")}>
         <CardContent className="flex min-h-0 flex-1 flex-col p-2">
           {conversations.length === 0 && (
             <p className="p-4 text-sm text-muted-foreground">
@@ -307,7 +307,7 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
       </Card>
 
       {/* Right panel — messenger */}
-      <Card className="flex min-h-0 flex-col overflow-hidden">
+      <Card className={cn("flex min-h-0 flex-col overflow-hidden", !selectedId && "hidden", "lg:flex")}>
         <CardContent className="flex min-h-0 flex-1 flex-col p-0">
           {!selectedConversation ? (
             <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -316,8 +316,16 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
           ) : (
             <div className="flex min-h-0 flex-1 flex-col">
               {/* Conversation header — agent info + status actions */}
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3">
-                <div className="min-w-0">
+              <div className="flex shrink-0 items-center gap-2 border-b px-4 py-3">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 lg:hidden"
+                  onClick={() => setSelectedId(null)}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">
                     {selectedConversation.agentName
                       ? `${selectedConversation.domainName} · ${selectedConversation.agentName}`
