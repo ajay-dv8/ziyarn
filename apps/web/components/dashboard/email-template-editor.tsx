@@ -26,11 +26,11 @@ export function EmailTemplateEditor({ onDraft, initialBody = "" }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex gap-1">
-        {(["design", "html"] as const).map((m) => (
+        {(["design", "html"] as const).map((editorMode) => (
           <Button
-            key={m}
+            key={editorMode}
             type="button"
-            variant={mode === m ? "default" : "outline"}
+            variant={mode === editorMode ? "default" : "outline"}
             size="sm"
             onClick={() => setMode(m)}
           >

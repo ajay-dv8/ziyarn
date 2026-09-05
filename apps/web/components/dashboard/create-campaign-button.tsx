@@ -85,7 +85,7 @@ export function CreateCampaignButton() {
   }
 
   const audienceHint =
-    AUDIENCES.find((a) => a.value === audience)?.hint ?? "";
+    AUDIENCES.find((audienceOption) => audienceOption.value === audience)?.hint ?? "";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

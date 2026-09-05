@@ -39,7 +39,7 @@ export function CreateAgentButton({
     }
     const filterQuestions = form.filterQuestions
       .split("\n")
-      .map((q) => q.trim())
+      .map((questionLine) => questionLine.trim())
       .filter(Boolean);
     setSaving(true);
     setError(null);
