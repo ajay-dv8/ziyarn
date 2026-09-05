@@ -39,8 +39,8 @@ export function formatRelativeTime(date: Date | string): string {
  *   - "Aug 30, 2026 2:15 PM"
  */
 export function formatFullDateTime(date: Date | string): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("en-US", {
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  return dateObj.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",

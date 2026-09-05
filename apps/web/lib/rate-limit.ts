@@ -17,7 +17,7 @@ export class SlidingWindowRateLimiter {
     const now = Date.now();
     const cutoff = now - this.windowMs;
     const timestamps = (this.buckets.get(key) ?? []).filter(
-      (t) => t > cutoff,
+      (timestamp) => timestamp > cutoff,
     );
 
     if (timestamps.length >= this.max) {
