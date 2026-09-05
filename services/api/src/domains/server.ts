@@ -4,9 +4,14 @@ import { count, eq } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import { domains } from "@repo/database/schema/domains";
+import {
+  workspaces,
+  workspaceMembers,
+} from "@repo/database/schema/workspaces";
 
 import {
   assertCanCreateDomain,
+  assertCanCreateWorkspace,
   getPlanLimits,
   planSchema,
 } from "@repo/api/plans";
@@ -117,6 +122,53 @@ export function createDomainsService(deps: {
         .from(domains)
         .where(eq(domains.ownerId, session.user.id));
       assertCanCreateDomain(getPlanLimits(plan), row?.count ?? 0);
+
+      // Auto-create workspace if user doesn't have one
+      const [existingMembership] = await db
+        .select({ workspaceId: workspaceMembers.workspaceId })
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.userId, session.user.id))
+        .limit(1);
+
+      let workspaceId = existingMembership?.workspaceId;
+
+      if (!workspaceId) {
+        // Check workspace creation limit
+        const [workspaceCountRow] = await db
+          .select({ count: count() })
+          .from(workspaceMembers)
+          .where(eq(workspaceMembers.userId, session.user.id));
+        assertCanCreateWorkspace(
+          getPlanLimits(plan),
+          workspaceCountRow?.count ?? 0,
+        );
+
+        // Create workspace
+        const [createdWorkspace] = await db
+          .insert(workspaces)
+          .values({
+            name: `${session.user.id.slice(0, 8)}'s workspace`,
+            ownerId: session.user.id,
+          })
+          .returning();
+
+        if (!createdWorkspace) {
+          throw new DomainServiceError(
+            500,
+            "CREATE_FAILED",
+            "Failed to create workspace",
+          );
+        }
+
+        // Add user as workspace owner
+        await db.insert(workspaceMembers).values({
+          workspaceId: createdWorkspace.id,
+          userId: session.user.id,
+          role: "owner",
+        });
+
+        workspaceId = createdWorkspace.id;
+      }
 
       const [created] = await db
         .insert(domains)
