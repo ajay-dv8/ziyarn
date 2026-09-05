@@ -32,19 +32,19 @@ type Settings = {
 
 export function BookingsClient({
   domains,
-  selectedId,
+  selectedDomainId,
   bookings,
   settings,
 }: {
   domains: Domain[];
-  selectedId: string | null;
+  selectedDomainId: string | null;
   bookings: Booking[];
   settings: Settings | null;
 }) {
   const [bookingList, setBookingList] = useState(bookings);
   const [currentSettings, setCurrentSettings] = useState(settings);
 
-  const selected = domains.find((d) => d.id === selectedId) ?? domains[0];
+  const selectedDomainDomain = domains.find((domain) => domain.id === selectedDomainId) ?? domains[0];
 
   async function handleUpdateStatus(id: string, status: "confirmed" | "cancelled") {
     const res = await fetch(`/api/bookings/${id}`, {
@@ -54,17 +54,17 @@ export function BookingsClient({
     });
     if (res.ok) {
       setBookingList((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, status } : b)),
+        prev.map((booking) => (booking.id === id ? { ...booking, status } : booking)),
       );
     }
   }
 
   async function handleSaveSettings(data: Settings) {
-    if (!selected) return;
+    if (!selectedDomain) return;
     const res = await fetch("/api/booking-settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ domainId: selected.id, ...data }),
+      body: JSON.stringify({ domainId: selectedDomain.id, ...data }),
     });
     if (res.ok) {
       setCurrentSettings(data);
@@ -80,7 +80,7 @@ export function BookingsClient({
             Manage appointment requests and configure availability for your agents.
           </p>
         </div>
-        {selected && currentSettings ? (
+        {selectedDomain && currentSettings ? (
           <ConfigureBookingButton
             settings={currentSettings}
             onSave={handleSaveSettings}
@@ -95,7 +95,7 @@ export function BookingsClient({
               key={domain.id}
               href={`/dashboard/bookings?domainId=${domain.id}`}
               className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                selected?.id === domain.id
+                selectedDomain?.id === domain.id
                   ? "border-primary bg-primary/10 font-medium text-primary"
                   : "border-input text-muted-foreground hover:text-foreground"
               }`}
@@ -106,7 +106,7 @@ export function BookingsClient({
         </div>
       ) : null}
 
-      {!selected ? (
+      {!selectedDomain ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
             <p className="text-sm font-medium">No domains yet</p>
