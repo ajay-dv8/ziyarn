@@ -48,8 +48,6 @@ export function EditProductSheet({
 
   if (!product) return null;
 
-  const p = product;
-
   async function save() {
     const price = Number(form.price);
     if (!form.name.trim() || !Number.isFinite(price) || price < 0) {
@@ -59,7 +57,7 @@ export function EditProductSheet({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/products/${p.id}`, {
+      const res = await fetch(`/api/products/${product.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

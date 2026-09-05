@@ -23,7 +23,7 @@ function parseRows(text: string): Array<{ name?: string; email: string }> {
   for (const line of text.split(/\r?\n/)) {
     if (!line.trim()) continue;
     // CSV with header support: find the email cell, treat another cell as name.
-    const cells = line.split(/[,;\t]/).map((c) => c.trim().replace(/^"|"$/g, ""));
+    const cells = line.split(/[,;\t]/).map((cell) => cell.trim().replace(/^"|"$/g, ""));
     let email = "";
     let name = "";
     for (const cell of cells) {

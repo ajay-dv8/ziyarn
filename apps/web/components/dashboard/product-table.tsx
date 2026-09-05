@@ -71,7 +71,7 @@ export function ProductTable({
   const paginated = products.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const allOnPageSelected =
-    paginated.length > 0 && paginated.every((p) => selected.has(p.id));
+    paginated.length > 0 && paginated.every((product) => selected.has(product.id));
 
   function toggleAll() {
     if (allOnPageSelected) {
@@ -113,10 +113,10 @@ export function ProductTable({
   }
 
   async function handleToggleActive(id: string) {
-    const product = products.find((p) => p.id === id);
-    if (!product) return;
+    const matchedProduct = products.find((product) => product.id === id);
+    if (!matchedProduct) return;
     setBusyId(id);
-    const ok = await patchProduct(id, { active: !product.active });
+    const ok = await patchProduct(id, { active: !matchedProduct.active });
     setBusyId(null);
     if (ok) onRefetch();
   }
@@ -143,8 +143,8 @@ export function ProductTable({
     } else {
       await Promise.all(
         ids.map((id) => {
-          const product = products.find((p) => p.id === id);
-          if (!product) return Promise.resolve();
+          const foundProduct = products.find((product) => product.id === id);
+          if (!foundProduct) return Promise.resolve();
           return patchProduct(id, {
             active: action === "activate",
           });
@@ -325,21 +325,21 @@ export function ProductTable({
           <PaginationContent>
             <PaginationItem>
               <PaginationPrevious
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => setPage((pageNumber) => Math.max(1, pageNumber - 1))}
                 aria-disabled={page === 1}
                 className={page === 1 ? "pointer-events-none opacity-50" : ""}
               />
             </PaginationItem>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <PaginationItem key={p}>
-                <PaginationLink isActive={p === page} onClick={() => setPage(p)}>
-                  {p}
+            {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+              <PaginationItem key={pageNumber}>
+                <PaginationLink isActive={pageNumber === page} onClick={() => setPage(pageNumber)}>
+                  {pageNumber}
                 </PaginationLink>
               </PaginationItem>
             ))}
             <PaginationItem>
               <PaginationNext
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => setPage((pageNumber) => Math.min(totalPages, pageNumber + 1))}
                 aria-disabled={page === totalPages}
                 className={page === totalPages ? "pointer-events-none opacity-50" : ""}
               />

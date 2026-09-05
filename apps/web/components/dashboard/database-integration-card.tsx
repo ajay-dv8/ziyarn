@@ -102,12 +102,12 @@ export function DatabaseIntegrationCard({
       const nextSavedProducts: Record<string, Set<string>> = {};
       for (const source of next) {
         const included = new Set(
-          source.tables.filter((t) => t.included).map((t) => t.tableName),
+          source.tables.filter((table) => table.included).map((table) => table.tableName),
         );
         nextSelections[source.id] = new Set(included);
         nextSaved[source.id] = included;
         const products = new Set(
-          source.tables.filter((t) => t.includeProducts).map((t) => t.tableName),
+          source.tables.filter((table) => table.includeProducts).map((table) => table.tableName),
         );
         nextProducts[source.id] = new Set(products);
         nextSavedProducts[source.id] = products;
@@ -287,7 +287,7 @@ export function DatabaseIntegrationCard({
           skippedTables.length === 0
             ? `Synced just now — ${created} table(s) added to your agent's knowledge base.`
             : `Synced ${created} table(s), skipped ${skippedTables.length}: ${skippedTables
-                .map((t) => `${t.tableName} (${t.error})`)
+                .map((skippedTable) => `${skippedTable.tableName} (${skippedTable.error})`)
                 .join(", ")}`,
       });
       await load();

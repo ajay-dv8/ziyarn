@@ -63,12 +63,12 @@ export function CustomersTable({
   const [error, setError] = useState<string | null>(null);
 
   const allSelected =
-    customers.length > 0 && customers.every((c) => selected.has(c.id));
+    customers.length > 0 && customers.every((customer) => selected.has(customer.id));
 
   function toggleAll() {
     setSelected((prev) => {
       if (prev.size === customers.length) return new Set();
-      return new Set(customers.map((c) => c.id));
+      return new Set(customers.map((customer) => customer.id));
     });
   }
 
@@ -106,7 +106,7 @@ export function CustomersTable({
   }
 
   const anyBlockedSelected = customers.some(
-    (c) => selected.has(c.id) && c.blocked,
+    (customer) => selected.has(customer.id) && customer.blocked,
   );
 
   return (
