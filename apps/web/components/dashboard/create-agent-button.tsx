@@ -14,13 +14,28 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@repo/ui/components/sheet";
+import {
+  getBusinessTypeConfig,
+  type BusinessType,
+} from "@repo/api/domains/business-types";
+
+const DESCRIPTION_PLACEHOLDERS: Record<BusinessType, string> = {
+  education: "Tell us about your institution…",
+  health: "Tell us about your practice or clinic…",
+  ecommerce: "Tell us about your store…",
+  hospitality: "Tell us about your property…",
+  food: "Tell us about your restaurant…",
+  finance: "Tell us about your firm…",
+};
 
 export function CreateAgentButton({
   domains,
   domainId,
+  businessType,
 }: {
   domains: { id: string; name: string }[];
   domainId: string;
+  businessType?: BusinessType | null;
 }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -115,7 +130,11 @@ export function CreateAgentButton({
             <Label htmlFor="agent-description">About this business</Label>
             <Input
               id="agent-description"
-              placeholder="We help small teams automate their support"
+              placeholder={
+                businessType
+                  ? DESCRIPTION_PLACEHOLDERS[businessType]
+                  : "We help small teams automate their support"
+              }
               value={form.description}
               onChange={(event) =>
                 setForm({ ...form, description: event.target.value })

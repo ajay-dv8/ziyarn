@@ -52,6 +52,7 @@ export default async function AgentsPage({
           <CreateAgentButton
             domains={domains.map((domain) => ({ id: domain.id, name: domain.name }))}
             domainId={selected.id}
+            businessType={selected.businessType}
           />
         ) : null}
       </div>
