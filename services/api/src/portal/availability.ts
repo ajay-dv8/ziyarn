@@ -88,8 +88,8 @@ export function getAvailableSlots(db: Database) {
     const end = toMinutes(settings.availableEnd);
     const dur = settings.slotDuration;
     const allSlots: string[] = [];
-    for (let t = start; t + dur <= end; t += dur) {
-      allSlots.push(padTime(t));
+    for (let slotMinutes = start; slotMinutes + dur <= end; slotMinutes += dur) {
+      allSlots.push(padTime(slotMinutes));
     }
     if (allSlots.length === 0) return [];
 
@@ -103,8 +103,8 @@ export function getAvailableSlots(db: Database) {
           inArray(bookings.status, ["pending", "confirmed"]),
         ),
       );
-    const taken = new Set(booked.map((b) => b.time));
-    return allSlots.filter((s) => !taken.has(s));
+    const taken = new Set(booked.map((booking) => booking.time));
+    return allSlots.filter((slot) => !taken.has(slot));
   };
 }
 

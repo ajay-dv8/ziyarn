@@ -61,8 +61,8 @@ function base64UrlDecode(value: string): string {
   return Buffer.from(value, "base64url").toString("utf-8");
 }
 
-function safeEqual(a: Buffer, b: Buffer): boolean {
-  return a.length === b.length && timingSafeEqual(a, b);
+function safeEqual(bufferA: Buffer, bufferB: Buffer): boolean {
+  return bufferA.length === bufferB.length && timingSafeEqual(bufferA, bufferB);
 }
 
 function parseDomainUrl(): string {
