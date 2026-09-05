@@ -37,20 +37,20 @@ export function mapProductColumns(
 ): ProductColumnMapping | null {
   const name =
     columns.find(
-      (c) => !isExcludedNameColumn(c.name) && isProductTitleColumn(c.name),
+      (column) => !isExcludedNameColumn(column.name) && isProductTitleColumn(column.name),
     )?.name ?? null;
-  const priceCol = columns.find((c) => isPriceColumn(c.name)) ?? null;
+  const priceCol = columns.find((column) => isPriceColumn(column.name)) ?? null;
   if (!name || !priceCol) return null;
 
   const description =
-    columns.find((c) => /desc(ription)?|details?/i.test(c.name))?.name ?? null;
+    columns.find((column) => /desc(ription)?|details?/i.test(column.name))?.name ?? null;
   const stock =
-    columns.find((c) =>
-      /stock|qty|quantity|available|inventory/i.test(c.name),
+    columns.find((column) =>
+      /stock|qty|quantity|available|inventory/i.test(column.name),
     )?.name ?? null;
   const key =
-    columns.find((c) =>
-      /^(_?id|uuid|sku|code|product_?code|product_?key)$/i.test(c.name),
+    columns.find((column) =>
+      /^(_?id|uuid|sku|code|product_?code|product_?key)$/i.test(column.name),
     )?.name ?? null;
 
   return {

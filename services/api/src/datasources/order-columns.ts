@@ -51,22 +51,22 @@ export function mapOrderColumns(
   columns: Array<{ name: string; type: string }>,
 ): OrderColumnMapping | null {
   const email =
-    columns.find((c) => isEmailColumn(c.name))?.name ?? null;
+    columns.find((column) => isEmailColumn(column.name))?.name ?? null;
 
   const amountCol =
-    columns.find((c) => isAmountColumn(c.name)) ?? null;
+    columns.find((column) => isAmountColumn(column.name)) ?? null;
 
   // Need at least an amount column to recognize an orders table.
   if (!amountCol) return null;
 
   const id =
-    columns.find((c) => isOrderIdentifierColumn(c.name))?.name ?? null;
+    columns.find((column) => isOrderIdentifierColumn(column.name))?.name ?? null;
   const description =
-    columns.find((c) => isDescriptionColumn(c.name))?.name ?? null;
+    columns.find((column) => isDescriptionColumn(column.name))?.name ?? null;
   const status =
-    columns.find((c) => isOrderStatusColumn(c.name))?.name ?? null;
+    columns.find((column) => isOrderStatusColumn(column.name))?.name ?? null;
   const date =
-    columns.find((c) => isDateColumn(c.name))?.name ?? null;
+    columns.find((column) => isDateColumn(column.name))?.name ?? null;
 
   return {
     id,

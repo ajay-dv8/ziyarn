@@ -262,7 +262,7 @@ export function createDataSourcesService(deps: {
     rows: Record<string, unknown>[];
   }): string {
     const columnLine = params.columns?.length
-      ? params.columns.map((c) => `${c.name} (${c.type})`).join(", ")
+      ? params.columns.map((col) => `${col.name} (${col.type})`).join(", ")
       : "unknown — infer from sample rows below";
     const samples = params.rows.length
       ? params.rows
@@ -574,10 +574,10 @@ export function createDataSourcesService(deps: {
 
           // Contact import: tables with an email column feed the domain's
           // customer list (source "database"). Best-effort — never blocks sync.
-          if (domainIdForContacts && columns?.some((c) => isEmailColumn(c.name))) {
+          if (domainIdForContacts && columns?.some((col) => isEmailColumn(col.name))) {
             try {
-              const emailCol = columns.find((c) => isEmailColumn(c.name))!.name;
-              const nameCol = columns.find((c) => isNameColumn(c.name))?.name;
+              const emailCol = columns.find((col) => isEmailColumn(col.name))!.name;
+              const nameCol = columns.find((col) => isNameColumn(col.name))?.name;
               const contactRows = await driver.sampleRows(
                 table.tableName,
                 CONTACT_IMPORT_LIMIT,
@@ -673,11 +673,11 @@ export function createDataSourcesService(deps: {
             const tables = await driver.listTables();
             let importedForSource = 0;
             for (const table of tables) {
-              const emailColumn = table.columns.find((c) =>
-                isEmailColumn(c.name),
+              const emailColumn = table.columns.find((col) =>
+                isEmailColumn(col.name),
               );
               if (!emailColumn) continue;
-              const nameColumn = table.columns.find((c) => isNameColumn(c.name));
+              const nameColumn = table.columns.find((col) => isNameColumn(col.name));
               const rows = await driver.sampleRows(
                 table.name,
                 CONTACT_IMPORT_LIMIT,
@@ -790,7 +790,7 @@ export function createDataSourcesService(deps: {
               });
               continue;
             }
-            const selectedNames = new Set(selected.map((s) => s.tableName));
+            const selectedNames = new Set(selected.map((sel) => sel.tableName));
 
             let tables: Awaited<ReturnType<typeof driver.listTables>>;
             try {
@@ -888,8 +888,8 @@ export function createDataSourcesService(deps: {
                 ),
               );
             const vanishedIds = existing
-              .filter((p) => p.externalKey && !seenKeys.has(p.externalKey))
-              .map((p) => p.id);
+              .filter((product) => product.externalKey && !seenKeys.has(product.externalKey))
+              .map((product) => product.id);
             if (vanishedIds.length > 0) {
               await db
                 .update(products)
@@ -995,7 +995,7 @@ export function createDataSourcesService(deps: {
               });
               continue;
             }
-            const selectedNames = new Set(selected.map((s) => s.tableName));
+            const selectedNames = new Set(selected.map((sel) => sel.tableName));
 
             let tables: Awaited<ReturnType<typeof driver.listTables>>;
             try {

@@ -59,9 +59,9 @@ export async function createMysqlDriver(
         }
         result.push({
           name: tableName,
-          columns: columns.map((c) => ({
-            name: String(c.column_name),
-            type: String(c.data_type),
+          columns: columns.map((col) => ({
+            name: String(col.column_name),
+            type: String(col.data_type),
           })),
           rowCount,
         });

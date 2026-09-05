@@ -101,9 +101,9 @@ export async function createPostgresDriver(
            ORDER BY ordinal_position`,
           [tableName],
         );
-        columns = cols.rows.map((c) => ({
-          name: c.column_name,
-          type: c.data_type,
+        columns = cols.rows.map((col) => ({
+          name: col.column_name,
+          type: col.data_type,
         }));
       } catch {
         columns = [];

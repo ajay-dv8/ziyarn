@@ -62,7 +62,7 @@ export async function createMongodbDriver(
         }
         result.push({ name, columns, rowCount });
       }
-      return result.sort((a, b) => a.name.localeCompare(b.name));
+      return result.sort((tableA, tableB) => tableA.name.localeCompare(tableB.name));
     },
 
     async sampleRows(tableName, limit) {
