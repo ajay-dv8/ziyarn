@@ -8,10 +8,10 @@ export function SeriesBars({ series }: { series: DayBucket[] }) {
   }
 
   const shown = series.slice(-MAX_BARS);
-  const maxConversations = Math.max(1, ...shown.map((d) => d.conversations));
-  const maxLeads = Math.max(1, ...shown.map((d) => d.leads));
-  const maxBookings = Math.max(1, ...shown.map((d) => d.bookings));
-  const maxPayments = Math.max(1, ...shown.map((d) => d.payments));
+  const maxConversations = Math.max(1, ...shown.map((dayBucket) => dayBucket.conversations));
+  const maxLeads = Math.max(1, ...shown.map((dayBucket) => dayBucket.leads));
+  const maxBookings = Math.max(1, ...shown.map((dayBucket) => dayBucket.bookings));
+  const maxPayments = Math.max(1, ...shown.map((dayBucket) => dayBucket.payments));
 
   return (
     <div>

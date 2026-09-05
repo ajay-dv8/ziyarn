@@ -68,12 +68,12 @@ export function SyncDatabaseButton({ domainId }: { domainId: string }) {
       ) : null}
 
       {/* Shown only on partial failure — full success reloads the page. */}
-      {result && result.sources.some((s) => s.error) ? (
+      {result && result.sources.some((source) => source.error) ? (
         <p className="max-w-xs text-right text-xs text-muted-foreground" role="status">
           Added {result.totalImported}.{" "}
           {result.sources
-            .filter((s) => s.error)
-            .map((s) => `${s.label}: ${s.error}`)
+            .filter((source) => source.error)
+            .map((source) => `${source.label}: ${source.error}`)
             .join("; ")}
         </p>
       ) : null}

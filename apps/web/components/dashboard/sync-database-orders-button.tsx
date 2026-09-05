@@ -42,11 +42,11 @@ export function SyncDatabaseOrdersButton({
         return;
       }
 
-      const failures = body.sources.filter((s) => s.error);
+      const failures = body.sources.filter((source) => source.error);
       if (body.totalUpserted === 0) {
         setError(
           failures.length > 0
-            ? failures.map((s) => `${s.label}: ${s.error}`).join(" · ")
+            ? failures.map((source) => `${source.label}: ${source.error}`).join(" · ")
             : "Nothing imported — no order rows found in the connected databases.",
         );
         return;
