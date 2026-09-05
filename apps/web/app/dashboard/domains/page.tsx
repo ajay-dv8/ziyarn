@@ -11,6 +11,7 @@ import {
 } from "@repo/ui/components/card";
 
 import { CreateDomainButton } from "@/components/domains/create-domain-button";
+import { BusinessTypeEditor } from "@/components/domains/business-type-editor";
 import { DeleteDomainButton } from "@/components/domains/delete-domain-button";
 import { EmbedSnippet } from "@/components/domains/embed-snippet";
 import { RenameDomainForm } from "@/components/domains/rename-domain-form";
@@ -57,6 +58,10 @@ export default async function DomainsPage() {
               <RenameDomainForm
                 domainId={domain.id}
                 currentName={domain.name}
+              />
+              <BusinessTypeEditor
+                domainId={domain.id}
+                currentType={domain.businessType}
               />
               <DeleteDomainButton domainId={domain.id} />
               {embedConfigs[index] && (
