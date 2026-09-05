@@ -45,6 +45,7 @@ const toolParameters = (properties: Record<string, unknown>, required: string[])
 // Tool Description Prompts
 // Each tool has a description that acts as a behavioral instruction to the LLM
 const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+  // // Tool definition and prompt for email capturing
   {
     type: "function",
     function: {
@@ -80,6 +81,8 @@ const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       ),
     },
   },
+
+  // Tool definition and prompt for booking
   {
     type: "function",
     function: {
@@ -96,6 +99,7 @@ const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       ),
     },
   },
+  // Tool definition and prompt for payment creation
   {
     type: "function",
     function: {
@@ -116,6 +120,8 @@ const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       ),
     },
   },
+
+  // Tool definition and prompt for product sales
   {
     type: "function",
     function: {
@@ -137,6 +143,7 @@ const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       ),
     },
   },
+  // Tool definition and prompt for escalating chat to human agent
   {
     type: "function",
     function: {
@@ -146,6 +153,8 @@ const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       parameters: toolParameters({}, []),
     },
   },
+
+  // Tool definition and prompt for answering questions about organisation
   {
     type: "function",
     function: {
