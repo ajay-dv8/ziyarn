@@ -102,23 +102,23 @@ export default async function BillingPage() {
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        {PLANS.map((p) => (
+        {PLANS.map((planOption) => (
           <Card
-            key={p.id}
-            className={plan === p.id ? "border-primary" : undefined}
+            key={planOption.id}
+            className={plan === planOption.id ? "border-primary" : undefined}
           >
             <CardHeader>
-              <CardTitle>{p.name}</CardTitle>
-              <CardDescription>{p.blurb}</CardDescription>
+              <CardTitle>{planOption.name}</CardTitle>
+              <CardDescription>{planOption.blurb}</CardDescription>
               <p className="text-2xl font-semibold tracking-tight">
-                {formatPlanPrice(p.id)}
+                {formatPlanPrice(planOption.id)}
               </p>
             </CardHeader>
             <CardContent>
               <UpgradeButton
-                plan={p.id}
+                plan={planOption.id}
                 label="Upgrade"
-                current={plan === p.id}
+                current={plan === planOption.id}
                 email={session.user.email}
               />
             </CardContent>

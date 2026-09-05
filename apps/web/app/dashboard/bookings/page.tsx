@@ -21,7 +21,7 @@ export default async function BookingsPage({
 
   const domains = await domainsService.listDomains(requestHeaders);
   const { domainId } = await searchParams;
-  const selectedId = domains.find((d) => d.id === domainId)?.id ?? domains[0]?.id ?? null;
+  const selectedId = domains.find((domain) => domain.id === domainId)?.id ?? domains[0]?.id ?? null;
 
   let bookings: {
     id: string;
@@ -46,32 +46,32 @@ export default async function BookingsPage({
 
   if (selectedId) {
     const result = await portalService.listBookings(selectedId, { limit: 100 });
-    bookings = result.bookings.map((b) => ({
-      id: b.id,
-      name: b.name,
-      email: b.email,
-      date: b.date,
-      time: b.time,
-      duration: b.duration,
-      timezone: b.timezone,
-      topic: b.topic,
-      status: b.status as "pending" | "confirmed" | "cancelled",
-      createdAt: b.createdAt instanceof Date ? b.createdAt.toISOString() : String(b.createdAt),
+    bookings = result.bookings.map((booking) => ({
+      id: booking.id,
+      name: booking.name,
+      email: booking.email,
+      date: booking.date,
+      time: booking.time,
+      duration: booking.duration,
+      timezone: booking.timezone,
+      topic: booking.topic,
+      status: booking.status as "pending" | "confirmed" | "cancelled",
+      createdAt: booking.createdAt instanceof Date ? booking.createdAt.toISOString() : String(booking.createdAt),
     }));
-    const s = await portalService.getBookingSettingsForDomain(selectedId);
+    const settingsResult = await portalService.getBookingSettingsForDomain(selectedId);
     settings = {
-      availableDays: s.availableDays,
-      availableStart: s.availableStart,
-      availableEnd: s.availableEnd,
-      slotDuration: s.slotDuration,
-      minNoticeHours: s.minNoticeHours,
-      maxAdvanceDays: s.maxAdvanceDays,
+      availableDays: settingsResult.availableDays,
+      availableStart: settingsResult.availableStart,
+      availableEnd: settingsResult.availableEnd,
+      slotDuration: settingsResult.slotDuration,
+      minNoticeHours: settingsResult.minNoticeHours,
+      maxAdvanceDays: settingsResult.maxAdvanceDays,
     };
   }
 
   return (
     <BookingsClient
-      domains={domains.map((d) => ({ id: d.id, name: d.name }))}
+      domains={domains.map((domain) => ({ id: domain.id, name: domain.name }))}
       selectedId={selectedId}
       bookings={bookings}
       settings={settings}

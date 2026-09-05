@@ -137,14 +137,14 @@ export default async function ProductsPage({
         </Card>
       ) : (
         <ProductsList
-          products={domainProducts.map((p) => ({
-            id: p.id,
-            name: p.name,
-            description: p.description,
-            priceCents: p.priceCents,
-            currency: p.currency,
-            active: p.active,
-            availability: p.availability,
+          products={domainProducts.map((product) => ({
+            id: product.id,
+            name: product.name,
+            description: product.description,
+            priceCents: product.priceCents,
+            currency: product.currency,
+            active: product.active,
+            availability: product.availability,
           }))}
         />
       )}
