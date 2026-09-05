@@ -32,9 +32,9 @@ export function EmailTemplateEditor({ onDraft, initialBody = "" }: Props) {
             type="button"
             variant={mode === editorMode ? "default" : "outline"}
             size="sm"
-            onClick={() => setMode(m)}
+            onClick={() => setMode(editorMode)}
           >
-            {m === "design" ? "Design" : "HTML"}
+            {editorMode === "design" ? "Design" : "HTML"}
           </Button>
         ))}
       </div>

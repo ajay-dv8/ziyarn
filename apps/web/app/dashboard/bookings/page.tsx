@@ -72,7 +72,7 @@ export default async function BookingsPage({
   return (
     <BookingsClient
       domains={domains.map((domain) => ({ id: domain.id, name: domain.name }))}
-      selectedId={selectedId}
+      selectedDomainId={selectedId}
       bookings={bookings}
       settings={settings}
     />

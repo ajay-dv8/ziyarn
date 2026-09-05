@@ -44,7 +44,7 @@ export function BookingsClient({
   const [bookingList, setBookingList] = useState(bookings);
   const [currentSettings, setCurrentSettings] = useState(settings);
 
-  const selectedDomainDomain = domains.find((domain) => domain.id === selectedDomainId) ?? domains[0];
+  const selectedDomain = domains.find((domain) => domain.id === selectedDomainId) ?? domains[0];
 
   async function handleUpdateStatus(id: string, status: "confirmed" | "cancelled") {
     const res = await fetch(`/api/bookings/${id}`, {
