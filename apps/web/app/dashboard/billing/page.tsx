@@ -1,15 +1,10 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
-import { getPlanLimits, type Plan } from "@repo/api/plans";
+import { getPlanLimits, PLAN_DISPLAY_NAMES, type Plan } from "@repo/api/plans";
 import { formatPlanPrice } from "@repo/api/paystack";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@repo/ui/components/card";
+import { Button } from "@repo/ui/components/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo/ui/components/card";
 
 import { CancelSubscriptionButton } from "@/components/dashboard/cancel-subscription-button";
 import { ManageSubscriptionButton } from "@/components/dashboard/manage-subscription-button";
@@ -27,6 +22,7 @@ const PLAN_RANK: Record<Plan, number> = {
   standard: 1,
   pro: 2,
   ultimate: 3,
+  custom: 4,
 };
 
 const PLANS: Array<{
@@ -34,10 +30,15 @@ const PLANS: Array<{
   name: string;
   blurb: string;
 }> = [
-  { id: "standard", name: "Standard", blurb: "For growing teams" },
-  { id: "pro", name: "Pro", blurb: "For serious operators" },
-  { id: "ultimate", name: "Ultimate", blurb: "For platforms" },
+  { id: "standard", name: "Plus", blurb: "For growing teams" },
+  { id: "pro", name: "Business", blurb: "For serious operators" },
+  { id: "ultimate", name: "Enterprise", blurb: "For platforms" },
 ];
+
+function formatLimit(value: number): string {
+  if (!Number.isFinite(value)) return "Unlimited";
+  return value.toLocaleString();
+}
 
 export default async function BillingPage() {
   const requestHeaders = await headers();
@@ -68,7 +69,7 @@ export default async function BillingPage() {
           <CardDescription>
             {plan === "free"
               ? "You are on the free plan."
-              : `You are on the ${plan} plan — all your domains get its limits.`}
+              : `You are on the ${PLAN_DISPLAY_NAMES[plan]} plan — all your domains get its limits.`}
             {subscription?.status === "active"
               ? ` Subscription ${subscription.status}${
                   subscription.currentPeriodEnd
@@ -82,19 +83,19 @@ export default async function BillingPage() {
           <ul className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <li className="rounded-lg border p-3">
               <p className="text-xs text-muted-foreground">Domains</p>
-              <p className="text-lg font-semibold">{limits.maxDomains} max</p>
+              <p className="text-lg font-semibold">{formatLimit(limits.maxDomains)} max</p>
             </li>
             <li className="rounded-lg border p-3">
               <p className="text-xs text-muted-foreground">AI credits / month</p>
-              <p className="text-lg font-semibold">{limits.creditsPerMonth}</p>
+              <p className="text-lg font-semibold">{formatLimit(limits.creditsPerMonth)}</p>
             </li>
             <li className="rounded-lg border p-3">
               <p className="text-xs text-muted-foreground">Conversations / day</p>
-              <p className="text-lg font-semibold">{limits.conversationsPerDay}</p>
+              <p className="text-lg font-semibold">{formatLimit(limits.conversationsPerDay)}</p>
             </li>
             <li className="rounded-lg border p-3">
               <p className="text-xs text-muted-foreground">Emails / month</p>
-              <p className="text-lg font-semibold">{limits.emailsPerMonth}</p>
+              <p className="text-lg font-semibold">{formatLimit(limits.emailsPerMonth)}</p>
             </li>
           </ul>
         </CardContent>
@@ -124,6 +125,25 @@ export default async function BillingPage() {
           </Card>
         ))}
       </div>
+
+      <Card className={plan === "custom" ? "border-primary" : undefined}>
+        <CardHeader>
+          <CardTitle>Custom</CardTitle>
+          <CardDescription>Tailored for your needs</CardDescription>
+          <p className="text-2xl font-semibold tracking-tight">Custom pricing</p>
+        </CardHeader>
+        <CardContent>
+          {plan === "custom" ? (
+            <Button variant="secondary" disabled className="w-full">
+              Current plan
+            </Button>
+          ) : (
+            <Button render={<a href="mailto:sales@ziyarn.com" />} className="w-full">
+              Contact Sales
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
       {subscription?.customerSubscriptionCode && subscription.status !== "canceled" ? (
         <Card>
