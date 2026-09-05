@@ -4,6 +4,7 @@ export * from "@repo/database/schema/domains";
 export * from "@repo/database/schema/portal";
 export * from "@repo/database/schema/products";
 export * from "@repo/database/schema/settings";
+export * from "@repo/database/schema/workspaces";
 
 import { domains } from "@repo/database/schema/domains";
 import {
