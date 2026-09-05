@@ -1,0 +1,1 @@
+ALTER TABLE domains ADD COLUMN business_type text;

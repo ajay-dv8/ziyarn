@@ -19,6 +19,16 @@ export const domains = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     logoUrl: text("logo_url"),
+    businessType: text("business_type", {
+      enum: [
+        "education",
+        "health",
+        "ecommerce",
+        "hospitality",
+        "food",
+        "finance",
+      ],
+    }),
     embedSecret: text("embed_secret").notNull(),
     plan: text("plan", {
       enum: ["free", "standard", "pro", "ultimate", "custom"],

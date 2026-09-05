@@ -162,6 +162,13 @@
       "when": 1788602359685,
       "tag": "0022_workspaces",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788700000000,
+      "tag": "0024_business_type",
+      "breakpoints": true
     }
   ]
 }
