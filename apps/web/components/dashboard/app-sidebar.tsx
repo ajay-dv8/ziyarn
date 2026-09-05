@@ -38,6 +38,7 @@ import {
   Settings,
   ShoppingBag,
   Sparkles,
+  Users,
   UsersRound,
 } from "lucide-react";
 
@@ -259,6 +260,16 @@ export function AppSidebar({
               >
                 <Plug />
                 <span>Integrations</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === APP_ROUTES.DASHBOARD_TEAM}
+                tooltip="Team"
+                render={<Link href={APP_ROUTES.DASHBOARD_TEAM} />}
+              >
+                <Users />
+                <span>Team</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
