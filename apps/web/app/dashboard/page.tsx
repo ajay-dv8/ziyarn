@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
 
-import { getPlanLimits, type Plan } from "@repo/api/plans";
+import { getPlanLimits, PLAN_DISPLAY_NAMES, type Plan } from "@repo/api/plans";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -35,6 +35,7 @@ const PLAN_RANK: Record<Plan, number> = {
   standard: 1,
   pro: 2,
   ultimate: 3,
+  custom: 4,
 };
 
 export default async function DashboardPage() {
@@ -100,7 +101,7 @@ export default async function DashboardPage() {
     },
     {
       label: "Plan",
-      value: plan.charAt(0).toUpperCase() + plan.slice(1),
+      value: PLAN_DISPLAY_NAMES[plan],
       sub: "manage in billing",
       icon: Sparkles,
     },

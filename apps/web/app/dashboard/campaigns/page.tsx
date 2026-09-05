@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
-import { getPlanLimits, type Plan } from "@repo/api/plans";
+import { getPlanLimits, PLAN_DISPLAY_NAMES, type Plan } from "@repo/api/plans";
 import { Badge } from "@repo/ui/components/badge";
 import {
   Card,
@@ -27,6 +27,7 @@ const PLAN_RANK: Record<Plan, number> = {
   standard: 1,
   pro: 2,
   ultimate: 3,
+  custom: 4,
 };
 
 export default async function CampaignsPage() {
@@ -63,7 +64,7 @@ export default async function CampaignsPage() {
           <CardTitle>Monthly email budget</CardTitle>
           <CardDescription>
             {emailsThisMonth} of {emailsPerMonth} emails sent this month (
-            {plan} plan)
+            {PLAN_DISPLAY_NAMES[plan]} plan)
           </CardDescription>
         </CardHeader>
         <CardContent>

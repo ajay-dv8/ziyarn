@@ -26,6 +26,7 @@ const PLAN_RANK: Record<Plan, number> = {
   standard: 1,
   pro: 2,
   ultimate: 3,
+  custom: 4,
 };
 
 export default async function ProductsPage({
@@ -115,11 +116,11 @@ export default async function ProductsPage({
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <p className="text-sm font-medium">Catalog products need a paid plan</p>
             <p className="text-sm text-muted-foreground">
-              Upgrade to Standard or above to let your agents sell in chat.
+              Upgrade to Plus or above to let your agents sell in chat.
             </p>
             <UpgradeButton
               plan="standard"
-              label="Upgrade to Standard"
+              label="Upgrade to Plus"
               current={false}
               email={session.user.email}
             />

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 
 import type { UsageSummary } from "@repo/api/usage";
+import { PLAN_DISPLAY_NAMES } from "@repo/api/plans";
 import {
   Card,
   CardContent,
@@ -133,7 +134,7 @@ export default async function UsagePage() {
             </CardHeader>
             <CardContent className="flex items-center gap-3">
               <span className="rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-medium capitalize text-primary">
-                {data.plan}
+                {PLAN_DISPLAY_NAMES[data.plan as keyof typeof PLAN_DISPLAY_NAMES] ?? data.plan}
               </span>
               <span className="text-sm text-muted-foreground">
                 {data.limits.maxDomains} domains · {data.limits.conversationsPerDay}{" "}

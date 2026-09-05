@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
+import { PLAN_DISPLAY_NAMES } from "@repo/api/plans";
 import {
   Card,
   CardContent,
@@ -50,7 +51,7 @@ export default async function DomainsPage() {
           <Card key={domain.id}>
             <CardHeader>
               <CardTitle>{domain.name}</CardTitle>
-              <CardDescription>{domain.plan} plan</CardDescription>
+              <CardDescription>{PLAN_DISPLAY_NAMES[domain.plan]} plan</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <RenameDomainForm
