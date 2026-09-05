@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { count, eq } from "drizzle-orm";
+import { and, count, eq, or, sql } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import { domains } from "@repo/database/schema/domains";
@@ -42,7 +42,14 @@ const unauthorized = () =>
   new DomainServiceError(401, "UNAUTHORIZED", "You must be signed in");
 
 const forbidden = () =>
-  new DomainServiceError(403, "FORBIDDEN", "You do not own this domain");
+  new DomainServiceError(403, "FORBIDDEN", "You do not have access to this domain");
+
+const forbiddenMutation = () =>
+  new DomainServiceError(
+    403,
+    "FORBIDDEN",
+    "Only workspace owners, admins, and members can modify domains",
+  );
 
 const notFound = () =>
   new DomainServiceError(404, "NOT_FOUND", "Domain not found");
@@ -55,8 +62,10 @@ const conflict = (field: string) =>
   );
 
 /**
- * Owner-scoped domain CRUD. Every mutation verifies the domain belongs to
- * the session user before touching the row.
+ * Workspace-aware domain CRUD. Access is granted to:
+ *  - The domain owner directly
+ *  - Any user who shares a workspace with the domain owner
+ * Mutations (create/update/delete) additionally require owner/admin/member role.
  */
 export function createDomainsService(deps: {
   db: Database;
@@ -64,41 +73,112 @@ export function createDomainsService(deps: {
 }) {
   const { db, getSession } = deps;
 
-  const requireOwnedDomain = async (
+  /**
+   * Returns the domain if the session user has access (owner or workspace member).
+   * Also returns the user's workspace role for mutation gating.
+   */
+  const requireDomainAccess = async (
     id: string,
     headers: Headers,
-  ): Promise<NonNullable<SessionWithUser> & { domain: typeof domains.$inferSelect }> => {
+  ): Promise<
+    NonNullable<SessionWithUser> & {
+      domain: typeof domains.$inferSelect;
+      workspaceRole: string | null;
+    }
+  > => {
     const session = await getSession(headers);
     if (!session) throw unauthorized();
 
-    const [domain] = await db
-      .select()
+    // Fetch domain + check workspace membership in one query
+    const [row] = await db
+      .select({
+        domain: domains,
+        workspaceRole: workspaceMembers.role,
+      })
       .from(domains)
+      .leftJoin(
+        workspaceMembers,
+        and(
+          eq(workspaceMembers.userId, session.user.id),
+          sql`EXISTS (
+            SELECT 1 FROM ${workspaceMembers} AS wm
+            WHERE wm.user_id = ${domains.ownerId}
+              AND wm.workspace_id = ${workspaceMembers.workspaceId}
+          )`,
+        ),
+      )
       .where(eq(domains.id, id))
       .limit(1);
 
-    if (!domain) throw notFound();
-    if (domain.ownerId !== session.user.id) throw forbidden();
+    if (!row) throw notFound();
 
-    return { ...session, domain };
+    // Direct owner always has full access
+    const isOwner = row.domain.ownerId === session.user.id;
+    if (!isOwner && !row.workspaceRole) throw forbidden();
+
+    return {
+      ...session,
+      domain: row.domain,
+      workspaceRole: isOwner ? "owner" : row.workspaceRole,
+    };
+  };
+
+  /**
+   * Checks if the user's workspace role allows mutations.
+   * owner / admin / member can mutate. viewer cannot.
+   */
+  const requireMutationAccess = (
+    workspaceRole: string | null,
+    isOwner: boolean,
+  ) => {
+    if (isOwner) return; // domain owner can always mutate
+    if (
+      workspaceRole === "owner" ||
+      workspaceRole === "admin" ||
+      workspaceRole === "member"
+    )
+      return;
+    throw forbiddenMutation();
   };
 
   return {
-    /** Lists domains owned by the session user, newest first. */
+    /** Lists domains the session user can access (owner or workspace member). */
     listDomains: async (headers: Headers) => {
       const session = await getSession(headers);
       if (!session) throw unauthorized();
 
+      // Subquery: workspace IDs the user belongs to
+      const userWorkspaceIds = db
+        .select({ workspaceId: workspaceMembers.workspaceId })
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.userId, session.user.id))
+        .as("user_ws_ids");
+
+      // Subquery: user IDs who share a workspace with the session user
+      const workspacePeerIds = db
+        .select({ userId: workspaceMembers.userId })
+        .from(workspaceMembers)
+        .innerJoin(
+          userWorkspaceIds,
+          eq(workspaceMembers.workspaceId, userWorkspaceIds.workspaceId),
+        )
+        .as("ws_peer_ids");
+
       return db
         .select()
         .from(domains)
-        .where(eq(domains.ownerId, session.user.id))
+        .where(
+          or(
+            eq(domains.ownerId, session.user.id),
+            sql`${domains.ownerId} IN (SELECT user_id FROM ${workspacePeerIds})`,
+          ),
+        )
         .orderBy(domains.createdAt);
     },
 
-    /** Returns a single domain if the session user owns it. */
+    /** Returns a single domain if the session user has access. */
     getDomain: async (id: string, headers: Headers) => {
-      const { domain } = await requireOwnedDomain(id, headers);
+      const { domain } = await requireDomainAccess(id, headers);
       return domain;
     },
 
@@ -185,14 +265,16 @@ export function createDomainsService(deps: {
       return created;
     },
 
-    /** Renames a domain owned by the session user. */
+    /** Renames a domain (requires owner/admin/member workspace role). */
     updateDomain: async (
       id: string,
       input: UpdateDomainInput,
       headers: Headers,
     ) => {
       const body = updateDomainSchema.parse(input);
-      const { domain } = await requireOwnedDomain(id, headers);
+      const { domain, workspaceRole } = await requireDomainAccess(id, headers);
+      const isOwner = domain.ownerId === (await getSession(headers))?.user.id;
+      requireMutationAccess(workspaceRole, isOwner);
 
       if (body.slug && body.slug !== domain.slug) {
         const [existing] = await db
@@ -216,10 +298,12 @@ export function createDomainsService(deps: {
       return updated;
     },
 
-    /** Deletes a domain owned by the session user. */
+    /** Deletes a domain (requires owner/admin/member workspace role). */
     deleteDomain: async (id: string, headers: Headers) => {
       domainIdSchema.parse({ id });
-      const { domain } = await requireOwnedDomain(id, headers);
+      const { domain, workspaceRole } = await requireDomainAccess(id, headers);
+      const isOwner = domain.ownerId === (await getSession(headers))?.user.id;
+      requireMutationAccess(workspaceRole, isOwner);
 
       await db.delete(domains).where(eq(domains.id, domain.id));
     },
@@ -229,7 +313,7 @@ export function createDomainsService(deps: {
      * secret used by the (P3) public chat endpoint.
      */
     getEmbedConfig: async (id: string, headers: Headers) => {
-      const { domain } = await requireOwnedDomain(id, headers);
+      const { domain } = await requireDomainAccess(id, headers);
       const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 
       return {
