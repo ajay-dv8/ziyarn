@@ -15,3 +15,12 @@ export type {
   DomainIdInput,
   UpdateDomainInput,
 } from "@repo/api/domains/schemas";
+
+export {
+  BUSINESS_TYPES,
+  GENERIC_CONFIG,
+  getBusinessTypeConfig,
+  type BusinessType,
+  type BusinessTypeConfig,
+  type PageLabels,
+} from "@repo/api/domains/business-types";
