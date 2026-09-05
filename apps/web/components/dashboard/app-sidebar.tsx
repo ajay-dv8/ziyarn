@@ -46,6 +46,10 @@ import { ZiyarnLogo } from "@/assets/logo/ziyarn-logo";
 import { APP_ROUTES } from "@/constants/routes";
 import { CreateDomainButton } from "@/components/domains/create-domain-button";
 import { useUnreadCount } from "@/hooks/use-unread-count";
+import {
+  getBusinessTypeConfig,
+  type BusinessType,
+} from "@repo/api/domains/business-types";
 
 const COMING_SOON: { title: string; icon: typeof Settings }[] = [];
 
@@ -58,7 +62,7 @@ export function AppSidebar({
   plan: string;
   domainCount: number;
   maxDomains: number;
-  domains: { id: string; name: string }[];
+  domains: { id: string; name: string; businessType: BusinessType | null }[];
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -70,6 +74,12 @@ export function AppSidebar({
       pathname.startsWith("/dashboard/knowledge") ||
       pathname.startsWith("/dashboard/analytics"),
   );
+
+  const selectedDomain = domains.find(
+    (domain) => domain.id === activeDomainId,
+  );
+  const businessConfig = getBusinessTypeConfig(selectedDomain?.businessType);
+  const labels = businessConfig.labels;
 
   return (
     <Sidebar collapsible="icon">
@@ -152,16 +162,18 @@ export function AppSidebar({
                 </SidebarMenuBadge>
               )}
             </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={pathname === APP_ROUTES.DASHBOARD_BOOKINGS}
-                tooltip="Bookings"
-                render={<Link href={APP_ROUTES.DASHBOARD_BOOKINGS} />}
-              >
-                <Calendar />
-                <span>Bookings</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {businessConfig.showBookings && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={pathname === APP_ROUTES.DASHBOARD_BOOKINGS}
+                  tooltip={labels.bookings}
+                  render={<Link href={APP_ROUTES.DASHBOARD_BOOKINGS} />}
+                >
+                  <Calendar />
+                  <span>{labels.bookings}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
             <SidebarMenuItem>
               <SidebarMenuButton
                 isActive={pathname === APP_ROUTES.DASHBOARD_AGENTS}
@@ -205,21 +217,21 @@ export function AppSidebar({
             <SidebarMenuItem>
               <SidebarMenuButton
                 isActive={pathname === APP_ROUTES.DASHBOARD_CUSTOMERS}
-                tooltip="Customers"
+                tooltip={labels.customers}
                 render={<Link href={APP_ROUTES.DASHBOARD_CUSTOMERS} />}
               >
                 <UsersRound />
-                <span>Customers</span>
+                <span>{labels.customers}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
                 isActive={pathname === APP_ROUTES.DASHBOARD_ORDERS}
-                tooltip="Orders"
+                tooltip={labels.orders}
                 render={<Link href={APP_ROUTES.DASHBOARD_ORDERS} />}
               >
                 <Package />
-                <span>Orders</span>
+                <span>{labels.orders}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -235,11 +247,11 @@ export function AppSidebar({
             <SidebarMenuItem>
               <SidebarMenuButton
                 isActive={pathname === APP_ROUTES.DASHBOARD_PRODUCTS}
-                tooltip="Products"
+                tooltip={labels.productsPlural}
                 render={<Link href={APP_ROUTES.DASHBOARD_PRODUCTS} />}
               >
                 <ShoppingBag />
-                <span>Products</span>
+                <span>{labels.productsPlural}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
