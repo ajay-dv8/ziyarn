@@ -31,9 +31,9 @@ const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const PAYSTACK_TIMEOUT_MS = 20_000;
 
 const PLAN_NAME: Record<CheckoutPlan, string> = {
-  standard: "Ziyarn Standard",
-  pro: "Ziyarn Pro",
-  ultimate: "Ziyarn Ultimate",
+  standard: "Ziyarn Plus",
+  pro: "Ziyarn Business",
+  ultimate: "Ziyarn Enterprise",
 };
 
 /**
@@ -41,9 +41,9 @@ const PLAN_NAME: Record<CheckoutPlan, string> = {
  * overrides use the same minor units, e.g. PAYSTACK_PRICE_PRO=9900000.
  */
 export const PLAN_PRICES_KOBO: Record<CheckoutPlan, number> = {
-  standard: 2_900_000,
-  pro: 9_900_000,
-  ultimate: 29_900_000,
+  standard: 5_900,
+  pro: 10_500,
+  ultimate: 25_000,
 };
 
 /** The currency the merchant account charges in (set PAYSTACK_CURRENCY). */
