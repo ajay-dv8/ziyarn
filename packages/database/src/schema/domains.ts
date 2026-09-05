@@ -21,7 +21,7 @@ export const domains = pgTable(
     logoUrl: text("logo_url"),
     embedSecret: text("embed_secret").notNull(),
     plan: text("plan", {
-      enum: ["free", "standard", "pro", "ultimate"],
+      enum: ["free", "standard", "pro", "ultimate", "custom"],
     })
       .notNull()
       .default("free"),

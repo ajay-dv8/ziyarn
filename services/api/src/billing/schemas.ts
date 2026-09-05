@@ -7,6 +7,7 @@ export const billingPlanSchema = z.enum([
   "standard",
   "pro",
   "ultimate",
+  "custom",
 ]);
 
 export type CheckoutPlan = z.infer<typeof checkoutPlanSchema>;

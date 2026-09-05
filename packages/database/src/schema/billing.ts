@@ -23,7 +23,7 @@ export const subscriptions = pgTable(
     customerCode: text("customer_code"),
     customerSubscriptionCode: text("customer_subscription_code"),
     plan: text("plan", {
-      enum: ["standard", "pro", "ultimate"],
+      enum: ["standard", "pro", "ultimate", "custom"],
     }).notNull(),
     status: text("status", {
       enum: ["incomplete", "trialing", "active", "past_due", "canceled", "incomplete_expired"],
