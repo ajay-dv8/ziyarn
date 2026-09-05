@@ -9,6 +9,7 @@ import { SyncDatabaseOrdersButton } from "@/components/dashboard/sync-database-o
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
 import { ordersService } from "@/services/orders-service";
+import { getBusinessTypeConfig } from "@repo/api/domains/business-types";
 
 export const metadata: Metadata = {
   title: "Orders",
@@ -56,6 +57,8 @@ export default async function OrdersPage({
       )
     : { orders: [], counts: { all: 0, chat: 0, db: 0 } };
 
+  const businessConfig = getBusinessTypeConfig(selectedDomain?.businessType);
+
   function tabHref(value: "all" | "chat" | "db") {
     if (!selectedDomain) return "/dashboard/orders";
     const params = new URLSearchParams({ domainId: selectedDomain.id });
@@ -68,7 +71,7 @@ export default async function OrdersPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{businessConfig.labels.orders}</h1>
           <p className="text-sm text-muted-foreground">
             Track orders placed through your chat widget and synced from your
             connected database.

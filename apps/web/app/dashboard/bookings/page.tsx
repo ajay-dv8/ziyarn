@@ -5,6 +5,7 @@ import { BookingsClient } from "@/components/dashboard/bookings-client";
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
 import { portalService } from "@/services/portal-service";
+import { getBusinessTypeConfig } from "@repo/api/domains/business-types";
 
 export const metadata: Metadata = {
   title: "Bookings",
@@ -22,6 +23,8 @@ export default async function BookingsPage({
   const domains = await domainsService.listDomains(requestHeaders);
   const { domainId } = await searchParams;
   const selectedId = domains.find((domain) => domain.id === domainId)?.id ?? domains[0]?.id ?? null;
+  const selectedDomain = domains.find((domain) => domain.id === domainId) ?? domains[0];
+  const businessConfig = getBusinessTypeConfig(selectedDomain?.businessType);
 
   let bookings: {
     id: string;

@@ -12,6 +12,7 @@ import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
 import { customersService } from "@/services/customers-service";
 import type { CustomerSource } from "@repo/api/customers/schemas";
+import { getBusinessTypeConfig } from "@repo/api/domains/business-types";
 
 export const metadata: Metadata = {
   title: "Customers",
@@ -61,6 +62,8 @@ export default async function CustomersPage({
       )
     : { customers: [], counts: { all: 0, chat: 0, database: 0, site: 0 } };
 
+  const businessConfig = getBusinessTypeConfig(selectedDomain?.businessType);
+
   function tabHref(value: CustomerSource | "all") {
     if (!selectedDomain) return "/dashboard/customers";
     const params = new URLSearchParams({ domainId: selectedDomain.id });
@@ -73,7 +76,7 @@ export default async function CustomersPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Customers</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{businessConfig.labels.customers}</h1>
           <p className="text-sm text-muted-foreground">
             Everyone your business has a relationship with — captured by your
             chat agent, synced from your database, or imported by you.

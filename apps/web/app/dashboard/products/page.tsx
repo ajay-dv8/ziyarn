@@ -16,6 +16,7 @@ import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
 import { productsService } from "@/services/products-service";
 import { settingsService } from "@/services/settings-service";
+import { getBusinessTypeConfig } from "@repo/api/domains/business-types";
 
 export const metadata: Metadata = {
   title: "Products",
@@ -54,12 +55,13 @@ export default async function ProductsPage({
     : [];
 
   const settings = await settingsService.getSettings(requestHeaders);
+  const businessConfig = getBusinessTypeConfig(selected?.businessType);
 
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Products</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{businessConfig.labels.productsPlural}</h1>
           <p className="text-sm text-muted-foreground">
             Catalog items your agents can sell in chat. Visitors pay through a
             secure portal link.
