@@ -257,6 +257,7 @@ export function createDomainsService(deps: {
           name: body.name,
           slug: body.slug,
           logoUrl: body.logoUrl ?? null,
+          businessType: body.businessType ?? null,
           embedSecret: randomBytes(32).toString("hex"),
           plan,
         })
@@ -290,6 +291,9 @@ export function createDomainsService(deps: {
         .set({
           ...(body.name !== undefined ? { name: body.name } : {}),
           ...(body.slug !== undefined ? { slug: body.slug } : {}),
+          ...(body.businessType !== undefined
+            ? { businessType: body.businessType }
+            : {}),
           updatedAt: new Date(),
         })
         .where(eq(domains.id, domain.id))

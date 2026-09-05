@@ -2,6 +2,17 @@ import { z } from "zod";
 
 export type { Plan } from "@repo/api/plans";
 
+const businessTypeEnum = z.enum([
+  "education",
+  "health",
+  "ecommerce",
+  "hospitality",
+  "food",
+  "finance",
+]);
+
+export { businessTypeEnum };
+
 export const domainNameSchema = z
   .string()
   .trim()
@@ -27,6 +38,7 @@ export const createDomainSchema = z.object({
   name: domainNameSchema,
   slug: domainSlugSchema,
   logoUrl: domainLogoUrlSchema.optional().nullable(),
+  businessType: businessTypeEnum.optional(),
 });
 
 export const updateDomainSchema = z
@@ -34,10 +46,16 @@ export const updateDomainSchema = z
     name: domainNameSchema.optional(),
     slug: domainSlugSchema.optional(),
     logoUrl: domainLogoUrlSchema.nullable().optional(),
+    businessType: businessTypeEnum.nullable().optional(),
   })
-  .refine((data) => data.name !== undefined || data.slug !== undefined, {
-    message: "Nothing to update",
-  });
+  .refine(
+    (data) =>
+      data.name !== undefined ||
+      data.slug !== undefined ||
+      data.logoUrl !== undefined ||
+      data.businessType !== undefined,
+    { message: "Nothing to update" },
+  );
 
 export type CreateDomainInput = z.infer<typeof createDomainSchema>;
 export type UpdateDomainInput = z.infer<typeof updateDomainSchema>;
