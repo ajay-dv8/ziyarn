@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getPlanLimits, type Plan } from "@repo/api/plans";
@@ -33,6 +33,13 @@ export default async function DashboardLayout({
   const session = await authService.getSession(await headers());
   if (!session) {
     redirect(APP_ROUTES.SIGN_IN);
+  }
+
+  // Check for pending invite — redirect to accept it
+  const cookieStore = await cookies();
+  const pendingInviteToken = cookieStore.get("pending_invite_token")?.value;
+  if (pendingInviteToken) {
+    redirect(`/accept-invite?token=${pendingInviteToken}`);
   }
 
   const domains = await domainsService.listDomains(await headers());
