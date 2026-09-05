@@ -37,7 +37,9 @@
     "./settings": "./src/settings/index.ts",
     "./settings/*": "./src/settings/*.ts",
     "./usage": "./src/usage/index.ts",
-    "./usage/*": "./src/usage/*.ts"
+    "./usage/*": "./src/usage/*.ts",
+    "./workspaces": "./src/workspaces/index.ts",
+    "./workspaces/*": "./src/workspaces/*.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit",

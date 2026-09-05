@@ -11,3 +11,4 @@ export * from "@repo/api/portal";
 export * from "@repo/api/products";
 export * from "@repo/api/settings";
 export * from "@repo/api/usage";
+export * from "@repo/api/workspaces";
