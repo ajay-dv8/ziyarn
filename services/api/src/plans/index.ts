@@ -8,6 +8,7 @@ export {
   PlanLimitError,
   assertCanCreateDomain,
   assertCanCreateProduct,
+  assertCanCreateWorkspace,
   assertCanStartConversation,
   getPlanLimits,
 } from "@repo/api/plans/server";

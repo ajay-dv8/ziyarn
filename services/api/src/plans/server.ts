@@ -3,6 +3,8 @@ import type { Plan } from "@repo/api/plans/schemas";
 export type PlanLimits = {
   /** Max domains a user can own on this plan. */
   maxDomains: number;
+  /** Max workspaces a user can create on this plan. */
+  maxWorkspaces: number;
   /** Max AI credits per domain per month (P3/P6 will consume these). */
   creditsPerMonth: number;
   /** Max widget conversations per domain per day. */
@@ -22,6 +24,7 @@ export type PlanLimits = {
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   free: {
     maxDomains: 1,
+    maxWorkspaces: 1,
     creditsPerMonth: 100,
     conversationsPerDay: 100,
     emailsPerMonth: 0,
@@ -30,6 +33,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   },
   standard: {
     maxDomains: 3,
+    maxWorkspaces: 10,
     creditsPerMonth: 1000,
     conversationsPerDay: 1000,
     emailsPerMonth: 500,
@@ -38,6 +42,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   },
   pro: {
     maxDomains: 10,
+    maxWorkspaces: Number.POSITIVE_INFINITY,
     creditsPerMonth: 10000,
     conversationsPerDay: 5000,
     emailsPerMonth: 5000,
@@ -46,6 +51,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   },
   ultimate: {
     maxDomains: 100,
+    maxWorkspaces: Number.POSITIVE_INFINITY,
     creditsPerMonth: 100000,
     conversationsPerDay: 50000,
     emailsPerMonth: 50000,
@@ -54,6 +60,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   },
   custom: {
     maxDomains: Number.POSITIVE_INFINITY,
+    maxWorkspaces: Number.POSITIVE_INFINITY,
     creditsPerMonth: Number.POSITIVE_INFINITY,
     conversationsPerDay: Number.POSITIVE_INFINITY,
     emailsPerMonth: Number.POSITIVE_INFINITY,
@@ -96,6 +103,20 @@ export function assertCanCreateDomain(
       429,
       "PLAN_LIMIT_EXCEEDED",
       `Your plan allows at most ${limits.maxDomains} domain(s)`,
+    );
+  }
+}
+
+/** Throws if the user already has as many workspaces as their plan allows. */
+export function assertCanCreateWorkspace(
+  limits: PlanLimits,
+  currentWorkspaceCount: number,
+): void {
+  if (currentWorkspaceCount >= limits.maxWorkspaces) {
+    throw new PlanLimitError(
+      429,
+      "PLAN_LIMIT_EXCEEDED",
+      `Your plan allows at most ${limits.maxWorkspaces} workspace(s)`,
     );
   }
 }
