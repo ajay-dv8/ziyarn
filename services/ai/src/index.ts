@@ -264,14 +264,14 @@ async function* streamWith(
     history.push({
       role: "assistant",
       content: content || null,
-      tool_calls: callList.map((c) => ({
-        id: c.id,
+      tool_calls: callList.map((toolCall) => ({
+        id: toolCall.id,
         type: "function" as const,
-        function: { name: c.name, arguments: c.args || "{}" },
-        ...(c.thoughtSignature
+        function: { name: toolCall.name, arguments: toolCall.args || "{}" },
+        ...(toolCall.thoughtSignature
           ? {
               extra_content: {
-                google: { thought_signature: c.thoughtSignature },
+                google: { thought_signature: toolCall.thoughtSignature },
               },
             }
           : {}),
