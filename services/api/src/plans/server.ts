@@ -11,6 +11,8 @@ export type PlanLimits = {
   emailsPerMonth: number;
   /** Max catalog products an owner can define per domain. */
   maxProductsPerDomain: number;
+  /** Max team members (owners + agents) on this plan. */
+  maxMembers: number;
 };
 
 /**
@@ -24,33 +26,54 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     conversationsPerDay: 100,
     emailsPerMonth: 0,
     maxProductsPerDomain: 0,
+    maxMembers: 1,
   },
   standard: {
-    maxDomains: 5,
+    maxDomains: 3,
     creditsPerMonth: 1000,
     conversationsPerDay: 1000,
     emailsPerMonth: 500,
-    maxProductsPerDomain: 50,
+    maxProductsPerDomain: 100,
+    maxMembers: 3,
   },
   pro: {
-    maxDomains: 20,
+    maxDomains: 10,
     creditsPerMonth: 10000,
     conversationsPerDay: 5000,
     emailsPerMonth: 5000,
     maxProductsPerDomain: 500,
+    maxMembers: 10,
   },
   ultimate: {
     maxDomains: 100,
     creditsPerMonth: 100000,
     conversationsPerDay: 50000,
     emailsPerMonth: 50000,
-    maxProductsPerDomain: 5000,
+    maxProductsPerDomain: 10000,
+    maxMembers: Number.POSITIVE_INFINITY,
+  },
+  custom: {
+    maxDomains: Number.POSITIVE_INFINITY,
+    creditsPerMonth: Number.POSITIVE_INFINITY,
+    conversationsPerDay: Number.POSITIVE_INFINITY,
+    emailsPerMonth: Number.POSITIVE_INFINITY,
+    maxProductsPerDomain: Number.POSITIVE_INFINITY,
+    maxMembers: Number.POSITIVE_INFINITY,
   },
 };
 
 export function getPlanLimits(plan: Plan): PlanLimits {
   return PLAN_LIMITS[plan];
 }
+
+/** Display names for plans — use instead of capitalizing the internal ID. */
+export const PLAN_DISPLAY_NAMES: Record<Plan, string> = {
+  free: "Free",
+  standard: "Plus",
+  pro: "Business",
+  ultimate: "Enterprise",
+  custom: "Custom",
+};
 
 export class PlanLimitError extends Error {
   constructor(
@@ -100,7 +123,7 @@ export function assertCanCreateProduct(
     throw new PlanLimitError(
       429,
       "PLAN_LIMIT_EXCEEDED",
-      "Catalog products require the Standard plan or above",
+      "Catalog products require the Plus plan or above",
     );
   }
   if (currentProductCount >= limits.maxProductsPerDomain) {
