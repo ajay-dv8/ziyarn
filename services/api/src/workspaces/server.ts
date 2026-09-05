@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import {
@@ -10,7 +10,7 @@ import {
 } from "@repo/database/schema/workspaces";
 import { user } from "@repo/database/schema/auth";
 import { domains } from "@repo/database/schema/domains";
-import { getPlanLimits } from "@repo/api/plans";
+import { getPlanLimits, planSchema } from "@repo/api/plans";
 import type { Plan } from "@repo/api/plans/schemas";
 import {
   createWorkspaceSchema,
@@ -146,6 +146,18 @@ export function createWorkspaceService(deps: {
     return workspace;
   };
 
+  /** Checks if a user can add more members based on plan limits. */
+  const assertCanAddMember = (plan: Plan, currentCount: number) => {
+    const limits = getPlanLimits(plan);
+    if (currentCount >= limits.maxMembers) {
+      throw new WorkspaceServiceError(
+        429,
+        "MEMBER_LIMIT_EXCEEDED",
+        `Your plan allows at most ${limits.maxMembers} team members`,
+      );
+    }
+  };
+
   return {
     /** Lists workspaces the user belongs to. */
     listWorkspaces: async (headers: Headers) => {
@@ -238,6 +250,36 @@ export function createWorkspaceService(deps: {
 
       const body = inviteMemberSchema.parse(input);
       const workspace = await requireWorkspace(workspaceId);
+
+      // Enforce maxMembers plan limit
+      const memberUserIds = db
+        .select({ userId: workspaceMembers.userId })
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.workspaceId, workspaceId))
+        .as("member_user_ids");
+
+      const [planRow] = await db
+        .select({
+          effectivePlan: sql<string>`COALESCE(MAX(${domains.plan}), 'free')`,
+        })
+        .from(domains)
+        .where(
+          sql`${domains.ownerId} IN (SELECT user_id FROM ${memberUserIds})`,
+        );
+
+      const plan = planSchema.parse(planRow?.effectivePlan ?? "free");
+
+      const [memberCountRow] = await db
+        .select({ memberCount: count() })
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.workspaceId, workspaceId));
+
+      const [inviteCountRow] = await db
+        .select({ inviteCount: count() })
+        .from(workspaceInvites)
+        .where(eq(workspaceInvites.workspaceId, workspaceId));
+
+      assertCanAddMember(plan, (memberCountRow?.memberCount ?? 0) + (inviteCountRow?.inviteCount ?? 0));
 
       // Check if already a member
       const [existingUser] = await db
@@ -474,20 +516,6 @@ export function createWorkspaceService(deps: {
         .where(eq(workspaceMembers.workspaceId, workspaceId));
 
       return row?.count ?? 0;
-    },
-
-    /** Checks if a user can add more members based on plan limits. */
-    assertCanAddMember: async (workspaceId: string, plan: Plan) => {
-      const limits = getPlanLimits(plan);
-      const currentCount = await workspaceService.countMembers(workspaceId);
-
-      if (currentCount >= limits.maxMembers) {
-        throw new WorkspaceServiceError(
-          429,
-          "MEMBER_LIMIT_EXCEEDED",
-          `Your ${plan} plan allows at most ${limits.maxMembers} team members`,
-        );
-      }
     },
   };
 }
