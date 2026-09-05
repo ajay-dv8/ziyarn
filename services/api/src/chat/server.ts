@@ -19,6 +19,10 @@ import {
 import type { PortalService } from "@repo/api/portal/server";
 import type { KnowledgeService } from "@repo/api/knowledge/server";
 import { createToolExecutor } from "@repo/api/chat/tool-executor";
+import {
+  getBusinessTypeConfig,
+  type BusinessType,
+} from "@repo/api/domains/business-types";
 
 import { appendMessageSchema } from "@repo/api/chat/schemas";
 
@@ -53,15 +57,9 @@ export function jsonError(status: number, code: string, message: string) {
   return Response.json({ error: { code, message } }, { status, headers: CORS_HEADERS });
 }
 
-/** Default system prompt when agent has no custom prompt. */
-const DEFAULT_SYSTEM_PROMPT = `You are a friendly sales and support assistant for this business.
-Help visitors with their questions, qualify their interest, and move them toward booking a call or buying.
-Be concise, honest and helpful. Never invent company facts you are unsure about.
-If a visitor asks for a human, is frustrated, or the request is out of scope, escalate to a human agent.`;
-
 /** Assembles the full system prompt from 8 parts concatenated at runtime. */
 export function systemPromptFor(
-  domain: { slug: string },
+  domain: { slug: string; businessType: BusinessType | null },
   agent: {
     name: string | null;
     description: string | null;
@@ -94,8 +92,9 @@ export function systemPromptFor(
   const bookingLine = bookingConfig
     ? `Booking availability: ${DAY_NAMES.filter((_, dayIndex) => bookingConfig.availableDays.includes(dayIndex)).join(", ")}, ${bookingConfig.availableStart}–${bookingConfig.availableEnd} (slot: ${bookingConfig.slotDuration}min, min notice: ${bookingConfig.minNoticeHours}h). When the visitor suggests a time, verify it falls within these hours using book_appointment — the system will check availability.`
     : "";
+  const businessConfig = getBusinessTypeConfig(domain.businessType);
   const parts = [
-    agent.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
+    agent.systemPrompt ?? businessConfig.defaultSystemPrompt,
     agent.description ? `About this business: ${agent.description}` : "",
     agent.instructions ? `Guidelines:\n${agent.instructions}` : "",
     agent.tools?.length
