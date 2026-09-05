@@ -600,9 +600,9 @@ export function createEmailService(deps: { db: Database }) {
       const suppressed = await db
         .select({ email: unsubscribedEmails.email })
         .from(unsubscribedEmails);
-      const suppressedSet = new Set(suppressed.map((s) => s.email.toLowerCase()));
+      const suppressedSet = new Set(suppressed.map((entry) => entry.email.toLowerCase()));
       return [...byEmail.values()].filter(
-        (r) => !suppressedSet.has(r.email.toLowerCase()),
+        (recipient) => !suppressedSet.has(recipient.email.toLowerCase()),
       );
     },
   };

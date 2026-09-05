@@ -197,7 +197,7 @@ export function createAnalyticsService(deps: {
 
       const series: DayBucket[] = buckets.map((date) => {
         const revenue = revenueByDay[date] ?? [];
-        const primary = [...revenue].sort((a, b) => b.minor - a.minor)[0];
+        const primary = [...revenue].sort((revenueA, revenueB) => revenueB.minor - revenueA.minor)[0];
         return {
           date,
           conversations: conversationsByDay[date] ?? 0,
@@ -334,7 +334,7 @@ export function createAnalyticsService(deps: {
         totalRevenueByCurrency,
       )
         .map(([currency, minor]) => ({ currency, minor }))
-        .sort((a, b) => b.minor - a.minor);
+        .sort((currencyA, currencyB) => currencyB.minor - currencyA.minor);
 
       const totals = {
         conversations: conversationRows.reduce((sum, row) => sum + row.count, 0),
@@ -362,7 +362,7 @@ export function createAnalyticsService(deps: {
         })),
         paymentsByStatus: paymentStatusRows
           .map((row) => ({ label: row.label, count: row.count }))
-          .sort((a, b) => b.count - a.count),
+          .sort((statusA, statusB) => statusB.count - statusA.count),
         topProducts,
         campaigns: campaignRows.map((row) => ({
           id: row.id,

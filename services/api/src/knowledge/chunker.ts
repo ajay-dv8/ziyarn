@@ -34,8 +34,8 @@ export function chunkText(
     if (piece.length > maxChars) {
       push();
       current = "";
-      for (let i = 0; i < piece.length; i += maxChars - overlap) {
-        chunks.push(piece.slice(i, i + maxChars).trim());
+      for (let chunkIndex = 0; chunkIndex < piece.length; chunkIndex += maxChars - overlap) {
+        chunks.push(piece.slice(chunkIndex, chunkIndex + maxChars).trim());
       }
       continue;
     }
