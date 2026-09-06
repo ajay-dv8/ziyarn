@@ -1,5 +1,5 @@
 {
-  "name": "docs",
+  "name": "admin",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -11,18 +11,26 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.6.25",
+    "@neondatabase/serverless": "^1.1.0",
+    "@repo/database": "workspace:*",
     "@repo/ui": "workspace:*",
-    "next": "16.2.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "better-auth": "^1.6.25",
+    "dotenv": "^16.6.1",
+    "drizzle-orm": "^0.44.7",
+    "lucide-react": "^1.28.0",
+    "next": "^16.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.15.3",
-    "@types/react": "19.2.2",
-    "@types/react-dom": "19.2.2",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
     "eslint": "^9.39.1",
     "tailwindcss": "^4.3.3",
     "typescript": "5.9.2"
