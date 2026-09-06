@@ -8,6 +8,7 @@ const nextConfig = {
   turbopack: {
     root: path.join(__dirname, "..", ".."),
   },
+  serverExternalPackages: ["@neondatabase/serverless"],
 };
 
 export default nextConfig;
