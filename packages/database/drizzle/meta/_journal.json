@@ -169,6 +169,13 @@
       "when": 1788700000000,
       "tag": "0024_business_type",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788800000000,
+      "tag": "0026_admins",
+      "breakpoints": true
     }
   ]
 }
