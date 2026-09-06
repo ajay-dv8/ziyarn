@@ -1,11 +1,12 @@
 import { listUsers } from "@/services/admin-service";
 import Link from "next/link";
+import React from "react";
 
 export default async function UsersPage({
   searchParams,
 }: {
   searchParams: Promise<{ page?: string; search?: string }>;
-}) {
+}): Promise<React.ReactNode> {
   const params = await searchParams;
   const page = Number(params.page) || 1;
   const search = params.search || "";

@@ -1,4 +1,5 @@
 import { listConversations } from "@/services/admin-service";
+import React from "react";
 
 const STATUS_OPTIONS = ["active", "escalated", "resolved", "closed"];
 
@@ -6,7 +7,7 @@ export default async function ConversationsPage({
   searchParams,
 }: {
   searchParams: Promise<{ page?: string; status?: string }>;
-}) {
+}): Promise<React.ReactNode> {
   const params = await searchParams;
   const page = Number(params.page) || 1;
   const status = params.status || "";

@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import { getUserDetail } from "@/services/admin-service";
 import Link from "next/link";
+import React from "react";
 
 export default async function UserDetailPage({
   params,
 }: {
   params: Promise<{ userId: string }>;
-}) {
+}): Promise<React.ReactNode> {
   const { userId } = await params;
   const userDetail = await getUserDetail(userId);
 

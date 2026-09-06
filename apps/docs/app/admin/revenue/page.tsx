@@ -1,4 +1,5 @@
 import { getRevenueStats, listDomains } from "@/services/admin-service";
+import React from "react";
 
 function formatCurrency(amountMinor: number) {
   return new Intl.NumberFormat("en-US", {
@@ -8,7 +9,7 @@ function formatCurrency(amountMinor: number) {
   }).format(amountMinor / 100);
 }
 
-export default async function RevenuePage() {
+export default async function RevenuePage(): Promise<React.ReactNode> {
   const revenue = await getRevenueStats({ days: 30 });
 
   return (

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getDomainDetail } from "@/services/admin-service";
 import Link from "next/link";
+import React from "react";
 
 function formatCurrency(amountMinor: number) {
   return new Intl.NumberFormat("en-US", {
@@ -14,7 +15,7 @@ export default async function DomainDetailPage({
   params,
 }: {
   params: Promise<{ domainId: string }>;
-}) {
+}): Promise<React.ReactNode> {
   const { domainId } = await params;
   const domain = await getDomainDetail(domainId);
 
