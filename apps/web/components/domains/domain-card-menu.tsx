@@ -77,7 +77,7 @@ export function DomainCardMenu({
             <Button
               variant="ghost"
               size="icon"
-              className="-mr-2 -mt-1 shrink-0 text-muted-foreground border-border"
+              className="-mt-1 shrink-0 text-foreground border-border hover:bg-accent hover:text-foreground/80"
               aria-label={`Actions for ${domainName}`}
             />
           }
