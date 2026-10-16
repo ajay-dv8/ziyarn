@@ -775,6 +775,22 @@ export async function handleChatPost(
       logger,
     });
 
+    // Composer "Deep search" toggle. Undefined means true, so an older widget
+    // that omits the field behaves exactly as before.
+    const deepSearchEnabled = body.deepSearch !== false;
+    const agentTools = (agent.tools ?? []) as AgentToolName[];
+    let enabledTools: AgentToolName[] | undefined = deepSearchEnabled
+      ? agentTools
+      : agentTools.filter((tool) => tool !== "answer_knowledge");
+
+    if (enabledTools.length === 0) {
+      // Knowledge is off and the agent has no other tools. Normalise to
+      // undefined rather than sending [] — streamChat currently treats an empty
+      // array as "no tools", but relying on that is fragile if the filter logic
+      // ever changes.
+      enabledTools = undefined;
+    }
+
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
@@ -790,7 +806,7 @@ export async function handleChatPost(
           for await (const event of aiService.streamChat({
             systemPrompt: systemPromptFor(domain, agent, catalog, bookingConfig),
             messages: context,
-            tools: agent.tools as AgentToolName[] | undefined,
+            tools: enabledTools as AgentToolName[] | undefined,
             executeTool: toolExecutor,
             signal: abortController.signal,
           })) {
@@ -864,6 +880,7 @@ export async function handleChatConfig(
   try {
     const domain = await chatService.resolveDomainBySecret(secret);
     const agent = await chatService.defaultAgentForDomain(domain.id);
+    const businessTypeConfig = getBusinessTypeConfig(domain.businessType);
     return Response.json(
       {
         domain: { slug: domain.slug },
@@ -873,6 +890,21 @@ export async function handleChatConfig(
               description: agent.description,
             }
           : null,
+        /**
+         * Composer capabilities. Public to anyone holding the embed secret —
+         * no secret or provider detail may appear here.
+         *
+         * `placeholders` rotates in the idle input, phrased for the domain's
+         * industry so the visitor sees prompts the agent can actually answer.
+         *
+         * `knowledgeSearch` is true only when the agent has answer_knowledge
+         * enabled; the widget hides the Deep search chip when it is false
+         * rather than offering a toggle that would do nothing.
+         */
+        placeholders: businessTypeConfig.placeholders,
+        knowledgeSearch: Boolean(
+          agent?.tools?.includes("answer_knowledge"),
+        ),
       },
       { headers: CORS_HEADERS },
     );
