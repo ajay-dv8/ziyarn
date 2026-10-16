@@ -51,6 +51,19 @@ export function paystackCurrency(): string {
   return process.env.PAYSTACK_CURRENCY ?? "GHS";
 }
 
+/**
+ * Public base URL of this deployment. Used to build Paystack return URLs so a
+ * hosted checkout comes back to the app instead of a dead end. Never
+ * NEXT_PUBLIC_* — this runs server-side only.
+ */
+export function paystackReturnBase(): string {
+  return (
+    process.env.BASE_APP_URL ??
+    process.env.BETTER_AUTH_URL ??
+    "http://localhost:3000"
+  );
+}
+
 export function planPriceKobo(plan: CheckoutPlan): number {
   const override = process.env[`PAYSTACK_PRICE_${plan.toUpperCase()}`];
   const parsed = override ? Number(override) : Number.NaN;
@@ -79,12 +92,16 @@ type PaystackResponse<T> = {
 type PaystackPlan = {
   plan_code: string;
   name: string;
+  /** Minor units (pesewas for GHS). This is what Paystack actually charges. */
+  amount?: number;
+  currency?: string;
 };
 
 type PaystackTransaction = {
   reference: string;
   amount: number;
   status: string;
+  created_at?: string;
   metadata?: Record<string, unknown> | null;
   customer?: { email: string; customer_code: string } | null;
 };
@@ -202,36 +219,69 @@ export function createPaystackService(deps: {
       .where(eq(subscriptions.id, existing.id));
   }
 
-  /** Best-effort next renewal date from the customer's latest Paystack subscription. */
-  async function nextPeriodEndFor(email: string): Promise<Date> {
+  /**
+   * Best-effort lookup of the customer's Paystack subscription. The first
+   * charge on a plan creates it, so it may not exist seconds after a payment —
+   * both fields fall back to null and callers degrade gracefully.
+   */
+  async function latestSubscriptionFor(email: string): Promise<{
+    code: string | null;
+    nextPaymentDate: Date | null;
+  }> {
+    if (!email) {
+      return { code: null, nextPaymentDate: null };
+    }
     try {
       const response = await paystackFetch<PaystackResponse<PaystackSubscription[]>>(
         "/subscription",
         "GET",
       );
       const match = response.data?.find((sub) => sub.customer?.email === email);
-      if (match?.next_payment_date) {
-        return new Date(match.next_payment_date);
-      }
+      return {
+        code: match?.subscription_code ?? null,
+        nextPaymentDate: match?.next_payment_date
+          ? new Date(match.next_payment_date)
+          : null,
+      };
     } catch {
-      // fall through to the default below
+      return { code: null, nextPaymentDate: null };
     }
-    return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  }
+
+  /** Renewal date, defaulting to 30 days out when Paystack has not reported one. */
+  function periodEndOrDefault(nextPaymentDate: Date | null): Date {
+    return nextPaymentDate ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   }
 
   /**
-   * Finds or creates the Paystack plan for a billing plan. Env override
-   * PAYSTACK_PLAN_<PLAN> skips the lookup entirely.
+   * Finds or creates the Paystack plan for a billing plan, returning the plan
+   * object so callers can read the amount Paystack will actually charge.
+   *
+   * IMPORTANT: when a `plan` is sent to /transaction/initialize, Paystack uses
+   * the PLAN's amount and ignores the `amount` parameter. The dashboard amount
+   * is therefore the real price. Plans are matched by name (or pinned via
+   * PAYSTACK_PLAN_<PLAN>), so a plan whose amount was edited in the dashboard is
+   * reused as-is — trust `amount` here rather than planPriceKobo().
    */
-  async function ensurePlanCode(plan: CheckoutPlan): Promise<string> {
+  async function ensurePlan(plan: CheckoutPlan): Promise<PaystackPlan> {
     const override = process.env[`PAYSTACK_PLAN_${plan.toUpperCase()}`];
     if (override) {
-      return override;
+      // Read the pinned plan so the reported amount is the real charge. A
+      // failure here is not fatal: fall back to the code and the env price.
+      try {
+        const fetched = await paystackFetch<PaystackResponse<PaystackPlan>>(
+          `/plan/${override}`,
+          "GET",
+        );
+        return { ...fetched.data, plan_code: override };
+      } catch {
+        return { plan_code: override, name: PLAN_NAME[plan] };
+      }
     }
     const list = await paystackFetch<PaystackResponse<PaystackPlan[]>>("/plan", "GET");
     const existing = list.data?.find((item) => item.name === PLAN_NAME[plan]);
     if (existing?.plan_code) {
-      return existing.plan_code;
+      return existing;
     }
     const created = await paystackFetch<PaystackResponse<PaystackPlan>>("/plan", "POST", {
       name: PLAN_NAME[plan],
@@ -240,14 +290,18 @@ export function createPaystackService(deps: {
       interval: "monthly",
       currency: paystackCurrency(),
     });
-    return created.data.plan_code;
+    return created.data;
   }
 
   return {
     /**
-     * Prepares a Paystack checkout for a plan upgrade: ensures the plan
-     * exists, then initializes a transaction with server-owned metadata
-     * (ownerId + plan) and a reference the client popup will use.
+     * Prepares a Paystack checkout for a plan upgrade: resolves the plan,
+     * then initializes a transaction with server-owned metadata (ownerId +
+     * plan) and a reference the client popup will use.
+     *
+     * The charged amount is the Paystack PLAN's amount. If that differs from
+     * planPriceKobo() the checkout still proceeds (never charge a stale number)
+     * but `priceDrifted` is surfaced so the mismatch is visible.
      */
     async initializeCheckout(
       ownerId: string,
@@ -259,29 +313,44 @@ export function createPaystackService(deps: {
       email: string;
       currency: string;
       url: string;
+      priceDrifted: boolean;
     }> {
       await assertConfigured();
-      const planCode = await ensurePlanCode(input.plan);
+      const paystackPlan = await ensurePlan(input.plan);
+      const expectedKobo = planPriceKobo(input.plan);
+      const amountKobo = paystackPlan.amount ?? expectedKobo;
+      const priceDrifted = amountKobo !== expectedKobo;
+      if (priceDrifted) {
+        console.warn(
+          `[paystack] ${input.plan}: Paystack plan ${paystackPlan.plan_code} charges ${amountKobo} ` +
+            `but PAYSTACK_PRICE_* expects ${expectedKobo}. The plan amount wins — sync the dashboard or env.`,
+        );
+      }
       const reference = `ziyarn_${randomUUID().replace(/-/g, "")}`;
       const initialized = await paystackFetch<PaystackResponse<PaystackTransaction & { authorization_url: string }>>(
         "/transaction/initialize",
         "POST",
         {
           reference,
-          amount: planPriceKobo(input.plan),
+          amount: amountKobo,
           email: input.email,
-          plan: planCode,
+          plan: paystackPlan.plan_code,
           currency: paystackCurrency(),
+          // Send a hosted checkout back to the billing page so the plan is
+          // reconciled on return. Without this the customer pays and lands on a
+          // dead end — the popup verify call never runs.
+          callback_url: `${paystackReturnBase()}/dashboard/billing?paystack=return`,
           metadata: { ownerId, plan: input.plan },
         },
       );
       return {
         reference,
-        planCode,
-        amountKobo: planPriceKobo(input.plan),
+        planCode: paystackPlan.plan_code,
+        amountKobo,
         email: input.email,
         currency: paystackCurrency(),
         url: initialized.data?.authorization_url ?? "",
+        priceDrifted,
       };
     },
 
@@ -330,21 +399,106 @@ export function createPaystackService(deps: {
           "This checkout does not belong to your account",
         );
       }
-      if (data.amount !== planPriceKobo(plan)) {
-        throw new PaystackServiceError(
-          400,
-          "PAYMENT_AMOUNT_MISMATCH",
-          "The payment amount does not match the plan price",
+      // NOTE: we deliberately do NOT gate activation on the charged amount.
+      // `reference` is server-generated (`ziyarn_<uuid>`) and `metadata` is
+      // server-owned, so the ownerId check above is the complete authorization
+      // boundary. Re-deriving an expected price from PAYSTACK_PRICE_* compared
+      // two independent sources of truth (env vs the Paystack plan amount) and
+      // silently rejected valid, already-paid checkouts whenever they drifted.
+      const expectedKobo = planPriceKobo(plan);
+      if (data.amount !== expectedKobo) {
+        console.warn(
+          `[paystack] verify ${input.reference}: charged ${data.amount} but planPriceKobo(${plan}) is ${expectedKobo}. Activating anyway.`,
         );
       }
+      const customerEmail = data.customer?.email ?? "";
+      const latestSubscription = await latestSubscriptionFor(customerEmail);
       await upsertPaystackSubscription(ownerId, {
         plan,
         status: "active",
         customerCode: data.customer?.customer_code ?? null,
-        currentPeriodEnd: await nextPeriodEndFor(data.customer?.email ?? ""),
+        customerSubscriptionCode: latestSubscription.code,
+        currentPeriodEnd: periodEndOrDefault(latestSubscription.nextPaymentDate),
       });
       await billing.applyPlanToDomains(ownerId, plan);
       return { plan };
+    },
+
+    /**
+     * Recovers a paid-but-unapplied checkout.
+     *
+     * Scans recent Paystack transactions for a successful charge whose
+     * server-owned metadata names this owner and applies the plan. This is the
+     * repair path for a checkout whose browser verify was lost (closed tab,
+     * network drop, a deploy mid-checkout) and whose webhook was never
+     * configured or also failed. Idempotent — safe to call repeatedly.
+     */
+    async reconcileCheckout(
+      ownerId: string,
+      input: { email: string },
+    ): Promise<{
+      applied: boolean;
+      plan: CheckoutPlan | null;
+      reference: string | null;
+      message: string;
+    }> {
+      await assertConfigured();
+      const transactions = await paystackFetch<PaystackResponse<PaystackTransaction[]>>(
+        "/transaction?per_page=50",
+        "GET",
+      );
+
+      // Sort explicitly rather than trusting the endpoint's default order — a
+      // stale payment would otherwise under-deliver the owner's latest plan.
+      const paid = (transactions.data ?? [])
+        .flatMap((transaction) => {
+          const plan = transaction.metadata?.plan;
+          if (transaction.status !== "success") return [];
+          if (transaction.metadata?.ownerId !== ownerId) return [];
+          if (!isCheckoutPlan(plan)) return [];
+          return [{ plan, transaction }];
+        })
+        .sort((left, right) =>
+          (right.transaction.created_at ?? "").localeCompare(
+            left.transaction.created_at ?? "",
+          ),
+        );
+      const latest = paid[0];
+      if (!latest) {
+        return {
+          applied: false,
+          plan: null,
+          reference: null,
+          message: "No completed Paystack payment was found for this account.",
+        };
+      }
+
+      const existing = await billing.getSubscription(ownerId);
+      if (existing?.plan === latest.plan && existing.status === "active") {
+        return {
+          applied: false,
+          plan: latest.plan,
+          reference: latest.transaction.reference,
+          message: "Your payment is already applied.",
+        };
+      }
+
+      const customerEmail = latest.transaction.customer?.email ?? input.email ?? "";
+      const latestSubscription = await latestSubscriptionFor(customerEmail);
+      await upsertPaystackSubscription(ownerId, {
+        plan: latest.plan,
+        status: "active",
+        customerCode: latest.transaction.customer?.customer_code ?? null,
+        customerSubscriptionCode: latestSubscription.code,
+        currentPeriodEnd: periodEndOrDefault(latestSubscription.nextPaymentDate),
+      });
+      await billing.applyPlanToDomains(ownerId, latest.plan);
+      return {
+        applied: true,
+        plan: latest.plan,
+        reference: latest.transaction.reference,
+        message: "Payment found — your plan is now active.",
+      };
     },
 
     /** Cancels the owner's Paystack subscription and reverts domains to free. */
@@ -439,14 +593,25 @@ export function createPaystackService(deps: {
           if (!isCheckoutPlan(plan) || typeof ownerId !== "string") {
             return { handled: false };
           }
-          if (data.amount !== planPriceKobo(plan)) {
-            return { handled: false };
+          // Never silently drop a paid event. Returning `{handled:false}` here
+          // answered Paystack with 200, so it never retried and the charge was
+          // lost permanently. Drift is logged, not gated — the ownerId metadata
+          // is server-owned and the reference is server-generated.
+          const expectedKobo = planPriceKobo(plan);
+          if (data.amount !== expectedKobo) {
+            console.warn(
+              `[paystack] charge.success ${data.reference ?? ""}: amount ${data.amount} != planPriceKobo(${plan}) ${expectedKobo}. Activating anyway.`,
+            );
           }
+          const customerEmail = data.customer?.email ?? "";
+          const latestSubscription = await latestSubscriptionFor(customerEmail);
           await upsertPaystackSubscription(ownerId, {
             plan,
             status: "active",
             customerCode: data.customer?.customer_code ?? null,
-            currentPeriodEnd: await nextPeriodEndFor(data.customer?.email ?? ""),
+            customerSubscriptionCode:
+              latestSubscription.code ?? undefined,
+            currentPeriodEnd: periodEndOrDefault(latestSubscription.nextPaymentDate),
           });
           await billing.applyPlanToDomains(ownerId, plan);
           return { handled: true };
