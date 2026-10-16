@@ -1,12 +1,41 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+
+/**
+ * Reads the post-login destination from the query string.
+ *
+ * Deliberately NOT useSearchParams(): that hook opts a client component out of
+ * static prerendering and throws at build time unless it sits under a
+ * Suspense boundary. Reading window.location inside the submit handler avoids
+ * the hook (and the fallback flash) entirely — the value is only needed once,
+ * on the client, after a real user gesture.
+ *
+ * Only same-origin relative paths are accepted. `returnTo` arrives from the
+ * URL, so without this guard ?returnTo=https://evil.example would make the
+ * sign-in page an open redirect for whoever clicked the crafted link.
+ */
+function readReturnTo(): string {
+  const fallback = "/admin";
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+  const candidate = new URLSearchParams(window.location.search).get("returnTo");
+  if (!candidate) {
+    return fallback;
+  }
+  // Reject absolute URLs, protocol-relative "//host", and backslash tricks that
+  // some browsers normalise to "//host".
+  if (!candidate.startsWith("/")) return fallback;
+  if (candidate.startsWith("//")) return fallback;
+  if (candidate.includes("\\")) return fallback;
+  return candidate;
+}
 
 export default function SignInPage(): React.ReactNode {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -31,8 +60,7 @@ export default function SignInPage(): React.ReactNode {
     // Only admins on the allowlist may proceed. requireAdmin() on /admin
     // re-checks, so a signed-in customer is bounced back here regardless of
     // what this client believes.
-    const returnTo = searchParams.get("returnTo") ?? "/admin";
-    router.push(returnTo);
+    router.push(readReturnTo());
     router.refresh();
   }
 
