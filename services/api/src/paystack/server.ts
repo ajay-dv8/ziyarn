@@ -37,13 +37,21 @@ const PLAN_NAME: Record<CheckoutPlan, string> = {
 };
 
 /**
- * Plan prices in Paystack minor units (pesewas for GHS, kobo for NGN). Env
- * overrides use the same minor units, e.g. PAYSTACK_PRICE_PRO=9900000.
+ * Plan prices in Paystack minor units (pesewas for GHS, kobo for NGN).
+ *
+ * GHS 119 / 399 / 749 per month. Env overrides use the same minor units, e.g.
+ * PAYSTACK_PRICE_PRO=39900 — these must match the amount on the Paystack plan,
+ * because the plan's amount is what Paystack actually charges.
+ *
+ * Changing a price here does NOT move existing subscribers: they stay on the
+ * price they signed up at until their subscription is migrated. The billing
+ * page renders from here via formatPlanPrice(), so keep it in step with the
+ * dashboard or the displayed price drifts from the charge.
  */
 export const PLAN_PRICES_KOBO: Record<CheckoutPlan, number> = {
-  standard: 5_900,
-  pro: 10_500,
-  ultimate: 25_000,
+  standard: 11_900,
+  pro: 39_900,
+  ultimate: 74_900,
 };
 
 /** The currency the merchant account charges in (set PAYSTACK_CURRENCY). */
