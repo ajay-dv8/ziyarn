@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo
 
 import { CancelSubscriptionButton } from "@/components/dashboard/cancel-subscription-button";
 import { ManageSubscriptionButton } from "@/components/dashboard/manage-subscription-button";
+import { PaystackReturnHandler } from "@/components/dashboard/paystack-return-handler";
+import { RestorePlanButton } from "@/components/dashboard/restore-plan-button";
 import { UpgradeButton } from "@/components/dashboard/upgrade-button";
 import { authService } from "@/services/auth-service";
 import { billingService } from "@/services/billing-service";
@@ -56,6 +58,8 @@ export default async function BillingPage() {
 
   return (
     <div className="space-y-6">
+      <PaystackReturnHandler />
+
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
         <p className="text-sm text-muted-foreground">
@@ -168,6 +172,21 @@ export default async function BillingPage() {
           </CardHeader>
           <CardContent>
             <ManageSubscriptionButton />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {plan === "free" && subscription?.status !== "active" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Restore a payment</CardTitle>
+            <CardDescription>
+              If a Paystack payment went through but your plan did not change,
+              restore it here.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RestorePlanButton email={session.user.email} />
           </CardContent>
         </Card>
       ) : null}
