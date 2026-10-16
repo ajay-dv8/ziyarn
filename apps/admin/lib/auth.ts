@@ -3,12 +3,20 @@ import type { Auth, BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth/minimal";
 import { nextCookies } from "better-auth/next-js";
 
+import {
+  adminAccounts,
+  adminSessions,
+  adminVerifications,
+  admins,
+} from "@repo/database/schema";
+
 import { db } from "@/lib/db";
 
 /**
  * Admin auth is a SEPARATE better-auth instance from the customer app.
  *
- * Isolation matters in three places:
+ * Isolation in four places — all four matter, and dropping any one of them
+ * re-opens a cross-tenant hole:
  *
  *  1. Secret    — ADMIN_BETTER_AUTH_SECRET, never BETTER_AUTH_SECRET. Sharing a
  *                 secret would let an admin session token be replayed against
@@ -16,11 +24,13 @@ import { db } from "@/lib/db";
  *  2. Cookie    — cookies do NOT isolate by port, so localhost:3000 and
  *                 localhost:3001 share a cookie jar. A distinct cookiePrefix
  *                 stops a customer session from auto-authenticating an admin.
- *  3. Database  — this instance resolves to the standard user/session/account
- *                 tables, i.e. the CUSTOMER identity tables. That is why every
- *                 admin route must additionally pass through requireAdmin()
- *                 (lib/admin-auth.ts), which checks the `admins` allowlist.
- *                 betterAuth() alone is NOT an admin authorization check.
+ *  3. Database  — the explicit `schema` mapping below binds this instance to
+ *                 `admins` / `admin_sessions` / `admin_accounts`. Without it
+ *                 better-auth silently resolves to the CUSTOMER user/session/
+ *                 account tables, which made every admin credential a customer
+ *                 credential. See drizzle/0027_admin_auth_tables.sql.
+ *  4. Allowlist — requireAdmin() (lib/admin-auth.ts) checks the `admins` row.
+ *                 Authentication is not authorization.
  *
  * Trusted origins come from the admin URL so the panel cannot be driven from a
  * hostile origin.
@@ -35,6 +45,13 @@ const authConfig: BetterAuthOptions = {
   secret: process.env.ADMIN_BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
     provider: "pg",
+    // Load-bearing: this is what keeps staff out of the customer tables.
+    schema: {
+      user: admins,
+      session: adminSessions,
+      account: adminAccounts,
+      verification: adminVerifications,
+    },
   }),
   emailAndPassword: {
     enabled: true,

@@ -1,9 +1,15 @@
 /**
- * Creates or updates an admin on the `admins` allowlist.
+ * Adds or updates an `admins` allowlist row.
  *
- * The admin panel authenticates with better-auth against the shared customer
- * tables, so a row here is what turns an ordinary sign-in into staff access.
- * Without a row, /admin redirects to /sign-in forever.
+ * SCOPE: this does NOT create a sign-in credential. Admin auth is bound to
+ * `admin_sessions` / `admin_accounts` (drizzle/0027_admin_auth_tables.sql), so
+ * a row here with no matching `admin_accounts` row cannot sign in to the panel.
+ * It is for changing an existing admin's role/name, or granting allowlist
+ * access to an account whose credential already exists.
+ *
+ * To create a brand-new admin WITH a password, use the one-time /setup page
+ * (available only while the admins table is empty), or build the R4
+ * /admin/team invite flow. See plan/admin-roles-plan.md.
  *
  * Usage (from apps/admin):
  *   pnpm exec tsx scripts/create-admin.ts <email> [role] [name]
@@ -12,11 +18,10 @@
  *   pnpm exec tsx scripts/create-admin.ts ajay@example.com superadmin "Ajay"
  *   pnpm exec tsx scripts/create-admin.ts ops@example.com viewer "Ops"
  *
- * NOTE: `admins.password` is a legacy NOT NULL plaintext column that nothing
- * reads — better-auth stores the hash in `account`. This script inserts a
- * random placeholder so the constraint holds. Never put a real password here.
+ * NOTE: `admins.password` is a legacy plaintext column that nothing reads and
+ * which is now nullable. This script does not write it.
  */
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import { eq } from "drizzle-orm";
 
@@ -67,22 +72,19 @@ async function main(): Promise<void> {
     id: randomUUID(),
     email,
     name,
-    // Legacy plaintext column, NOT NULL, never read by better-auth (the hash
-    // lives in `account`). Random so it can never be mistaken for a credential.
-    password: `!disabled:${randomBytes(24).toString("hex")}`,
+    // No `password` field: legacy plaintext column, nullable since 0027, never
+    // read. A sign-in credential lives in `admin_accounts` and must be created
+    // through better-auth — see the header comment.
     role,
     emailVerified: true,
   };
 
   await db.insert(admins).values(newAdmin);
 
-  console.log(`Created admin ${email} with role=${role}`);
+  console.log(`Created allowlist row ${email} with role=${role}`);
   console.log(
-    "This row is the ALLOWLIST entry only — it does not set a password.\n" +
-      "Next, create the sign-in credential for this email:\n" +
-      "  • First admin?  Use the one-time /setup page in the panel (recommended)\n" +
-      "  • Already have a customer account?  Just sign in with it.\n" +
-      "  • Neither?  Sign up for an account with this email first, then sign in here.",
+    "This does NOT create a sign-in credential. The account can reach /admin\n" +
+      "only once it has a row in admin_accounts (see plan/admin-roles-plan.md R4).",
   );
 }
 

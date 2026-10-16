@@ -1,5 +1,3 @@
-import { randomBytes } from "node:crypto";
-
 import { count } from "drizzle-orm";
 
 import { admins } from "@repo/database/schema";
@@ -112,10 +110,10 @@ export async function runAdminSetup(
       id: authUserId,
       email: input.email,
       name: input.name,
-      // Legacy plaintext NOT NULL column, never read by better-auth (the hash
-      // lives in `account`). Random so it can never be mistaken for a
-      // credential. R6 of admin-roles-plan.md drops this column entirely.
-      password: `!disabled:${randomBytes(24).toString("hex")}`,
+      // No `password` here: it is the legacy plaintext column and is now
+      // nullable. better-auth wrote the scrypt hash to `admin_accounts` via
+      // signUpEmail above — that is the credential.
+      //
       // First admin gets the highest existing role. The enum is
       // superadmin|admin|viewer today; R2 of admin-roles-plan.md migrates it
       // to owner|admin|support|analyst. Do not invent a value here — this
