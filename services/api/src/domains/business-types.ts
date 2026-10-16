@@ -18,6 +18,12 @@ export type BusinessTypeConfig = {
   label: string;
   tagline: string;
   labels: PageLabels;
+  /**
+   * Rotating placeholder prompts in the widget composer. Written as questions a
+   * real visitor would ask, so the idle input teaches the agent's scope.
+   * Keep to 4–6, each short enough to fit the collapsed input.
+   */
+  placeholders: string[];
   defaultSystemPrompt: string;
   defaultTools: string[];
   showBookings: boolean;
@@ -36,6 +42,13 @@ export const BUSINESS_TYPES: Record<BusinessType, BusinessTypeConfig> = {
       customers: "Students",
       bookings: "Consultations",
     },
+    placeholders: [
+      "What courses do you offer?",
+      "How do I apply?",
+      "When do classes start?",
+      "What are the fees?",
+      "Do you offer scholarships?",
+    ],
     defaultSystemPrompt:
       "You are an academic advisor and enrollment assistant for this educational institution. " +
       "Help prospective and current students with course selection, enrollment, schedules, " +
@@ -62,6 +75,13 @@ export const BUSINESS_TYPES: Record<BusinessType, BusinessTypeConfig> = {
       customers: "Patients",
       bookings: "Appointments",
     },
+    placeholders: [
+      "How do I book an appointment?",
+      "What are your opening hours?",
+      "Do you accept my insurance?",
+      "Is this medication in stock?",
+      "How do I refill my prescription?",
+    ],
     defaultSystemPrompt:
       "You are a patient care coordinator and pharmacy assistant for this healthcare provider. " +
       "Help patients with appointment scheduling, medication inquiries, service information, " +
@@ -89,6 +109,13 @@ export const BUSINESS_TYPES: Record<BusinessType, BusinessTypeConfig> = {
       customers: "Customers",
       bookings: "Bookings",
     },
+    placeholders: [
+      "What is your return policy?",
+      "How long is delivery?",
+      "Do you ship internationally?",
+      "Is this item in stock?",
+      "How do I track my order?",
+    ],
     defaultSystemPrompt:
       "You are a friendly sales and support assistant for this online store. " +
       "Help visitors find products, answer questions about pricing, shipping, returns, " +
@@ -116,6 +143,13 @@ export const BUSINESS_TYPES: Record<BusinessType, BusinessTypeConfig> = {
       customers: "Guests",
       bookings: "Bookings",
     },
+    placeholders: [
+      "What rooms are available?",
+      "What are your check-in times?",
+      "Is breakfast included?",
+      "How do I book a stay?",
+      "Do you offer airport transfers?",
+    ],
     defaultSystemPrompt:
       "You are a front desk concierge for this hospitality business. " +
       "Help guests with room availability, reservations, amenities, local recommendations, " +
@@ -143,6 +177,13 @@ export const BUSINESS_TYPES: Record<BusinessType, BusinessTypeConfig> = {
       customers: "Customers",
       bookings: "Reservations",
     },
+    placeholders: [
+      "What is on the menu?",
+      "Do you take reservations?",
+      "Do you deliver?",
+      "Do you cater for events?",
+      "What are your opening hours?",
+    ],
     defaultSystemPrompt:
       "You are a helpful restaurant assistant for this food business. " +
       "Help customers with menu inquiries, orders, reservations, catering requests, " +
@@ -171,6 +212,13 @@ export const BUSINESS_TYPES: Record<BusinessType, BusinessTypeConfig> = {
       customers: "Clients",
       bookings: "Consultations",
     },
+    placeholders: [
+      "How do I open an account?",
+      "What are your fees?",
+      "How long does approval take?",
+      "Do you offer loans?",
+      "How do I apply for a card?",
+    ],
     defaultSystemPrompt:
       "You are a financial services assistant for this institution. " +
       "Help customers with account inquiries, product information, loan applications, " +
@@ -202,6 +250,13 @@ export const GENERIC_CONFIG: BusinessTypeConfig = {
     customers: "Customers",
     bookings: "Bookings",
   },
+  placeholders: [
+    "How can I help you today?",
+    "What are your opening hours?",
+    "How do I get started?",
+    "Do you have this in stock?",
+    "How can I reach you?",
+  ],
   defaultSystemPrompt:
     "You are a friendly sales and support assistant for this business. " +
     "Help visitors with their questions, qualify their interest, and move them " +
