@@ -225,35 +225,104 @@
     .zy-dot:nth-child(2) { animation-delay: 0.2s; }
     .zy-dot:nth-child(3) { animation-delay: 0.4s; }
 
-    /* ---- Composer — input field + send button at the bottom of the panel ---- */
+    /* ---- Composer ----
+     * Expanding pill composer. Collapsed it is a single rounded row; on focus
+     * (or once the visitor types) the capability row fades in below it.
+     *
+     * The expand/collapse uses grid-template-rows 0fr -> 1fr rather than an
+     * animated height: it needs no magic numbers and stays correct when the
+     * chip labels wrap on a narrow widget.
+     *
+     * Placeholder letters are animated with a CSS keyframe plus a per-index
+     * animation-delay, so the blur-in stagger costs nothing at runtime and
+     * needs no animation library inside the shadow root.
+     */
     .zy-composer {
-      display: flex;
-      gap: 8px;
-      padding: 12px;
+      padding: 10px 12px 12px;
       border-top: 1px solid var(--zy-border);
       background: #fff;
       flex-shrink: 0;
     }
-    .zy-composer input {
+    .zy-composer-shell {
+      border: 1px solid var(--zy-border);
+      border-radius: 26px;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .zy-composer-shell:focus-within,
+    .zy-composer-shell[data-expanded="true"] {
+      border-color: color-mix(in srgb, var(--zy-color) 55%, var(--zy-border));
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Row 1 — input + send */
+    .zy-composer-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 8px 8px 14px;
+    }
+    .zy-composer-field {
+      position: relative;
       flex: 1;
       min-width: 0;
-      border: 1px solid var(--zy-border);
-      border-radius: 10px;
-      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+    }
+    .zy-composer input {
+      width: 100%;
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: 8px 0;
       font-size: 14.5px;
       font-family: inherit;
       color: var(--zy-text);
-      outline: none;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      position: relative;
+      z-index: 1;
     }
-    .zy-composer input:focus { border-color: var(--zy-color); box-shadow: 0 0 0 3px color-mix(in srgb, var(--zy-color) 22%, transparent); }
-    .zy-composer input::placeholder { color: var(--zy-muted); }
-    .zy-composer button {
+    /* Placeholder sits under the real input and is never focusable. */
+    .zy-composer-ph {
+      position: absolute;
+      left: 0;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .zy-composer-ph span {
+      display: inline-block;
+      white-space: nowrap;
+      color: var(--zy-muted);
+      font-size: 14.5px;
+      font-family: inherit;
+      animation: zy-ph-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-delay: var(--zy-ph-delay, 0ms);
+    }
+    @keyframes zy-ph-in {
+      from { opacity: 0; filter: blur(7px); transform: translateY(6px); }
+      to   { opacity: 1; filter: blur(0);   transform: none; }
+    }
+    @keyframes zy-ph-out {
+      from { opacity: 1; filter: blur(0);   transform: none; }
+      to   { opacity: 0; filter: blur(7px); transform: translateY(-6px); }
+    }
+    .zy-composer-ph[data-leaving="true"] span {
+      animation: zy-ph-out 0.3s ease forwards;
+      animation-delay: var(--zy-ph-delay, 0ms);
+    }
+
+    .zy-send {
       border: none;
-      border-radius: 10px;
+      border-radius: 50%;
       background: var(--zy-color);
       color: #fff;
-      width: 42px;
+      width: 36px;
+      height: 36px;
       flex-shrink: 0;
       cursor: pointer;
       display: flex;
@@ -261,9 +330,62 @@
       justify-content: center;
       transition: opacity 0.15s ease, transform 0.15s ease;
     }
-    .zy-composer button:hover:not(:disabled) { transform: translateY(-1px); }
-    .zy-composer button:disabled { opacity: 0.45; cursor: not-allowed; }
-    .zy-composer button svg { width: 18px; height: 18px; }
+    .zy-send:hover:not(:disabled) { transform: translateY(-1px); }
+    .zy-send:disabled { opacity: 0.4; cursor: not-allowed; }
+    .zy-send svg { width: 17px; height: 17px; }
+
+    /* Row 2 — capability chips, collapsed to zero height when idle */
+    .zy-composer-caps {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      padding: 0 14px;
+    }
+    .zy-composer[data-expanded="true"] .zy-composer-caps { grid-template-rows: 1fr; }
+    .zy-composer-caps-inner {
+      overflow: hidden;
+      min-height: 0;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .zy-chip {
+      margin: 8px 0 2px;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: #475569;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      line-height: 1;
+      padding: 8px 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+    }
+    .zy-chip svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .zy-chip:hover { background: #e2e8f0; }
+    .zy-chip[aria-pressed="true"] {
+      background: color-mix(in srgb, var(--zy-color) 12%, #fff);
+      border-color: color-mix(in srgb, var(--zy-color) 55%, transparent);
+      color: color-mix(in srgb, var(--zy-color) 82%, #0f172a);
+    }
+    /* Label width animates so the pill grows out of its icon, mirroring the
+       reference design without needing a measured width in JS. */
+    .zy-chip-label {
+      display: inline-block;
+      white-space: nowrap;
+      transition: opacity 0.18s ease, max-width 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+    .zy-chip[data-open="true"] .zy-chip-label { max-width: 140px; opacity: 1; }
 
     /* ---- Footer note ---- */
     .zy-note { padding: 0 16px 12px; font-size: 12px; color: var(--zy-muted); text-align: center; flex-shrink: 0; background: #fff; border-top: 1px solid var(--zy-border); }
@@ -301,6 +423,7 @@
     chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
+    globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10"/></svg>',
   };
 
   // ---------------------------------------------------------------------------
@@ -442,12 +565,24 @@
         "</button>" +
         "</div>" +
         '<div class="zy-messages"></div>' +
-        '<div class="zy-composer">' +
-        '<input type="text" placeholder="Type a message\u2026" autocomplete="off" />' +
-        '<button type="button" aria-label="Send message">' +
+        '<div class="zy-composer" data-expanded="false">' +
+        '<div class="zy-composer-shell">' +
+        '<div class="zy-composer-row">' +
+        '<div class="zy-composer-field">' +
+        '<input type="text" placeholder=" " aria-label="Type a message" autocomplete="off" />' +
+        '<div class="zy-composer-ph" aria-hidden="true"></div>' +
+        "</div>" +
+        '<button type="button" class="zy-send" aria-label="Send message">' +
         ICONS.send +
         "</button>" +
         "</div>" +
+        '<div class="zy-composer-caps">' +
+        '<div class="zy-composer-caps-inner">' +
+        '<button type="button" class="zy-chip" data-chip="deep" aria-pressed="false" aria-label="Deep search" data-open="true" hidden>' +
+        ICONS.globe +
+        '<span class="zy-chip-label">Deep search</span>' +
+        "</button>" +
+        "</div></div></div></div>" +
         '<div class="zy-note">Powered by Ziyarn</div>' +
         "</div>" +
         '<button type="button" class="zy-launcher" aria-label="Open chat">' +
@@ -471,7 +606,21 @@
       this._launcher = root.querySelector(".zy-launcher");
       this._messages = root.querySelector(".zy-messages");
       this._input = root.querySelector(".zy-composer input");
-      this._sendBtn = root.querySelector(".zy-composer button");
+      // Select by explicit class, NOT ".zy-composer button" — the composer now
+      // holds a capability chip alongside the send button, and a positional
+      // selector would silently bind _sendBtn to the chip.
+      this._sendBtn = root.querySelector(".zy-composer .zy-send");
+      this._composer = root.querySelector(".zy-composer");
+      this._placeholder = root.querySelector(".zy-composer-ph");
+      this._deepChip = root.querySelector('.zy-chip[data-chip="deep"]');
+      this._deepSearch = true;
+      this._placeholders = [
+        "How can I help you today?",
+        "What are your opening hours?",
+      ];
+      this._placeholderIndex = 0;
+      this._placeholderTimer = null;
+      this._renderPlaceholder();
       this._titleEl = root.querySelector(".zy-header-title");
       this._subEl = root.querySelector(".zy-header-sub");
       this._statusEl = root.querySelector(".zy-header-status");
@@ -505,7 +654,11 @@
       this._launcher.addEventListener("click", this._toggle.bind(this));
       this._headerCloseBtn.addEventListener("click", this._toggle.bind(this));
       this._input.addEventListener("keydown", this._onKey.bind(this));
+      this._input.addEventListener("input", this._onInput.bind(this));
+      this._input.addEventListener("focus", this._onFocus.bind(this));
       this._sendBtn.addEventListener("click", this._send.bind(this));
+      this._deepChip.addEventListener("click", this._toggleDeepSearch.bind(this));
+      this._startPlaceholderCycle();
 
       // ---- Bootstrap: fetch agent info + load conversation history ----
       this._init();
@@ -537,7 +690,9 @@
     // -------------------------------------------------------------------------
     // Two things happen:
     //   1. GET /api/chat → fetches the agent's name and description to
-    //      populate the header. This also validates the embed secret.
+    //      populate the header, plus the composer capabilities (business-type
+    //      placeholder prompts, and whether Deep search is available at all).
+    //      This also validates the embed secret.
     //   2. If there's a saved conversation, load its history. Otherwise,
     //      show the default greeting message.
     _init() {
@@ -552,6 +707,16 @@
             if (data.agent.name) self._titleEl.textContent = data.agent.name;
             if (data.agent.description)
               self._subEl.textContent = data.agent.description;
+          }
+          // Composer capabilities. Both are optional so an older backend that
+          // does not return them simply leaves the defaults in place.
+          if (data && data.placeholders) {
+            self._setPlaceholders(data.placeholders);
+          }
+          // Hide the Deep search chip when the agent has no knowledge tool —
+          // a toggle that could never change anything is worse than no chip.
+          if (self._deepChip) {
+            self._deepChip.hidden = !(data && data.knowledgeSearch);
           }
         })
         .catch(function () {
@@ -646,6 +811,126 @@
         event.preventDefault();
         this._send();
       }
+      this._syncExpanded();
+    }
+
+    // -------------------------------------------------------------------------
+    // _syncExpanded — expand the composer while focused or non-empty.
+    //
+    // The capability row is only worth the vertical space once the visitor is
+    // engaged, so it collapses again when the field is blurred and emptied.
+    // -------------------------------------------------------------------------
+    _syncExpanded() {
+      var expanded = this._streaming || Boolean(this._input.value);
+      this._composer.setAttribute("data-expanded", String(expanded));
+    }
+
+    // -------------------------------------------------------------------------
+    // _setPlaceholders — adopt the prompts the server chose for this business
+    // type. Called from _init(); falls back to the generic list above.
+    // -------------------------------------------------------------------------
+    _setPlaceholders(list) {
+      if (!Array.isArray(list) || !list.length) return;
+      var cleaned = list
+        .filter(function (item) { return typeof item === "string"; })
+        .map(function (item) { return item.slice(0, 60); })
+        .filter(function (item) { return item.length > 0; });
+      if (!cleaned.length) return;
+      this._placeholders = cleaned;
+      this._placeholderIndex = 0;
+      this._renderPlaceholder();
+    }
+
+    // -------------------------------------------------------------------------
+    // _renderPlaceholder — draw the rotating hint under the input.
+    //
+    // Each character is its own span carrying a staggered animation-delay, so
+    // the blur-in cascade is pure CSS. Rebuilt only when the text changes or the
+    // visitor starts typing — never per keystroke.
+    // -------------------------------------------------------------------------
+    _renderPlaceholder() {
+      if (!this._placeholder) return;
+      var text = this._placeholders[this._placeholderIndex] || "";
+      var html = "";
+      for (var charIndex = 0; charIndex < text.length; charIndex += 1) {
+        var character = text.charAt(charIndex);
+        html +=
+          '<span style="--zy-ph-delay:' +
+          charIndex * 22 +
+          'ms">' +
+          (character === " " ? "&nbsp;" : this._escapeHtml(character)) +
+          "</span>";
+      }
+      this._placeholder.innerHTML = html;
+      this._placeholder.removeAttribute("data-leaving");
+    }
+
+    _escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    // -------------------------------------------------------------------------
+    // _startPlaceholderCycle — rotate the hint every few seconds while idle.
+    // Cleared the moment the visitor types, so their draft is never disturbed.
+    // -------------------------------------------------------------------------
+    _startPlaceholderCycle() {
+      var self = this;
+      this._stopPlaceholderCycle();
+      if (this._placeholders.length < 2) return;
+      this._placeholderTimer = setInterval(function () {
+        if (self._input.value || self._streaming) return;
+        // Fade the old phrase out before swapping, so the change reads as
+        // intentional rather than a flicker.
+        if (self._placeholder) {
+          self._placeholder.setAttribute("data-leaving", "true");
+        }
+        setTimeout(function () {
+          self._placeholderIndex =
+            (self._placeholderIndex + 1) % self._placeholders.length;
+          self._renderPlaceholder();
+        }, 320);
+      }, 4200);
+    }
+
+    _stopPlaceholderCycle() {
+      if (this._placeholderTimer) {
+        clearInterval(this._placeholderTimer);
+        this._placeholderTimer = null;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // _toggleDeepSearch — composer chip controlling whether the agent may
+    // consult the owner's knowledge base for this turn. Sends `deepSearch` on
+    // the next message; an older server ignores it and behaves as before.
+    // -------------------------------------------------------------------------
+    _toggleDeepSearch() {
+      this._deepSearch = !this._deepSearch;
+      this._deepChip.setAttribute("aria-pressed", String(this._deepSearch));
+      this._deepChip.setAttribute(
+        "aria-label",
+        this._deepSearch ? "Deep search on" : "Deep search off",
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // _onFocus / _onInput — expand the composer and park the hint while typing
+    // -------------------------------------------------------------------------
+    _onFocus() {
+      this._syncExpanded();
+    }
+
+    _onInput() {
+      this._syncExpanded();
+      if (this._input.value) {
+        this._stopPlaceholderCycle();
+      } else {
+        this._renderPlaceholder();
+        this._startPlaceholderCycle();
+      }
     }
 
     // -------------------------------------------------------------------------
@@ -712,8 +997,11 @@
       if (!text || this._streaming) return;
 
       this._input.value = "";
+      this._renderPlaceholder();
+      this._syncExpanded();
       this._appendMessage("user", text);
       this._streaming = true;
+      this._syncExpanded();
       this._sendBtn.disabled = true;
       // Create a "typing" bubble with bouncing dots, updated as tokens stream in
       var typing = this._appendMessage("agent", "");
@@ -728,6 +1016,11 @@
         message: text,
         visitorId: this._visitorId,
         conversationId: this._conversationId || undefined,
+        // Knowledge-base search for this turn. Always sent: it defaults to true on
+        // the server, so an older build that ignores the field behaves
+        // identically. When the agent has no answer_knowledge tool the server
+        // filters nothing and the value is inert either way.
+        deepSearch: this._deepSearch,
       };
 
       function doFetch(body) {
@@ -783,6 +1076,9 @@
         .finally(function () {
           self._streaming = false;
           self._sendBtn.disabled = false;
+          self._syncExpanded();
+          // Resume the idle hint once the reply has landed.
+          self._startPlaceholderCycle();
           self._input.focus();
         });
     }
