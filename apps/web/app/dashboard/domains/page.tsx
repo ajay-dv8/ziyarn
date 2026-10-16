@@ -11,10 +11,8 @@ import {
 } from "@repo/ui/components/card";
 
 import { CreateDomainButton } from "@/components/domains/create-domain-button";
-import { BusinessTypeEditor } from "@/components/domains/business-type-editor";
-import { DeleteDomainButton } from "@/components/domains/delete-domain-button";
+import { DomainCardMenu } from "@/components/domains/domain-card-menu";
 import { EmbedSnippet } from "@/components/domains/embed-snippet";
-import { RenameDomainForm } from "@/components/domains/rename-domain-form";
 import { ZyWidget } from "@/components/widget/zy-widget";
 import { domainsService } from "@/services/domains-service";
 
@@ -50,20 +48,21 @@ export default async function DomainsPage() {
       <div className="space-y-4">
         {domains.map((domain, index) => (
           <Card key={domain.id}>
-            <CardHeader>
-              <CardTitle>{domain.name}</CardTitle>
-              <CardDescription>{PLAN_DISPLAY_NAMES[domain.plan]} plan</CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+              <div className="min-w-0 space-y-1.5">
+                <CardTitle className="truncate">{domain.name}</CardTitle>
+                <CardDescription>
+                  {PLAN_DISPLAY_NAMES[domain.plan]} plan · {domain.slug}
+                </CardDescription>
+              </div>
+
+              <DomainCardMenu
+                domainId={domain.id}
+                domainName={domain.name}
+                businessType={domain.businessType}
+              />
             </CardHeader>
             <CardContent className="space-y-4">
-              <RenameDomainForm
-                domainId={domain.id}
-                currentName={domain.name}
-              />
-              <BusinessTypeEditor
-                domainId={domain.id}
-                currentType={domain.businessType}
-              />
-              <DeleteDomainButton domainId={domain.id} />
               {embedConfigs[index] && (
                 <EmbedSnippet
                   widgetUrl={embedConfigs[index].widgetUrl}
