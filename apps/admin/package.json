@@ -35,6 +35,7 @@
     "eslint": "^9.39.1",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.19.2",
-    "typescript": "5.9.2"
+    "typescript": "5.9.2",
+    "zod": "^4.1.12"
   }
 }

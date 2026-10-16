@@ -90,6 +90,9 @@ importers:
       typescript:
         specifier: 5.9.2
         version: 5.9.2
+      zod:
+        specifier: ^4.1.12
+        version: 4.5.4
 
   apps/web:
     dependencies:
@@ -8890,7 +8893,7 @@ snapshots:
       vfile: 6.0.3
       yaml: 2.9.0
       yuku-analyzer: 0.9.3
-      zod: 4.4.3
+      zod: 4.5.4
     optionalDependencies:
       '@types/mdast': 4.0.4
       '@types/mdx': 2.0.14
