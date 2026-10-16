@@ -78,7 +78,11 @@ async function main(): Promise<void> {
 
   console.log(`Created admin ${email} with role=${role}`);
   console.log(
-    "Now sign in with that email and a password you set through the admin sign-in form.",
+    "This row is the ALLOWLIST entry only — it does not set a password.\n" +
+      "Next, create the sign-in credential for this email:\n" +
+      "  • First admin?  Use the one-time /setup page in the panel (recommended)\n" +
+      "  • Already have a customer account?  Just sign in with it.\n" +
+      "  • Neither?  Sign up for an account with this email first, then sign in here.",
   );
 }
 
