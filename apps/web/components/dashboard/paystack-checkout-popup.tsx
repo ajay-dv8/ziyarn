@@ -15,6 +15,12 @@ export type PaystackCheckout = {
   email: string;
   currency: string;
   url: string;
+  /**
+   * True when the Paystack plan charges a different amount than
+   * PAYSTACK_PRICE_* expects. Shown so a misconfigured dashboard or env is
+   * visible to the owner before they pay.
+   */
+  priceDrifted?: boolean;
 };
 
 /**
@@ -69,6 +75,12 @@ export function PaystackCheckoutPopup({
     <div className="space-y-2">
       {state === "opening" ? (
         <p className="text-sm text-muted-foreground">Opening Paystack…</p>
+      ) : null}
+      {checkout.priceDrifted ? (
+        <p className="text-sm text-amber-600" role="status">
+          Heads up: the price on the Paystack checkout differs from the price
+          shown on this page. The Paystack amount is what you will be charged.
+        </p>
       ) : null}
       {checkout.url ? (
         <Button
