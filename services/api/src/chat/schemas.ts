@@ -18,6 +18,17 @@ export const sendMessageSchema = z.object({
     .max(4000, "Message must be at most 4000 characters"),
   conversationId: z.string().uuid("Invalid conversation id").optional(),
   visitorId: visitorIdSchema,
+  /**
+   * Composer "Deep search" toggle. When explicitly false the knowledge tool is
+   * withheld for this turn, so the model answers from its own knowledge instead
+   * of the owner's knowledge base — cheaper, faster, and occasionally what a
+   * visitor actually wants.
+   *
+   * Optional and default-true: an older widget that omits this field keeps the
+   * previous behaviour, and `answer_knowledge` still only ever runs if the
+   * agent has it enabled in its own tool list.
+   */
+  deepSearch: z.boolean().optional(),
 });
 
 export const appendMessageSchema = z.object({
