@@ -236,3 +236,43 @@ export function escalationNotificationTemplate(
     html: render(domainName, body),
   };
 }
+
+export type WorkspaceInviteTemplateInput = {
+  workspaceName: string;
+  /** Display name of the role the invite grants. */
+  roleLabel: string;
+  /** Full URL the recipient opens to accept. */
+  inviteUrl: string;
+  /** ISO date the invite stops working. */
+  expiresAt: string;
+};
+
+/**
+ * Team invite. Sent as a plain transactional email (not a campaign): there is
+ * no unsubscribe footer, because the recipient asked to be added to a team.
+ */
+export function workspaceInviteTemplate(
+  input: WorkspaceInviteTemplateInput,
+): { subject: string; text: string; html: string } {
+  const { workspaceName, roleLabel, inviteUrl, expiresAt } = input;
+  const expiry = formatDate(expiresAt.slice(0, 10));
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;color:#18181b;">You&apos;ve been invited to a team</h1>
+    <p style="margin:0 0 20px;font-size:15px;color:#52525b;">You have been invited to join <strong>${escapeHtml(workspaceName)}</strong> on Ziyarn as ${escapeHtml(roleLabel)}. You&apos;ll be able to manage the team&apos;s agents, domains and knowledge bases.</p>
+    <a href="${escapeHtml(inviteUrl)}" style="display:inline-block;background-color:#18181b;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 24px;border-radius:8px;">Accept invite</a>
+    <p style="margin:20px 0 0;font-size:13px;color:#71717a;">This invite expires on ${escapeHtml(expiry)}. If you were not expecting it, you can ignore this email.</p>`;
+  const text = [
+    "You've been invited to a team",
+    "",
+    `You have been invited to join ${workspaceName} on Ziyarn as ${roleLabel}.`,
+    "",
+    `Accept: ${inviteUrl}`,
+    "",
+    `This invite expires on ${expiry}. If you were not expecting it, ignore this email.`,
+  ].join("\n");
+  return {
+    subject: `Join ${workspaceName} on Ziyarn`,
+    text,
+    html: render(workspaceName, body),
+  };
+}
