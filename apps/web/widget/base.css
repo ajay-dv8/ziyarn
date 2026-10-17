@@ -1,0 +1,349 @@
+/* ---- Reset & base ---- */
+:host {
+  --zy-color: var(--zy-color, #10b981);
+  --zy-text: var(--zy-text, #0f172a);
+  --zy-muted: var(--zy-muted, #64748b);
+  --zy-bg: var(--zy-bg, #ffffff);
+  --zy-border: var(--zy-border, #e2e8f0);
+  --zy-radius: 14px;
+  --zy-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
+  all: initial;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ---- Fixed-position wrapper — anchors the panel and launcher to viewport ---- */
+.zy-wrap {
+  position: fixed;
+  bottom: 20px;
+  z-index: 2147483000; /* above everything, including site z-index stacks */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--zy-text);
+}
+.zy-wrap[data-position="bottom-left"] { left: 20px; right: auto; align-items: flex-start; }
+.zy-wrap[data-position="bottom-right"] { right: 20px; left: auto; }
+
+/* ---- Launcher — the floating chat bubble that toggles the panel open/closed ---- */
+.zy-launcher {
+  width: 58px;
+  height: 58px;
+  border: none;
+  border-radius: 50%;
+  background: var(--zy-color);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: var(--zy-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.zy-launcher:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 16px 44px rgba(15, 23, 42, 0.24); }
+.zy-launcher svg { width: 26px; height: 26px; }
+/* Toggle between chat icon and close icon based on data-open */
+.zy-launcher .zy-close { display: none; }
+.zy-wrap[data-open="true"] .zy-launcher .zy-open { display: none; }
+.zy-wrap[data-open="true"] .zy-launcher .zy-close { display: block; }
+
+/* ---- Chat panel — the main chat window ---- */
+/* Hidden by default (display: none). Shown when data-open="true" on .zy-wrap. */
+.zy-panel {
+  width: 382px;
+  max-width: calc(100vw - 32px);
+  height: 620px;
+  max-height: min(80vh, 700px);
+  background: var(--zy-bg);
+  border: 1px solid var(--zy-border);
+  border-radius: var(--zy-radius);
+  box-shadow: var(--zy-shadow);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+.zy-wrap[data-open="true"] .zy-panel { display: flex; }
+
+/* ---- Header — agent name, description, online status, mobile close button ---- */
+.zy-header {
+  background: var(--zy-color);
+  color: #fff;
+  padding: 14px 16px;
+  flex-shrink: 0;
+  position: relative; /* anchor for the absolute-positioned close button */
+}
+.zy-header-title { font-weight: 650; font-size: 16px; letter-spacing: -0.01em; padding-right: 36px; /* room for close btn */ }
+.zy-header-sub { font-size: 12.5px; opacity: 0.92; margin-top: 2px; }
+/* Close button inside the header — hidden on desktop, shown on mobile (≤480px) */
+.zy-header-close {
+  display: none;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  line-height: 0;
+  transition: background 0.15s ease;
+}
+.zy-header-close:hover { background: rgba(255,255,255,0.18); }
+.zy-header-close svg { width: 20px; height: 20px; }
+/* Online status indicator — pulsing dot shown during escalated conversations */
+.zy-header-status { display: none; margin-top: 6px; font-size: 12px; opacity: 0.95; }
+.zy-header-status[data-visible="true"] { display: flex; align-items: center; gap: 6px; }
+.zy-header-status::before {
+  content: "";
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; flex-shrink: 0;
+  animation: zy-pulse 1.4s ease-in-out infinite;
+}
+
+/* ---- Messages container — scrollable list of chat bubbles ---- */
+/* overscroll-behavior: contain prevents the page from scrolling when
+   the user scrolls to the top/bottom of the message list (important
+   on mobile where the panel is fullscreen). */
+.zy-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #f8fafc;
+  overscroll-behavior: contain;
+}
+/* Individual message bubble styles */
+.zy-msg {
+  max-width: 84%;
+  padding: 9px 13px;
+  border-radius: 16px;
+  font-size: 14.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  animation: zy-in 0.16s ease;
+}
+/* Agent (AI) messages — left-aligned, white background */
+.zy-msg-agent { background: #fff; border: 1px solid var(--zy-border); border-bottom-left-radius: 5px; align-self: flex-start; }
+/* Owner (human support) messages — left-aligned, accent border, labeled */
+.zy-msg-owner { background: #fff; border: 1px solid var(--zy-color); border-bottom-left-radius: 5px; align-self: flex-start; }
+.zy-msg-owner::before { content: "Owner"; display: block; font-size: 11px; font-weight: 600; color: var(--zy-color); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+/* User (visitor) messages — right-aligned, accent background, white text */
+.zy-msg-user { background: var(--zy-color); color: #fff; border-bottom-right-radius: 5px; align-self: flex-end; }
+/* Error messages — centered, red background */
+.zy-msg-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; align-self: center; font-size: 13px; }
+/* Typing indicator — bouncing dots while waiting for AI response */
+.zy-msg-typing { padding: 9px 13px; }
+.zy-typing-dots { display: inline-flex; align-items: center; gap: 12%; }
+.zy-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--zy-color);
+  animation: zy-bounce 1.4s ease-in-out infinite;
+}
+.zy-dot:nth-child(2) { animation-delay: 0.2s; }
+.zy-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ---- Composer ----
+ * Shared shell, promoted out of variants/classic.css: every variant needs a
+ * working input and send button, and the theming below is driven by --zy-color
+ * and --zy-border, which are per-domain. A variant overrides what it wants to
+ * change rather than re-declaring the structure.
+ *
+ * Expanding pill composer. Collapsed it is a single rounded row; on focus
+ * (or once the visitor types) the capability row fades in below it.
+ *
+ * The expand/collapse uses grid-template-rows 0fr -> 1fr rather than an
+ * animated height: it needs no magic numbers and stays correct when the
+ * chip labels wrap on a narrow widget.
+ *
+ * Placeholder letters are animated with a CSS keyframe plus a per-index
+ * animation-delay, so the blur-in stagger costs nothing at runtime and
+ * needs no animation library inside the shadow root.
+ */
+.zy-composer {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--zy-border);
+  background: #fff;
+  flex-shrink: 0;
+}
+.zy-composer-shell {
+  border: 1px solid var(--zy-border);
+  border-radius: 26px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.zy-composer-shell:focus-within,
+.zy-composer-shell[data-expanded="true"] {
+  border-color: color-mix(in srgb, var(--zy-color) 55%, var(--zy-border));
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+}
+
+/* Row 1 — input + send */
+.zy-composer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 14px;
+}
+.zy-composer-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.zy-composer input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 8px 0;
+  font-size: 14.5px;
+  font-family: inherit;
+  color: var(--zy-text);
+  position: relative;
+  z-index: 1;
+}
+/* Placeholder sits under the real input and is never focusable. */
+.zy-composer-ph {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  overflow: hidden;
+}
+.zy-composer-ph span {
+  display: inline-block;
+  white-space: nowrap;
+  color: var(--zy-muted);
+  font-size: 14.5px;
+  font-family: inherit;
+  animation: zy-ph-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--zy-ph-delay, 0ms);
+}
+@keyframes zy-ph-in {
+  from { opacity: 0; filter: blur(7px); transform: translateY(6px); }
+  to   { opacity: 1; filter: blur(0);   transform: none; }
+}
+@keyframes zy-ph-out {
+  from { opacity: 1; filter: blur(0);   transform: none; }
+  to   { opacity: 0; filter: blur(7px); transform: translateY(-6px); }
+}
+.zy-composer-ph[data-leaving="true"] span {
+  animation: zy-ph-out 0.3s ease forwards;
+  animation-delay: var(--zy-ph-delay, 0ms);
+}
+
+.zy-send {
+  border: none;
+  border-radius: 50%;
+  background: var(--zy-color);
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.zy-send:hover:not(:disabled) { transform: translateY(-1px); }
+.zy-send:disabled { opacity: 0.4; cursor: not-allowed; }
+.zy-send svg { width: 17px; height: 17px; }
+
+/* Row 2 — capability chips, collapsed to zero height when idle */
+.zy-composer-caps {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  padding: 0 14px;
+}
+.zy-composer[data-expanded="true"] .zy-composer-caps { grid-template-rows: 1fr; }
+.zy-composer-caps-inner {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.zy-chip {
+  margin: 8px 0 2px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 8px 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.zy-chip svg { width: 14px; height: 14px; flex-shrink: 0; }
+.zy-chip:hover { background: #e2e8f0; }
+.zy-chip[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--zy-color) 12%, #fff);
+  border-color: color-mix(in srgb, var(--zy-color) 55%, transparent);
+  color: color-mix(in srgb, var(--zy-color) 82%, #0f172a);
+}
+/* Label width animates so the pill grows out of its icon, mirroring the
+   reference design without needing a measured width in JS. */
+.zy-chip-label {
+  display: inline-block;
+  white-space: nowrap;
+  transition: opacity 0.18s ease, max-width 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+.zy-chip[data-open="true"] .zy-chip-label { max-width: 140px; opacity: 1; }
+
+.zy-probe { color: red; }
+
+/* ---- Footer note ---- */
+.zy-note { padding: 0 16px 12px; font-size: 12px; color: var(--zy-muted); text-align: center; flex-shrink: 0; background: #fff; border-top: 1px solid var(--zy-border); }
+
+/* ---- Animations ---- */
+@keyframes zy-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes zy-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes zy-bounce { 0%, 100% { transform: scale(0.8); opacity: 0.5; } 50% { transform: scale(1.2); opacity: 1; } }
+
+/* ---- Mobile: fullscreen panel (≤480px) ---- */
+@media (max-width: 480px) {
+  .zy-panel {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh; /* dynamic viewport height — handles mobile browser chrome */
+    max-height: none;
+    border-radius: 0;
+    border: none;
+  }
+  .zy-wrap, .zy-wrap[data-position] { left: 0; right: 0; bottom: 0; }
+  /* Keep the launcher as a floating bubble at the bottom */
+  .zy-launcher { position: fixed; right: 16px; bottom: 16px; }
+  .zy-wrap[data-position="bottom-left"] .zy-launcher { left: 16px; right: auto; }
+  /* When panel is open on mobile: hide the floating launcher (it would overlap
+     the send button), show the header close button instead */
+  .zy-wrap[data-open="true"] .zy-launcher { display: none; }
+  .zy-header-close { display: flex; }
+}

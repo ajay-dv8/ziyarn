@@ -4,11 +4,15 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "build:widget": "node scripts/build-widget.mjs",
+    "check-widget": "node scripts/build-widget.mjs --check",
+    "predev": "node scripts/build-widget.mjs",
     "dev": "next dev --port 3000",
+    "prebuild": "node scripts/build-widget.mjs",
     "build": "next build",
     "postinstall": "fumadocs-mdx generate",
     "start": "next start",
-    "lint": "eslint --max-warnings 0",
+    "lint": "node scripts/build-widget.mjs --check && eslint --max-warnings 0",
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {

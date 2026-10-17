@@ -1,0 +1,30 @@
+/* =========================================================================
+   Classic — the default appearance
+   =========================================================================
+   Classic is the reference look, so it has almost nothing left to declare: the
+   panel, header, messages, composer and chips all live in base.css, themed
+   entirely through --zy-color and --zy-border. That is deliberate — it means a
+   per-domain accent colour re-themes the whole widget with no variant involved,
+   and a new variant starts from a working widget instead of a blank panel.
+
+   What lives here is only what is genuinely Classic-specific:
+
+     1. The composer focus treatment. Base gives a soft accent border; Classic
+        makes that border a touch stronger, which suits its flat, quiet look.
+     2. The launcher. Base draws a filled circle; Classic flattens its shadow.
+
+   Everything else in a variant is a departure FROM this baseline. See
+   variants/glow.css for a substantially different treatment.
+
+   Adding a variant that wants a different composer does not need to redeclare
+   the structure — override the specific properties.
+   ------------------------------------------------------------------------- */
+
+.zy-wrap[data-variant="classic"] .zy-composer-shell:focus-within,
+.zy-wrap[data-variant="classic"] .zy-composer-shell[data-expanded="true"] {
+  border-color: color-mix(in srgb, var(--zy-color) 68%, var(--zy-border));
+}
+
+.zy-wrap[data-variant="classic"] .zy-launcher {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}

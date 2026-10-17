@@ -1,0 +1,257 @@
+/* =========================================================================
+   Glow — the orb-led widget variant
+   =========================================================================
+   Reconstructed for the Ziyarn widget. The upstream component's stylesheet was
+   unavailable, so these rules are written against the same contract the ported
+   orb writes to: the orb sets --oAlpha and --oGreen on its host element, and
+   everything visual follows from those two numbers.
+
+   Provenance: the @keyframes below (mo-drift, mo-dot, mo-in, mo-out,
+   mo-fade-in, mo-fade-out, mo-shake, mo-spin, mo-shimmer) are the upstream
+   component's, unchanged. The selectors around them are Ziyarn's.
+
+   The upstream component styled a full-viewport hero. Here the same visual
+   language is compressed into a 382px chat panel, so the effects are scaled
+   down and clipped rather than removed.
+   ------------------------------------------------------------------------- */
+
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes mo-spin { to { --angle: 360deg; } }
+@keyframes mo-drift { from { transform: translateX(-14%); } to { transform: translateX(14%); } }
+@keyframes mo-shimmer { from { background-position: 150% 0; } to { background-position: -100% 0; } }
+@keyframes mo-dot {
+  0%, 80%, 100% { opacity: 0.25; }
+  40% { opacity: 1; }
+}
+@keyframes mo-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes mo-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-6px); } }
+@keyframes mo-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mo-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes mo-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+@keyframes mo-breathe {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.06); }
+}
+
+/* ---- Panel: an aurora bleeding down from the header ---- */
+/* position:relative is load-bearing: without it .zy-aurora's absolute
+   positioning resolves against .zy-wrap (the fixed viewport anchor) instead of
+   the panel, and the wash lands in the wrong place entirely. */
+.zy-wrap[data-variant="glow"] .zy-panel {
+  position: relative;
+  background: linear-gradient(180deg, #eafff5 0%, #ffffff 30%);
+  border-color: rgba(16, 185, 129, 0.22);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 18px 44px -12px rgba(16, 185, 129, 0.3);
+}
+/* Three blurred blobs on a slow, offset drift. Kept behind the content with
+   z-index 0 and clipped by the panel's own overflow:hidden, so it can never
+   bleed over the composer or escape the panel's rounded corners. Sized for a
+   382px panel rather than the component's full-width hero. */
+.zy-aurora {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 190px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  /* Fade the wash out as it descends, so it reads as light spilling from the
+     header rather than a band with a hard bottom edge. */
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.45) 55%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.45) 55%, transparent 100%);
+}
+.zy-aurora i {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  filter: blur(30px);
+  opacity: 0.7;
+}
+.zy-aurora i:nth-child(1) {
+  width: 150px; height: 150px; top: -84px; left: -38px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.62), transparent 68%);
+  animation: mo-drift 9s ease-in-out infinite alternate;
+}
+.zy-aurora i:nth-child(2) {
+  width: 132px; height: 132px; top: -64px; right: -44px;
+  background: radial-gradient(circle, rgba(45, 212, 191, 0.58), transparent 68%);
+  animation: mo-drift 12s ease-in-out infinite alternate-reverse;
+}
+.zy-aurora i:nth-child(3) {
+  width: 118px; height: 118px; top: -26px; left: 36%;
+  background: radial-gradient(circle, rgba(253, 186, 116, 0.38), transparent 70%);
+  animation: mo-drift 15s ease-in-out infinite alternate;
+  animation-delay: -4s;
+}
+
+/* Content sits above the aurora. */
+.zy-wrap[data-variant="glow"] .zy-header,
+.zy-wrap[data-variant="glow"] .zy-messages,
+.zy-wrap[data-variant="glow"] .zy-note,
+.zy-wrap[data-variant="glow"] .zy-composer {
+  position: relative;
+  z-index: 1;
+}
+
+.zy-wrap[data-variant="glow"] .zy-header {
+  background: linear-gradient(135deg, #059669 0%, #10b981 52%, #2dd4bf 100%);
+  box-shadow: 0 6px 18px -8px rgba(5, 150, 105, 0.55);
+}
+.zy-wrap[data-variant="glow"] .zy-messages { background: transparent; }
+.zy-wrap[data-variant="glow"] .zy-note { background: transparent; border-top-color: rgba(16, 185, 129, 0.16); }
+
+/* ---- Messages: agent replies pick up a faint emerald tint ---- */
+.zy-wrap[data-variant="glow"] .zy-msg-agent {
+  background: rgba(236, 253, 245, 0.92);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+.zy-wrap[data-variant="glow"] .zy-msg-user {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  box-shadow: 0 4px 12px -4px rgba(5, 150, 105, 0.5);
+}
+
+/* ---- Composer: a rotating conic ring on focus ---- */
+/* Uses the upstream mo-spin keyframe, which animates the registered --angle
+   custom property — that registration is why @property is declared above. */
+.zy-wrap[data-variant="glow"] .zy-composer-shell {
+  border: 1px solid rgba(16, 185, 129, 0.24);
+  background: #fff;
+  transition: box-shadow 0.22s ease, border-color 0.22s ease;
+}
+.zy-wrap[data-variant="glow"] .zy-composer[data-expanded="true"] .zy-composer-shell,
+.zy-wrap[data-variant="glow"] .zy-composer-shell:focus-within {
+  border-color: transparent;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    conic-gradient(from var(--angle), #10b981, #2dd4bf, #fcd34d, #10b981) border-box;
+  border: 1px solid transparent;
+  animation: mo-spin 3.2s linear infinite;
+  box-shadow: 0 6px 20px -8px rgba(16, 185, 129, 0.5);
+}
+.zy-wrap[data-variant="glow"] .zy-send {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+}
+.zy-wrap[data-variant="glow"] .zy-send:disabled { background: #a7f3d0; color: #34d399; }
+.zy-wrap[data-variant="glow"] .zy-chip[aria-pressed="true"] {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #047857;
+}
+
+/* =========================================================================
+   Thinking orb — the variant's stand-in for the typing dots
+   =========================================================================
+   Two custom properties drive everything, both written by the ported orb:
+     --oAlpha  0 → 1 as the orb keys in, 1 → 0 as it dissolves
+     --oGreen  0 → 1 during the resolve wipe
+   ========================================================================= */
+.zy-wrap[data-variant="glow"] .zy-msg-typing {
+  align-self: center;
+  background: transparent;
+  border: none;
+  padding: 10px 16px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.zy-glow-orb {
+  --oAlpha: 0;
+  --oGreen: 0;
+  position: relative;
+  width: 176px;
+  height: 176px;
+  display: grid;
+  place-items: center;
+  opacity: var(--oAlpha);
+  transition: opacity 0.18s linear;
+}
+/* The bloom under the orb. Scales and saturates with the resolve wipe, so the
+   green flash is the orb's own state rather than a separate animation. */
+.zy-glow-orb-glow {
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(16, 185, 129, 0.62) 0%,
+    rgba(45, 212, 191, 0.3) 44%,
+    transparent 72%
+  );
+  filter: blur(14px);
+  transform: scale(calc(0.8 + var(--oGreen) * 0.34));
+  opacity: calc(0.5 + var(--oGreen) * 0.5);
+  transition: transform 0.5s ease, opacity 0.5s ease;
+}
+.zy-glow-orb-canvas {
+  position: relative;
+  width: 176px;
+  height: 176px;
+  display: block;
+}
+/* A single expanding ring, fired once on resolve. */
+.zy-glow-orb-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(16, 185, 129, 0.55);
+  opacity: 0;
+  transform: scale(0.7);
+}
+.zy-glow-orb-pulse[data-fire="true"] { animation: mo-ring 0.9s ease-out forwards; }
+@keyframes mo-ring {
+  0% { opacity: 0.9; transform: scale(0.7); }
+  100% { opacity: 0; transform: scale(1.32); }
+}
+
+.zy-glow-orb-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #047857;
+  animation: mo-in 0.32s ease both;
+}
+.zy-glow-orb-dots { display: inline-flex; gap: 3px; }
+.zy-glow-orb-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: mo-dot 1.25s ease-in-out infinite;
+}
+.zy-glow-orb-dots i:nth-child(2) { animation-delay: 0.16s; }
+.zy-glow-orb-dots i:nth-child(3) { animation-delay: 0.32s; }
+
+/* ---- Reduced motion: hold the orb still, keep it legible ---- */
+/* The ported engine already cross-fades instead of rotating. This strips the
+   decorative ambient loops so nothing moves indefinitely. */
+@media (prefers-reduced-motion: reduce) {
+  .zy-aurora i { animation: none; opacity: 0.4; }
+  .zy-wrap[data-variant="glow"] .zy-composer-shell:focus-within,
+  .zy-wrap[data-variant="glow"] .zy-composer[data-expanded="true"] .zy-composer-shell {
+    animation: none;
+    background: linear-gradient(#fff, #fff) padding-box, #10b981 border-box;
+  }
+  .zy-glow-orb-dots i { animation: none; opacity: 0.7; }
+  .zy-glow-orb-status { animation: mo-fade-in 0.2s ease both; }
+}
+
+/* ---- Mobile ---- */
+@media (max-width: 480px) {
+  .zy-glow-orb, .zy-glow-orb-canvas { width: 152px; height: 152px; }
+  .zy-glow-orb-glow { inset: 10px; }
+}

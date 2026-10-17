@@ -10,6 +10,11 @@ export type ZyWidgetProps = {
   color?: string;
   position?: "bottom-right" | "bottom-left";
   api?: string;
+  /**
+   * Which widget to render. Omit for the default. The widget fails open — an
+   * unknown name logs a warning and renders the default rather than breaking.
+   */
+  variant?: string;
 };
 
 /** Loads /widget.js once, then renders the <zy-widget> custom element. */
@@ -21,6 +26,7 @@ export function ZyWidget({
   color,
   position,
   api,
+  variant,
 }: ZyWidgetProps) {
   useEffect(() => {
     if (document.querySelector('script[data-zy-widget="true"]')) return;
@@ -39,5 +45,6 @@ export function ZyWidget({
     "data-color": color,
     "data-position": position,
     "data-api": api,
+    "data-variant": variant,
   });
 }
