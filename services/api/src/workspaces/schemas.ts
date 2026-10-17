@@ -1,5 +1,22 @@
 import { z } from "zod";
 
+import {
+  assignableWorkspaceRoleSchema,
+  workspaceRoleSchema,
+} from "@repo/api/workspaces/roles";
+
+export {
+  ASSIGNABLE_WORKSPACE_ROLES,
+  WORKSPACE_ROLE_DESCRIPTIONS,
+  WORKSPACE_ROLE_LABELS,
+  assignableWorkspaceRoleSchema,
+  workspaceRoleSchema,
+} from "@repo/api/workspaces/roles";
+export type {
+  AssignableWorkspaceRole,
+  WorkspaceRole,
+} from "@repo/api/workspaces/roles";
+
 export const workspaceNameSchema = z
   .string()
   .trim()
@@ -12,12 +29,12 @@ export const createWorkspaceSchema = z.object({
 
 export const inviteMemberSchema = z.object({
   email: z.string().email("Invalid email address"),
-  role: z.enum(["admin", "member", "viewer"]).default("member"),
+  role: assignableWorkspaceRoleSchema.default("member"),
 });
 
 export const updateMemberRoleSchema = z.object({
   memberId: z.string().uuid("Invalid member id"),
-  role: z.enum(["admin", "member", "viewer"]),
+  role: assignableWorkspaceRoleSchema,
 });
 
 export const acceptInviteSchema = z.object({
