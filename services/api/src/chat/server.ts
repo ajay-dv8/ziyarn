@@ -23,6 +23,7 @@ import {
   getBusinessTypeConfig,
   type BusinessType,
 } from "@repo/api/domains/business-types";
+import { resolveWidgetVariant } from "@repo/api/domains/widget-variants";
 
 import { appendMessageSchema } from "@repo/api/chat/schemas";
 
@@ -905,6 +906,13 @@ export async function handleChatConfig(
         knowledgeSearch: Boolean(
           agent?.tools?.includes("answer_knowledge"),
         ),
+        /**
+         * Which widget this domain uses. Normalised against the registry so a
+         * row holding a retired id still reports something renderable. Useful
+         * for native SDKs and for anything rendering the widget outside the
+         * dashboard.
+         */
+        widgetVariant: resolveWidgetVariant(domain.widgetVariant),
       },
       { headers: CORS_HEADERS },
     );
