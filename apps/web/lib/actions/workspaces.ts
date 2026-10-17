@@ -8,6 +8,7 @@ import {
   WorkspaceServiceError,
   createWorkspaceSchema,
   inviteMemberSchema,
+  renameWorkspaceSchema,
   updateMemberRoleSchema,
   type AssignableWorkspaceRole,
   type WorkspaceRole,
@@ -59,6 +60,50 @@ export async function createTeamAction(input: {
     );
     revalidateTeam();
     return { ok: true, workspaceId: workspace.id };
+  } catch (error) {
+    return errorResult(error);
+  }
+}
+
+/** Renames a team. Owners and admins may. */
+export async function renameTeamAction(input: {
+  workspaceId: string;
+  name: string;
+}): Promise<TeamActionResult> {
+  const parsed = renameWorkspaceSchema.safeParse({ name: input.name });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Please fix the highlighted fields",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    await workspaceService.updateWorkspace(
+      input.workspaceId,
+      parsed.data,
+      await headers(),
+    );
+    revalidateTeam();
+    return { ok: true, workspaceId: input.workspaceId };
+  } catch (error) {
+    return errorResult(error);
+  }
+}
+
+/**
+ * Deletes a team and everyone's access to it. The caller is left signed in
+ * with whatever teams they still belong to, so the page must be re-read rather
+ * than assumed — hence no workspaceId in the result.
+ */
+export async function deleteTeamAction(input: {
+  workspaceId: string;
+}): Promise<TeamActionResult> {
+  try {
+    await workspaceService.deleteWorkspace(input.workspaceId, await headers());
+    revalidateTeam();
+    return { ok: true };
   } catch (error) {
     return errorResult(error);
   }
