@@ -40,9 +40,14 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
+  /* Tells the UA which of its own widgets (select popups, scrollbars, form
+     controls, the canvas background) to paint for the current theme. Without
+     it the native option list renders light while our tokens are dark. */
+  color-scheme: light;
 }
 
 .dark {
+  color-scheme: dark;
     --background: oklch(0.141 0.005 285.823);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.21 0.006 285.885);
@@ -146,6 +151,19 @@
   a {
     color: inherit;
     text-decoration: none;
+  }
+
+  /* A native <select>'s option list is painted by the browser, not by us, and
+     it inherits the control's own background and colour. A transparent (or
+     translucent) control therefore opens an unreadable list — light text on a
+     see-through panel — whatever the theme. Keep the list opaque and themed. */
+  select {
+    color: var(--popover-foreground);
+  }
+
+  select option {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
   }
 }
 
