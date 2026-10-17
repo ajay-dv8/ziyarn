@@ -20,11 +20,13 @@ export {
   acceptInviteSchema,
   createWorkspaceSchema,
   inviteMemberSchema,
+  renameWorkspaceSchema,
   updateMemberRoleSchema,
 } from "@repo/api/workspaces/schemas";
 export type {
   AcceptInviteInput,
   CreateWorkspaceInput,
   InviteMemberInput,
+  RenameWorkspaceInput,
   UpdateMemberRoleInput,
 } from "@repo/api/workspaces/schemas";

@@ -27,6 +27,10 @@ export const createWorkspaceSchema = z.object({
   name: workspaceNameSchema,
 });
 
+export const renameWorkspaceSchema = z.object({
+  name: workspaceNameSchema,
+});
+
 export const inviteMemberSchema = z.object({
   email: z.string().email("Invalid email address"),
   role: assignableWorkspaceRoleSchema.default("member"),
@@ -42,6 +46,7 @@ export const acceptInviteSchema = z.object({
 });
 
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;
+export type RenameWorkspaceInput = z.infer<typeof renameWorkspaceSchema>;
 export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
 export type UpdateMemberRoleInput = z.infer<typeof updateMemberRoleSchema>;
 export type AcceptInviteInput = z.infer<typeof acceptInviteSchema>;
