@@ -22,6 +22,10 @@ import {
   type CreateDomainInput,
   type UpdateDomainInput,
 } from "@repo/api/domains/schemas";
+import {
+  DEFAULT_WIDGET_VARIANT,
+  resolveWidgetVariant,
+} from "@repo/api/domains/widget-variants";
 
 export type SessionWithUser = {
   user: { id: string };
@@ -173,13 +177,25 @@ export function createDomainsService(deps: {
             sql`${domains.ownerId} IN (SELECT user_id FROM ${workspacePeerIds})`,
           ),
         )
-        .orderBy(domains.createdAt);
+        .orderBy(domains.createdAt)
+        .then((rows) =>
+          rows.map((row) => ({
+            ...row,
+            // Narrowed here, not cast at the call sites: a row holding a
+            // retired variant id must never reach the UI as an unvalidated
+            // string.
+            widgetVariant: resolveWidgetVariant(row.widgetVariant),
+          })),
+        );
     },
 
     /** Returns a single domain if the session user has access. */
     getDomain: async (id: string, headers: Headers) => {
       const { domain } = await requireDomainAccess(id, headers);
-      return domain;
+      return {
+        ...domain,
+        widgetVariant: resolveWidgetVariant(domain.widgetVariant),
+      };
     },
 
     /** Creates a domain owned by the session user (subject to plan limits). */
@@ -258,6 +274,7 @@ export function createDomainsService(deps: {
           slug: body.slug,
           logoUrl: body.logoUrl ?? null,
           businessType: body.businessType ?? null,
+          widgetVariant: body.widgetVariant ?? DEFAULT_WIDGET_VARIANT,
           embedSecret: randomBytes(32).toString("hex"),
           plan,
         })
@@ -294,6 +311,9 @@ export function createDomainsService(deps: {
           ...(body.businessType !== undefined
             ? { businessType: body.businessType }
             : {}),
+          ...(body.widgetVariant !== undefined
+            ? { widgetVariant: body.widgetVariant }
+            : {}),
           updatedAt: new Date(),
         })
         .where(eq(domains.id, domain.id))
@@ -324,6 +344,9 @@ export function createDomainsService(deps: {
         slug: domain.slug,
         widgetUrl: `${baseUrl}/widget.js`,
         secret: domain.embedSecret,
+        // Emitted into the embed snippet as data-variant. Normalised so a row
+        // holding a retired variant id still produces a working snippet.
+        variant: resolveWidgetVariant(domain.widgetVariant),
       };
     },
   };

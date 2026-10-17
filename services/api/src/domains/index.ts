@@ -8,6 +8,7 @@ export {
   domainNameSchema,
   domainSlugSchema,
   updateDomainSchema,
+  widgetVariantEnum,
 } from "@repo/api/domains/schemas";
 
 export type {
@@ -24,3 +25,13 @@ export {
   type BusinessTypeConfig,
   type PageLabels,
 } from "@repo/api/domains/business-types";
+
+export {
+  DEFAULT_WIDGET_VARIANT,
+  WIDGET_VARIANTS,
+  WIDGET_VARIANT_IDS,
+  isWidgetVariant,
+  resolveWidgetVariant,
+  widgetVariantLabel,
+  type WidgetVariantId,
+} from "@repo/api/domains/widget-variants";
