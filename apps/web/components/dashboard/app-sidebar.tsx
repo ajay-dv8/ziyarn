@@ -23,8 +23,6 @@ import {
 } from "@repo/ui/components/sidebar";
 import {
   BarChart3,
-  BookOpen,
-  Bot,
   Calendar,
   ChevronRight,
   CreditCard,
@@ -53,6 +51,18 @@ import {
 
 const COMING_SOON: { title: string; icon: typeof Settings }[] = [];
 
+/**
+ * Routes that live INSIDE a domain. They are reached from the domain page's tab
+ * bar rather than from here, but the Domains group must still read as open and
+ * active while the user is in one — otherwise the nav appears to lose the
+ * section they are in.
+ */
+const DOMAIN_SCOPED_PATHS = [
+  APP_ROUTES.DASHBOARD_DOMAINS,
+  APP_ROUTES.DASHBOARD_AGENTS,
+  APP_ROUTES.DASHBOARD_KNOWLEDGE,
+];
+
 export function AppSidebar({
   plan,
   domainCount,
@@ -68,11 +78,11 @@ export function AppSidebar({
   const searchParams = useSearchParams();
   const activeDomainId = searchParams.get("domainId");
   const totalUnread = useUnreadCount();
+  const inDomainSection = DOMAIN_SCOPED_PATHS.some((path) =>
+    pathname.startsWith(path),
+  );
   const [domainsOpen, setDomainsOpen] = useState(
-    pathname.startsWith("/dashboard/domains") ||
-      pathname.startsWith("/dashboard/agents") ||
-      pathname.startsWith("/dashboard/knowledge") ||
-      pathname.startsWith("/dashboard/analytics"),
+    inDomainSection || pathname.startsWith(APP_ROUTES.DASHBOARD_ANALYTICS),
   );
 
   const selectedDomain = domains.find(
@@ -113,7 +123,7 @@ export function AppSidebar({
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
-                isActive={pathname === APP_ROUTES.DASHBOARD_DOMAINS}
+                isActive={inDomainSection}
                 tooltip="Domains"
                 onClick={() => setDomainsOpen(!domainsOpen)}
               >
@@ -174,26 +184,9 @@ export function AppSidebar({
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )}
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={pathname === APP_ROUTES.DASHBOARD_AGENTS}
-                tooltip="Agents"
-                render={<Link href={APP_ROUTES.DASHBOARD_AGENTS} />}
-              >
-                <Bot />
-                <span>Agents</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={pathname === APP_ROUTES.DASHBOARD_KNOWLEDGE}
-                tooltip="Knowledge Base"
-                render={<Link href={APP_ROUTES.DASHBOARD_KNOWLEDGE} />}
-              >
-                <BookOpen />
-                <span>Knowledge Base</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {/* Agents and Knowledge are not listed here. They live inside a
+                domain now — see DomainTabs and plan/domain-tabs-plan.md. Their
+                routes still work, so old bookmarks are fine. */}
             <SidebarMenuItem>
               <SidebarMenuButton
                 isActive={pathname === APP_ROUTES.DASHBOARD_ANALYTICS}
