@@ -14,6 +14,7 @@ import { DeleteKnowledgeDocumentButton } from "@/components/dashboard/delete-kno
 import { KnowledgeUploadButton } from "@/components/dashboard/knowledge-upload-button";
 import { WebsiteCrawlForm } from "@/components/dashboard/website-crawl-form";
 import { CrawledPagesCard } from "@/components/dashboard/crawled-pages-card";
+import { DomainTabs } from "@/components/domains/domain-tabs";
 import type { KnowledgeDocumentRow } from "@/components/dashboard/crawled-pages-card";
 import { authService } from "@/services/auth-service";
 import { agentsService } from "@/services/agents-service";
@@ -120,22 +121,15 @@ export default async function KnowledgePage({
         </div>
       </div>
 
-      {domains.length > 1 ? (
-        <div className="flex flex-wrap gap-2">
-          {domains.map((domain) => (
-            <Link
-              key={domain.id}
-              href={`/dashboard/knowledge?domainId=${domain.id}`}
-              className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                selectedDomain?.id === domain.id
-                  ? "border-primary bg-primary/10 font-medium text-primary"
-                  : "border-input text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {domain.name}
-            </Link>
-          ))}
-        </div>
+      {/* The domain switcher is the sidebar's domain sub-list. This inline copy
+          was a third one, free to disagree with it. The agent switcher below
+          stays — there is nowhere else to pick an agent. */}
+      {selectedDomain ? (
+        <DomainTabs
+          domainId={selectedDomain.id}
+          active="knowledge"
+          agentId={selectedAgent?.id}
+        />
       ) : null}
 
       {agents.length > 1 ? (

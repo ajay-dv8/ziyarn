@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { headers } from "next/headers";
 
 import {
@@ -12,6 +11,7 @@ import {
 
 import { AgentActions } from "@/components/dashboard/agent-actions";
 import { CreateAgentButton } from "@/components/dashboard/create-agent-button";
+import { DomainTabs } from "@/components/domains/domain-tabs";
 import { authService } from "@/services/auth-service";
 import { agentsService } from "@/services/agents-service";
 import { domainsService } from "@/services/domains-service";
@@ -57,23 +57,9 @@ export default async function AgentsPage({
         ) : null}
       </div>
 
-      {domains.length > 1 ? (
-        <div className="flex flex-wrap gap-2">
-          {domains.map((domain) => (
-            <Link
-              key={domain.id}
-              href={`/dashboard/agents?domainId=${domain.id}`}
-              className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                selected?.id === domain.id
-                  ? "border-primary bg-primary/10 font-medium text-primary"
-                  : "border-input text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {domain.name}
-            </Link>
-          ))}
-        </div>
-      ) : null}
+      {/* The sidebar's domain sub-list is the only domain switcher. This inline
+          copy was a third one, free to disagree with it. */}
+      {selected ? <DomainTabs domainId={selected.id} active="agents" /> : null}
 
       {!selected ? (
         <Card className="border-dashed">
