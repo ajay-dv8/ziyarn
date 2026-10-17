@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { headers } from "next/headers";
 
 import {
@@ -14,6 +13,7 @@ import { DeleteKnowledgeDocumentButton } from "@/components/dashboard/delete-kno
 import { KnowledgeUploadButton } from "@/components/dashboard/knowledge-upload-button";
 import { WebsiteCrawlForm } from "@/components/dashboard/website-crawl-form";
 import { CrawledPagesCard } from "@/components/dashboard/crawled-pages-card";
+import { AgentPicker } from "@/components/domains/agent-picker";
 import { DomainTabs } from "@/components/domains/domain-tabs";
 import type { KnowledgeDocumentRow } from "@/components/dashboard/crawled-pages-card";
 import { authService } from "@/services/auth-service";
@@ -132,22 +132,13 @@ export default async function KnowledgePage({
         />
       ) : null}
 
-      {agents.length > 1 ? (
-        <div className="flex flex-wrap gap-2">
-          {agents.map((agent) => (
-            <Link
-              key={agent.id}
-              href={`/dashboard/knowledge?domainId=${selectedDomain?.id}&agentId=${agent.id}`}
-              className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                selectedAgent?.id === agent.id
-                  ? "border-primary bg-primary/10 font-medium text-primary"
-                  : "border-input text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {agent.name}
-            </Link>
-          ))}
-        </div>
+      {selectedDomain ? (
+        <AgentPicker
+          domainId={selectedDomain.id}
+          agents={agents}
+          activeAgentId={selectedAgent?.id}
+          path="/dashboard/knowledge"
+        />
       ) : null}
 
       {!selectedDomain || !selectedAgent ? (

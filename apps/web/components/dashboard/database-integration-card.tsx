@@ -92,7 +92,13 @@ export function DatabaseIntegrationCard({
       const res = await fetch(
         `/api/integrations/databases?domainId=${domainId}&agentId=${agentId}`,
       );
-      if (!res.ok) return;
+      // Any non-OK response still has to clear the loading state. Returning
+      // early here left `loaded` false and the card spinning forever, so a
+      // transient 500 looked like a permanently empty list.
+      if (!res.ok) {
+        setLoaded(true);
+        return;
+      }
       const body = (await res.json()) as { sources?: DataSource[] };
       const next = body.sources ?? [];
       setSources(next);
