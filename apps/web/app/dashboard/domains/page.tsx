@@ -14,6 +14,7 @@ import {
 
 import { CreateDomainButton } from "@/components/domains/create-domain-button";
 import { DomainCardMenu } from "@/components/domains/domain-card-menu";
+import { DomainSettingsPanel } from "@/components/domains/domain-settings-panel";
 import { DomainTabs } from "@/components/domains/domain-tabs";
 import { EmbedSnippet } from "@/components/domains/embed-snippet";
 import { WidgetPreviewSwitcher } from "@/components/domains/widget-preview-switcher";
@@ -27,11 +28,11 @@ export const metadata: Metadata = {
 export default async function DomainsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ domainId?: string }>;
+  searchParams: Promise<{ domainId?: string; tab?: string }>;
 }) {
   const requestHeaders = await headers();
   const domains = await domainsService.listDomains(requestHeaders);
-  const { domainId } = await searchParams;
+  const { domainId, tab } = await searchParams;
 
   // With ?domainId= this page is that one domain's Overview tab; without it, it
   // is the list. One route, one convention — the same way the agents and
@@ -46,6 +47,35 @@ export default async function DomainsPage({
     const embedConfig = await domainsService
       .getEmbedConfig(domain.id, requestHeaders)
       .catch(() => null);
+
+    // Settings is a section of this page rather than its own route, so it is
+    // selected with ?tab= instead of a path.
+    if (tab === "settings") {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {domain.name} settings
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              How this domain is named, labelled and embedded.
+            </p>
+          </div>
+
+          <DomainTabs domainId={domain.id} active="settings" />
+
+          <DomainSettingsPanel
+            domainId={domain.id}
+            domainName={domain.name}
+            slug={domain.slug}
+            plan={domain.plan}
+            businessType={domain.businessType}
+            widgetVariant={domain.widgetVariant}
+            embedSecret={embedConfig?.secret ?? null}
+          />
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-6">

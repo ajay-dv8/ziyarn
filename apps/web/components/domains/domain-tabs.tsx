@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { BookOpen, Bot, Globe } from "lucide-react";
+import { BookOpen, Bot, Database, Globe, Settings } from "lucide-react";
 
 import { APP_ROUTES } from "@/constants/routes";
 
@@ -38,6 +38,18 @@ const TABS: {
     href: APP_ROUTES.DASHBOARD_KNOWLEDGE,
     icon: BookOpen,
   },
+  {
+    key: "databases",
+    label: "Databases",
+    href: APP_ROUTES.DASHBOARD_DATABASES,
+    icon: Database,
+  },
+  {
+    key: "settings",
+    label: "Settings",
+    href: APP_ROUTES.DASHBOARD_DOMAINS,
+    icon: Settings,
+  },
 ];
 
 /**
@@ -71,8 +83,16 @@ export function DomainTabs({
       {TABS.map((tab) => {
         const isActive = tab.key === active;
         const params = new URLSearchParams({ domainId });
-        if (tab.key === "knowledge" && agentId) {
+        // The Knowledge and Databases tabs both hang off an agent, so the
+        // chosen agent is carried across — losing it on a tab change would
+        // reset the view to the domain's first agent.
+        if ((tab.key === "knowledge" || tab.key === "databases") && agentId) {
           params.set("agentId", agentId);
+        }
+        // Settings is a section of the domain page rather than its own route,
+        // so it is selected with a tab param instead of a path.
+        if (tab.key === "settings") {
+          params.set("tab", "settings");
         }
         return (
           <Link
