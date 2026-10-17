@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2, Pencil } from "lucide-react";
 
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
@@ -61,8 +62,23 @@ export function RenameDomainForm({
         aria-label={id ? undefined : "Domain name"}
         aria-invalid={Boolean(error)}
       />
-      <Button type="submit" variant="secondary" disabled={pending}>
-        {pending ? "Saving…" : "Rename"}
+      {/* Icon rather than a word: the field is always editable, so the section
+          heading already says what this is, and a button reading "Rename" next
+          to an input you can type in is redundant. The label is still on the
+          button for anyone not looking at the icon. */}
+      <Button
+        type="submit"
+        variant="secondary"
+        size="icon"
+        disabled={pending}
+        aria-label="Rename domain"
+        title="Rename domain"
+      >
+        {pending ? (
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+        ) : (
+          <Pencil className="size-4" aria-hidden="true" />
+        )}
       </Button>
       {error && (
         <span className="text-sm text-destructive" role="alert">
