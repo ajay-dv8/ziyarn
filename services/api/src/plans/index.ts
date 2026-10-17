@@ -11,6 +11,7 @@ export {
   assertCanCreateWorkspace,
   assertCanStartConversation,
   getPlanLimits,
+  highestPlan,
 } from "@repo/api/plans/server";
 
 export type { PlanLimits } from "@repo/api/plans/server";

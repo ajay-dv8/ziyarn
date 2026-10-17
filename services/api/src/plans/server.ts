@@ -1,4 +1,4 @@
-import type { Plan } from "@repo/api/plans/schemas";
+import { planSchema, type Plan } from "@repo/api/plans/schemas";
 
 export type PlanLimits = {
   /** Max domains a user can own on this plan. */
@@ -71,6 +71,32 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
 
 export function getPlanLimits(plan: Plan): PlanLimits {
   return PLAN_LIMITS[plan];
+}
+
+/**
+ * Plan ordering, highest first. Needed wherever a single effective plan is
+ * derived from several rows (a user's domains, a workspace's members' domains):
+ * `MAX(plan)` in SQL orders plan names alphabetically, which puts "custom"
+ * below "free" and silently downgrades the account.
+ */
+const PLAN_RANK: Record<Plan, number> = {
+  free: 0,
+  standard: 1,
+  pro: 2,
+  ultimate: 3,
+  custom: 4,
+};
+
+/** Returns the highest-ranking plan in the list, or "free" when empty. */
+export function highestPlan(plans: readonly (string | null | undefined)[]): Plan {
+  let best: Plan = "free";
+  for (const candidate of plans) {
+    if (!candidate) continue;
+    const plan = planSchema.safeParse(candidate);
+    if (!plan.success) continue;
+    if (PLAN_RANK[plan.data] > PLAN_RANK[best]) best = plan.data;
+  }
+  return best;
 }
 
 /** Display names for plans — use instead of capitalizing the internal ID. */
