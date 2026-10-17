@@ -45,30 +45,57 @@ items discard it. That inversion is the smell.
 
 ## Scope: why this is staged
 
-Only `agents` and `knowledge` accept `?domainId=`. These pages do not:
+**CORRECTION.** An earlier version of this document claimed only `agents` and
+`knowledge` accept `?domainId=`. That was wrong — it came from a grep that
+missed signatures wrapping across lines. The real picture:
 
-| Page | `?domainId=` | Table has `domainId` |
+| Page | `?domainId=` | Verdict |
 |---|---|---|
-| agents | yes | yes (direct) |
-| knowledge | yes | via `agentId` |
-| conversations | **no** | via `agentId` |
-| customers | **no** | yes (direct) |
-| bookings | **no** | yes (direct) |
-| orders | **no** | yes (direct) |
-| products | **no** | yes (direct) |
-| campaigns | **no** | **no scope key at all** |
+| domains, agents, knowledge | yes | tabbed |
+| **databases** | yes | tabbed |
+| **customers, orders, products, bookings, analytics, integrations** | **yes** | **available, not yet tabbed** |
+| conversations | no | agent-scoped, reachable — needs work |
+| campaigns | no | no scope key at all |
+| usage, settings, team | no | correctly account-level |
 
-So moving Conversations/Customers/Bookings/Orders/Products into domain tabs is
-**not** an IA change — it is six pages of service-layer filtering that does not
-exist yet. And Campaigns additionally needs a `domainId` column, i.e. a
-migration.
+So **8 of the 12 dashboard pages already scope themselves by domain.** Most of
+the remaining work is navigation, not service-layer filtering. Only Conversations
+is a real build, and Campaigns additionally needs a migration.
 
-**Stage 1 (this change):** Agents and Knowledge become domain tabs, and the
-context-loss bug is fixed. No migration, no service changes.
+## What is implemented
 
-**Stage 2 (not this change):** thread `domainId` through the remaining six
-pages, migrate `campaigns`, then promote them to tabs. Documented here so the
-next step is not rediscovered from scratch.
+Tab bar on the domain page, with every href carrying the selected `domainId`:
+
+    Overview | Agents | Knowledge | Databases | Settings
+
+- **Overview** — install snippet, widget picker, live preview (`/dashboard/domains?domainId=`)
+- **Agents** — the domain's agents (`/dashboard/agents?domainId=`)
+- **Knowledge** — the agent's documents (`/dashboard/knowledge?domainId=&agentId=`)
+- **Databases** — the agent's database connections (`/dashboard/databases?domainId=&agentId=`)
+- **Settings** — name, business type, widget, slug, plan, embed secret
+  (`/dashboard/domains?domainId=&tab=settings`)
+
+**Databases** and **Settings** were added on request; the rest are on hold.
+
+The Integrations page was **split**: Databases moved to its own tab, because
+`data_sources.agentId` makes it agent-and-therefore-domain scoped. Stripe
+Connect stays account-level (one `stripe_accounts` row per user) and email
+delivery stays platform-level (one SMTP server for the deployment), so
+Integrations is now account-level only and lost its domain switcher entirely.
+
+## Still to come, when wanted
+
+`Conversations | Customers | [Bookings | Products | Orders] | Analytics`
+
+- Conversations is the one genuine build — it is agent-scoped but the page
+  does not filter by domain yet, so it mixes every domain's chats.
+- Customers, Orders, Products, Bookings and Analytics already scope themselves,
+  so each is a tab plus a link change.
+- The commerce trio should be **conditional on business type**: a clinic should
+  not see a Products tab. `getBusinessTypeConfig` already returns
+  `showBookings` / `showProducts` / `showOrders` and the label set, so this is
+  free.
+- Campaigns needs a `domainId` column before it can be a tab at all.
 
 ## Design
 
