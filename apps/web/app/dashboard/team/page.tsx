@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
-import { getPlanLimits, type Plan } from "@repo/api/plans";
+import { getPlanLimits, highestPlan } from "@repo/api/plans";
+import { inviteUrl, type WorkspaceRole } from "@repo/api/workspaces";
 
 import { TeamPage } from "@/components/team/team-page";
 import { authService } from "@/services/auth-service";
@@ -12,65 +13,102 @@ export const metadata: Metadata = {
   title: "Team",
 };
 
-const PLAN_RANK: Record<Plan, number> = {
-  free: 0,
-  standard: 1,
-  pro: 2,
-  ultimate: 3,
-  custom: 4,
-};
+/** Workspace role strings come straight from the database. */
+function asRole(role: string): WorkspaceRole {
+  switch (role) {
+    case "owner":
+    case "admin":
+    case "viewer":
+      return role;
+    default:
+      return "member";
+  }
+}
 
-export default async function TeamDashboardPage() {
+export default async function TeamDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ workspace?: string }>;
+}) {
   const requestHeaders = await headers();
   const session = await authService.getSession(requestHeaders);
   if (!session) return null;
 
-  const domains = await domainsService.listDomains(requestHeaders);
-  const plan = domains.reduce<Plan>(
-    (best, domain) =>
-      PLAN_RANK[domain.plan] > PLAN_RANK[best] ? domain.plan : best,
-    "free",
-  );
+  const [{ workspace: requestedWorkspaceId }, ownedDomains, memberships] =
+    await Promise.all([
+      searchParams,
+      domainsService.listDomains(requestHeaders),
+      workspaceService.listWorkspaces(requestHeaders),
+    ]);
+
+  // A user's plan comes from their domains; team limits follow it.
+  const plan = highestPlan(ownedDomains.map((domain) => domain.plan));
   const limits = getPlanLimits(plan);
 
-  // Find the user's first workspace
-  const workspaces = await workspaceService.listWorkspaces(requestHeaders);
-  const workspace = workspaces[0];
+  const teams = memberships.map((membership) => ({
+    id: membership.id,
+    name: membership.name,
+    role: asRole(membership.role),
+  }));
 
-  if (!workspace) {
+  // Honour ?workspace= only for a team the user actually belongs to, so a
+  // stale or guessed link lands on their own team instead of erroring.
+  const selectedTeam =
+    teams.find((team) => team.id === requestedWorkspaceId) ?? teams[0] ?? null;
+
+  const canCreateTeam = memberships.length < limits.maxWorkspaces;
+
+  if (!selectedTeam) {
     return (
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Team</h1>
-          <p className="text-sm text-muted-foreground">
-            You don&apos;t belong to any workspace yet.
-          </p>
-        </div>
-      </div>
+      <TeamPage
+        teams={teams}
+        selectedTeam={null}
+        currentUserId={session.user.id}
+        members={[]}
+        invites={[]}
+        seatsUsed={0}
+        maxMembers={limits.maxMembers}
+        canManage={false}
+        canCreateTeam={canCreateTeam}
+        maxTeams={limits.maxWorkspaces}
+      />
     );
   }
 
-  const members = await workspaceService.listMembers(
-    workspace.id,
-    requestHeaders,
-  );
-  const invites = await workspaceService.listInvites(
-    workspace.id,
-    requestHeaders,
-  );
+  const [members, invites] = await Promise.all([
+    workspaceService.listMembers(selectedTeam.id, requestHeaders),
+    workspaceService.listInvites(selectedTeam.id, requestHeaders),
+  ]);
 
-  const isOwnerOrAdmin =
-    workspace.role === "owner" || workspace.role === "admin";
+  // Members and pending invites both hold a seat, so the header count has to
+  // include invites or it will disagree with the invite form's own limit.
+  const seatsUsed = members.length + invites.length;
 
   return (
     <TeamPage
-      workspaceId={workspace.id}
+      teams={teams}
+      selectedTeam={selectedTeam}
       currentUserId={session.user.id}
-      members={members}
-      invites={invites}
-      memberCount={members.length}
+      members={members.map((entry) => ({
+        memberId: entry.member.id,
+        userId: entry.member.userId,
+        role: asRole(entry.member.role),
+        name: entry.userName,
+        email: entry.userEmail,
+        image: entry.userImage,
+      }))}
+      invites={invites.map((invite) => ({
+        inviteId: invite.id,
+        email: invite.email,
+        role: asRole(invite.role),
+        inviteUrl: inviteUrl(invite.token),
+        expiresAt: invite.expiresAt.toISOString(),
+      }))}
+      seatsUsed={seatsUsed}
       maxMembers={limits.maxMembers}
-      isOwnerOrAdmin={isOwnerOrAdmin}
+      canManage={selectedTeam.role === "owner" || selectedTeam.role === "admin"}
+      canCreateTeam={canCreateTeam}
+      maxTeams={limits.maxWorkspaces}
     />
   );
 }
