@@ -15,10 +15,12 @@ import { assertCanCreateWorkspace } from "@repo/api/plans/server";
 import type { Plan } from "@repo/api/plans/schemas";
 import {
   createWorkspaceSchema,
+  renameWorkspaceSchema,
   inviteMemberSchema,
   updateMemberRoleSchema,
   acceptInviteSchema,
   type CreateWorkspaceInput,
+  type RenameWorkspaceInput,
   type InviteMemberInput,
   type UpdateMemberRoleInput,
   type AcceptInviteInput,
@@ -292,6 +294,42 @@ export function createWorkspaceService(deps: {
       }
 
       return created;
+    },
+
+    /** Renames a workspace. Owners and admins may. */
+    updateWorkspace: async (
+      workspaceId: string,
+      input: RenameWorkspaceInput,
+      headers: Headers,
+    ) => {
+      const session = await getSession(headers);
+      if (!session) throw unauthorized();
+      await requireWorkspaceAdmin(workspaceId, session.user.id);
+
+      const body = renameWorkspaceSchema.parse(input);
+
+      const [updated] = await db
+        .update(workspaces)
+        .set({ name: body.name, updatedAt: new Date() })
+        .where(eq(workspaces.id, workspaceId))
+        .returning();
+
+      if (!updated) throw notFound();
+      return updated;
+    },
+
+    /**
+     * Deletes a workspace with its memberships and pending invites (both
+     * cascade). Domains are owned by a person, not by a team, so the caller's
+     * agents and domains survive — losing the team costs the people in it their
+     * shared access, which is why the UI confirms before calling this.
+     */
+    deleteWorkspace: async (workspaceId: string, headers: Headers) => {
+      const session = await getSession(headers);
+      if (!session) throw unauthorized();
+      await requireWorkspaceAdmin(workspaceId, session.user.id);
+
+      await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
     },
 
     /** Lists all members of a workspace. */
