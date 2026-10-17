@@ -9,6 +9,9 @@ See `plan/rebuild_divesai.md` for the roadmap and `plan/*.md` for architecture.
 - Dev server (apps/web): see "Dev server" below — do NOT use `pnpm dev` in background.
 - Typecheck: `pnpm --filter <pkg> check-types`
 - Lint: `pnpm --filter <pkg> lint`
+- Widget: `pnpm --filter web build:widget` (regenerates `public/widget.js` from
+  `apps/web/widget/`; runs automatically before dev/build, and `lint` fails if
+  the committed output is stale). Never hand-edit `public/widget.js`.
 - DB migrate/push: from `packages/database`, `pnpm exec drizzle-kit generate|migrate|push`.
   If drizzle-kit hangs on introspection, apply the generated SQL manually (see DB notes).
 
@@ -18,16 +21,20 @@ See `plan/rebuild_divesai.md` for the roadmap and `plan/*.md` for architecture.
 
 ## Dev server / build (critical)
 
-- ALWAYS run builds, `next dev`, and `next start` resource-limited to 4 CPUs
-  and 5 GB RAM (this machine is RAM-constrained):
+- ALWAYS run builds, `next dev`, and `next start` resource-limited to 3 CPUs
+  and 3 GB RAM (this machine is RAM-constrained):
 
   ```
-  NODE_OPTIONS="--max-old-space-size=5120" taskset -c 0-3 pnpm dev --filter=web
+  NODE_OPTIONS="--max-old-space-size=3072" taskset -c 0-2 pnpm dev --filter=web
   ```
 
   Same pattern for `pnpm --filter web build` and `next start` (when the pnpm
   wrapper hangs in the background, drop it and use the direct binary:
   `node ./node_modules/next/dist/bin/next <dev|start> --port <port>`).
+
+  A silent `exit 1` from `pnpm --filter web build` with no error text means the
+  pnpm wrapper swallowed it, not that the build failed. Re-run through a PTY
+  (`/usr/bin/script -qec`) to get the real result.
 
 - The dev server reliably DEADLOCKS (accepts TCP, never responds, idle CPU) when
   launched with plain `setsid node ... > file &`. It must be launched through a
@@ -35,7 +42,7 @@ See `plan/rebuild_divesai.md` for the roadmap and `plan/*.md` for architecture.
 
   ```
   cd apps/web && rm -rf .next
-  NODE_OPTIONS="--max-old-space-size=5120" nohup setsid /usr/bin/script -qec "taskset -c 0-3 node ./node_modules/next/dist/bin/next dev --port 3000" /tmp/opencode/fg.log </dev/null >/dev/null 2>&1 & disown
+  NODE_OPTIONS="--max-old-space-size=3072" nohup setsid /usr/bin/script -qec "taskset -c 0-2 node ./node_modules/next/dist/bin/next dev --port 3000" /tmp/opencode/dev.log </dev/null >/dev/null 2>&1 & disown
   ```
 
 - Never `pkill -f "next/dist/bin/next"` from a shell whose own command line
