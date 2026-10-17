@@ -30,6 +30,13 @@ export const domains = pgTable(
       ],
     }),
     embedSecret: text("embed_secret").notNull(),
+    /**
+     * Which widget renders on this domain's site. Kept as plain text (not a
+     * drizzle enum) so shipping a new widget never needs a migration — the
+     * registry in services/api/src/domains/widget-variants.ts is the source of
+     * truth, and the widget falls back to the default for unknown values.
+     */
+    widgetVariant: text("widget_variant").notNull().default("classic"),
     plan: text("plan", {
       enum: ["free", "standard", "pro", "ultimate", "custom"],
     })
