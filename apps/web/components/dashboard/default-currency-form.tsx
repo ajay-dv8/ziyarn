@@ -56,7 +56,7 @@ export function DefaultCurrencyForm({
             id="default-currency"
             value={currency}
             onChange={(event) => setCurrency(event.target.value)}
-            className="w-32 rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+            className="w-32 rounded-lg border border-input bg-background px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             {CURRENCY_CODES.map((code) => (
               <option key={code} value={code}>

@@ -357,7 +357,7 @@ export function DatabaseIntegrationCard({
                         : "",
                   );
                 }}
-                className="h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 {(Object.keys(TYPE_LABELS) as SourceType[]).map((key) => (
                   <option key={key} value={key}>
