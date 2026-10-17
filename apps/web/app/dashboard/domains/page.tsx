@@ -13,7 +13,7 @@ import {
 import { CreateDomainButton } from "@/components/domains/create-domain-button";
 import { DomainCardMenu } from "@/components/domains/domain-card-menu";
 import { EmbedSnippet } from "@/components/domains/embed-snippet";
-import { ZyWidget } from "@/components/widget/zy-widget";
+import { WidgetPreviewSwitcher } from "@/components/domains/widget-preview-switcher";
 import { domainsService } from "@/services/domains-service";
 
 export const metadata: Metadata = {
@@ -60,6 +60,7 @@ export default async function DomainsPage() {
                 domainId={domain.id}
                 domainName={domain.name}
                 businessType={domain.businessType}
+                widgetVariant={domain.widgetVariant}
               />
             </CardHeader>
             <CardContent className="space-y-4">
@@ -68,6 +69,7 @@ export default async function DomainsPage() {
                   widgetUrl={embedConfigs[index].widgetUrl}
                   slug={embedConfigs[index].slug}
                   secret={embedConfigs[index].secret}
+                  variant={embedConfigs[index].variant}
                 />
               )}
             </CardContent>
@@ -81,23 +83,12 @@ export default async function DomainsPage() {
       </div>
 
       {preview && previewDomain && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Live preview</CardTitle>
-            <CardDescription>
-              This is the widget visitors see — try a message with the{" "}
-              {previewDomain.name} agent.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ZyWidget
-              slug={preview.slug}
-              secret={preview.secret}
-              title={previewDomain.name}
-              subtitle="Preview agent"
-            />
-          </CardContent>
-        </Card>
+        <WidgetPreviewSwitcher
+          slug={preview.slug}
+          secret={preview.secret}
+          domainName={previewDomain.name}
+          savedVariant={preview.variant}
+        />
       )}
     </div>
   );

@@ -16,10 +16,12 @@ export function EmbedSnippet({
   widgetUrl,
   slug,
   secret,
+  variant,
 }: {
   widgetUrl: string;
   slug: string;
   secret: string;
+  variant?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -28,6 +30,9 @@ export function EmbedSnippet({
     `<zy-widget`,
     `  data-slug="${slug}"`,
     `  data-secret="${secret}"`,
+    // Emitted only when set, so snippets copied before variants existed stay
+    // byte-identical and keep rendering the default widget.
+    ...(variant ? [`  data-variant="${variant}"`] : []),
     `  data-title="Chat with us"`,
     `></zy-widget>`,
   ].join("\n");

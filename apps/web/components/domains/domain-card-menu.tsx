@@ -5,6 +5,7 @@ import { MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import type { BusinessType } from "@repo/api/domains/business-types";
+import type { WidgetVariantId } from "@repo/api/domains/widget-variants";
 import { Button } from "@repo/ui/components/button";
 import {
   Dialog,
@@ -27,6 +28,7 @@ import { deleteDomainAction, type ActionResult } from "@/lib/actions/domains";
 
 import { BusinessTypeEditor } from "@/components/domains/business-type-editor";
 import { RenameDomainForm } from "@/components/domains/rename-domain-form";
+import { WidgetVariantPicker } from "@/components/domains/widget-variant-picker";
 
 /**
  * Per-domain actions, collapsed into one overflow menu on the card header.
@@ -41,10 +43,12 @@ export function DomainCardMenu({
   domainId,
   domainName,
   businessType,
+  widgetVariant,
 }: {
   domainId: string;
   domainName: string;
   businessType: BusinessType | null;
+  widgetVariant: WidgetVariantId;
 }) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
@@ -137,6 +141,13 @@ export function DomainCardMenu({
               <BusinessTypeEditor
                 domainId={domainId}
                 currentType={businessType}
+              />
+            </div>
+
+            <div className="border-t pt-5">
+              <WidgetVariantPicker
+                domainId={domainId}
+                currentVariant={widgetVariant}
               />
             </div>
           </div>
