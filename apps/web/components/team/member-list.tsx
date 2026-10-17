@@ -102,8 +102,13 @@ function MemberRow({
   const [pending, setPending] = useState(false);
 
   const isSelf = isCurrentUser;
+  // Admins can remove members and viewers; only the owner can remove an admin,
+  // and nobody removes themselves here — leaving is a separate, deliberate act.
   const canRemove =
-    canManage && member.role !== "owner" && !isSelf && viewerIsOwner;
+    canManage &&
+    member.role !== "owner" &&
+    !isSelf &&
+    (member.role !== "admin" || viewerIsOwner);
 
   const displayName = member.name ?? member.email;
   const initials = displayName.trim().charAt(0).toUpperCase() || "?";
