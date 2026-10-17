@@ -9,6 +9,7 @@
     "strictNullChecks": true,
     "isolatedDeclarations": false,
     "declaration": false,
+    "declarationMap": false,
     "paths": {
       "@/*": ["./*"]
     }
