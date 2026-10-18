@@ -1,110 +1,137 @@
 import type { Metadata } from "next";
 
-import { PLAN_DISPLAY_NAMES } from "@repo/api/plans";
-import type { Plan } from "@repo/api/plans";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@repo/ui/components/card";
-import { Check } from "lucide-react";
+import { PLAN_DISPLAY_NAMES, type Plan } from "@repo/api/plans";
+import { paystackCurrency, planPriceKobo } from "@repo/api/paystack";
+import { PricingModule, type PricingPlan } from "@repo/ui/components/pricing-module";
+import { Building2, Crown, Rocket, Sparkles } from "lucide-react";
 
-import { PLAN_ORDER, planFeatures } from "@/lib/plan-features";
+import { planFeatures } from "@/lib/plan-features";
+import { APP_ROUTES } from "@/constants/routes";
 import { LandingHeader } from "@/components/landing/landing-header";
 
 export const metadata: Metadata = {
   title: "Pricing",
 };
 
-/** Tagline and emphasis per plan. Order comes from PLAN_ORDER. */
-const PLAN_DETAILS: Record<Plan, { tagline: string; highlight: boolean }> = {
-  free: { tagline: "Try the agent on one domain", highlight: false },
-  standard: { tagline: "For growing teams", highlight: true },
-  pro: { tagline: "For busy support desks", highlight: false },
-  ultimate: { tagline: "For high-volume operations", highlight: false },
-  custom: { tagline: "Tailored limits, hand-agreed", highlight: false },
-};
+/** The four paid tiers, in the order they appear. Business is recommended. */
+const PAID_PLANS: Array<{
+  plan: Plan;
+  description: string;
+  icon: typeof Rocket;
+  recommended?: boolean;
+  summary: string;
+}> = [
+  {
+    plan: "standard",
+    description: "For growing teams",
+    icon: Rocket,
+    summary: "Everything in Free, plus:",
+  },
+  {
+    plan: "pro",
+    description: "For busy support desks",
+    icon: Building2,
+    recommended: true,
+    summary: "Everything in Plus, plus:",
+  },
+  {
+    plan: "ultimate",
+    description: "For high-volume operations",
+    icon: Crown,
+    summary: "Everything in Business, plus:",
+  },
+  {
+    plan: "custom",
+    description: "Tailored limits, hand-agreed",
+    icon: Sparkles,
+    summary: "Everything in Enterprise, plus:",
+  },
+];
+
+/** Price in whole currency units. Custom is negotiated, so it has no price. */
+function priceFor(plan: Plan): number {
+  if (plan === "custom" || plan === "free") return 0;
+  return planPriceKobo(plan) / 100;
+}
+
+/**
+ * The currency's prefix, taken from the same formatter the dashboard uses so
+ * both pages print a price the same way. Some currencies have no symbol
+ * ("GHS 119"), so the code is used instead of inventing one.
+ */
+function currencyPrefix(): string {
+  const currency = paystackCurrency();
+  const locale =
+    currency === "NGN" ? "en-NG" : currency === "GHS" ? "en-GH" : "en";
+  const zero = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(0);
+  return zero.replace(/[\d.,\s]/g, "");
+}
+
+function toPricingPlan(entry: {
+  plan: Plan;
+  description: string;
+  icon: typeof Rocket;
+  recommended?: boolean;
+  summary: string;
+}): PricingPlan {
+  const { plan, description, icon: Icon, recommended, summary } = entry;
+  const isCustom = plan === "custom";
+
+  return {
+    id: plan,
+    name: PLAN_DISPLAY_NAMES[plan],
+    description,
+    icon: <Icon className="size-8 text-primary" aria-hidden="true" />,
+    priceMonthly: priceFor(plan),
+    priceLabel: isCustom ? "Custom" : undefined,
+    priceNote: isCustom ? "priced to your volume" : undefined,
+    currencySymbol: currencyPrefix(),
+    summary,
+    features: planFeatures(plan),
+    recommended,
+    actionLabel: isCustom
+      ? "Talk to sales"
+      : `Start with ${PLAN_DISPLAY_NAMES[plan]}`,
+    actionHref: isCustom ? "mailto:sales@ziyarn.com" : APP_ROUTES.SIGN_UP,
+  };
+}
 
 export default function PricingPage() {
+  const paidPlans = PAID_PLANS.map(toPricingPlan);
+
+  const freePlan: PricingPlan = {
+    id: "free",
+    name: PLAN_DISPLAY_NAMES.free,
+    description: "Try the agent on one domain",
+    icon: <Sparkles className="size-8 text-primary" aria-hidden="true" />,
+    priceMonthly: 0,
+    currencySymbol: currencyPrefix(),
+    priceNote: "free forever",
+    summary: "Everything you need to get one agent live:",
+    features: planFeatures("free"),
+    wide: true,
+    actionLabel: "Start free",
+    actionHref: APP_ROUTES.SIGN_UP,
+  };
+
   return (
     <div className="flex min-h-svh flex-col">
       <LandingHeader />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-16">
-        <div className="space-y-3 text-center">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Simple pricing that scales with you
-          </h1>
-          <p className="mx-auto max-w-xl text-muted-foreground">
-            Every plan includes the widget, AI agent, and realtime human
-            handoff. Billing launches soon.
-          </p>
-        </div>
-
-        <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-          {[
-            "Embeddable chat widget",
-            "AI agent with tools",
-            "Knowledge base answers",
-            "Realtime human handoff",
-          ].map((capability) => (
-            <li key={capability} className="flex items-center gap-1.5">
-              <Check className="size-4 text-primary" aria-hidden="true" />
-              {capability}
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {PLAN_ORDER.map((plan) => {
-            const { tagline, highlight } = PLAN_DETAILS[plan];
-            const features = planFeatures(plan);
-            const isCustom = plan === "custom";
-
-            return (
-              <Card
-                key={plan}
-                className={
-                  highlight ? "flex flex-col border-primary shadow-lg" : "flex flex-col"
-                }
-              >
-                <CardHeader>
-                  <CardTitle>{PLAN_DISPLAY_NAMES[plan]}</CardTitle>
-                  {/* Reserved two lines so every card's price and "What you
-                      get" heading start at the same height. */}
-                  <CardDescription className="min-h-10">{tagline}</CardDescription>
-                  <p className="mt-2 text-2xl font-semibold tracking-tight">
-                    {isCustom ? "Custom" : "$0"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {isCustom ? "Priced to your volume" : "Pricing coming soon"}
-                  </p>
-                </CardHeader>
-                <CardContent className="flex flex-1 flex-col">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    What you get
-                  </p>
-                  <ul className="mt-3 flex-1 space-y-2 text-sm">
-                    {features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-2">
-                        <Check
-                          className="mt-0.5 size-4 shrink-0 text-primary"
-                          aria-hidden="true"
-                        />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        <p className="mt-8 text-center text-xs text-muted-foreground">
-          Limits are per account and shown for every plan that has them — Custom
-          is negotiated, so talk to us.
+      <main className="flex-1 pb-20">
+        <PricingModule
+          className="pt-16 pb-6"
+          title="Simple pricing that scales with you"
+          subtitle="Every plan includes the embeddable widget, an AI agent that answers and sells, knowledge base answers and realtime human handoff. Change or cancel anytime."
+          plans={[...paidPlans, freePlan]}
+        />
+        <p className="mx-auto mt-10 max-w-6xl px-4 text-center text-xs text-muted-foreground md:px-6">
+          Prices are per account, billed monthly in {paystackCurrency()}. Custom
+          plans are negotiated — every limit above is the default, not a ceiling
+          on what you can agree.
         </p>
       </main>
     </div>
