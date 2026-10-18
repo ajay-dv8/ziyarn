@@ -1,3 +1,9 @@
+import {
+  DEFAULT_WIDGET_VARIANT,
+  WIDGET_VARIANT_IDS,
+  resolveWidgetVariant,
+  type WidgetVariantId,
+} from "@repo/api/domains/widget-variants";
 import { planSchema, type Plan } from "@repo/api/plans/schemas";
 
 export type PlanLimits = {
@@ -15,6 +21,12 @@ export type PlanLimits = {
   maxProductsPerDomain: number;
   /** Max team members (owners + agents) on this plan. */
   maxMembers: number;
+  /**
+   * Widgets this plan may use. A domain on a plan that does not include its
+   * widget falls back to the first entry, so a downgrade can never leave a
+   * visitor with a widget the account no longer includes.
+   */
+  widgetVariants: WidgetVariantId[];
 };
 
 /**
@@ -30,33 +42,38 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     emailsPerMonth: 0,
     maxProductsPerDomain: 0,
     maxMembers: 1,
+    // The free plan gets the classic bubble only.
+    widgetVariants: ["classic"],
   },
   standard: {
     maxDomains: 3,
     maxWorkspaces: 10,
-    creditsPerMonth: 1000,
+    creditsPerMonth: 200,
     conversationsPerDay: 1000,
     emailsPerMonth: 500,
     maxProductsPerDomain: 100,
     maxMembers: 3,
+    widgetVariants: [...WIDGET_VARIANT_IDS],
   },
   pro: {
     maxDomains: 10,
     maxWorkspaces: Number.POSITIVE_INFINITY,
-    creditsPerMonth: 10000,
+    creditsPerMonth: 1000,
     conversationsPerDay: 5000,
-    emailsPerMonth: 5000,
+    emailsPerMonth: 2000,
     maxProductsPerDomain: 500,
     maxMembers: 10,
+    widgetVariants: [...WIDGET_VARIANT_IDS],
   },
   ultimate: {
     maxDomains: 100,
     maxWorkspaces: Number.POSITIVE_INFINITY,
-    creditsPerMonth: 100000,
+    creditsPerMonth: 3000,
     conversationsPerDay: 50000,
-    emailsPerMonth: 50000,
-    maxProductsPerDomain: 10000,
+    emailsPerMonth: 10000,
+    maxProductsPerDomain: 3000,
     maxMembers: Number.POSITIVE_INFINITY,
+    widgetVariants: [...WIDGET_VARIANT_IDS],
   },
   custom: {
     maxDomains: Number.POSITIVE_INFINITY,
@@ -66,8 +83,35 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     emailsPerMonth: Number.POSITIVE_INFINITY,
     maxProductsPerDomain: Number.POSITIVE_INFINITY,
     maxMembers: Number.POSITIVE_INFINITY,
+    widgetVariants: [...WIDGET_VARIANT_IDS],
   },
 };
+
+/** True when a plan may use the given widget. */
+export function planAllowsWidgetVariant(
+  plan: Plan,
+  variant: string,
+): boolean {
+  return getPlanLimits(plan).widgetVariants.includes(
+    variant as WidgetVariantId,
+  );
+}
+
+/**
+ * The widget a domain actually gets on its plan: the one it asked for when the
+ * plan includes it, otherwise the first widget the plan allows. A downgrade
+ * therefore lands on Classic instead of leaving a visitor with a widget the
+ * account no longer includes.
+ */
+export function clampWidgetVariantForPlan(
+  plan: Plan,
+  variant: string,
+): WidgetVariantId {
+  const allowed = getPlanLimits(plan).widgetVariants;
+  const resolved = resolveWidgetVariant(variant);
+  if (allowed.includes(resolved)) return resolved;
+  return allowed[0] ?? DEFAULT_WIDGET_VARIANT;
+}
 
 export function getPlanLimits(plan: Plan): PlanLimits {
   return PLAN_LIMITS[plan];

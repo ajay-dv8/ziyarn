@@ -10,8 +10,10 @@ export {
   assertCanCreateProduct,
   assertCanCreateWorkspace,
   assertCanStartConversation,
+  clampWidgetVariantForPlan,
   getPlanLimits,
   highestPlan,
+  planAllowsWidgetVariant,
 } from "@repo/api/plans/server";
 
 export type { PlanLimits } from "@repo/api/plans/server";
