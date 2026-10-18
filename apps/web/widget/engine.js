@@ -93,14 +93,14 @@
       this._launcher = root.querySelector(".zy-launcher");
       this._messages = root.querySelector(".zy-messages");
       this._input = root.querySelector(".zy-composer input");
-      // Select by explicit class, NOT ".zy-composer button" — the composer now
-      // holds a capability chip alongside the send button, and a positional
-      // selector would silently bind _sendBtn to the chip.
+      // Select by explicit class, NOT ".zy-composer button" — a positional
+      // selector would bind _sendBtn to whatever button comes first.
       this._sendBtn = root.querySelector(".zy-composer .zy-send");
       this._composer = root.querySelector(".zy-composer");
       this._placeholder = root.querySelector(".zy-composer-ph");
-      this._deepChip = root.querySelector('.zy-chip[data-chip="deep"]');
-      this._deepSearch = true;
+      // Whether the visitor is in the field right now. Tracked here because
+      // the input is inside a shadow root (see _syncPlaceholder).
+      this._inputEngaged = false;
       this._placeholders = [
         "How can I help you today?",
         "What are your opening hours?",
@@ -144,7 +144,7 @@
       this._input.addEventListener("input", this._onInput.bind(this));
       this._input.addEventListener("focus", this._onFocus.bind(this));
       this._sendBtn.addEventListener("click", this._send.bind(this));
-      this._deepChip.addEventListener("click", this._toggleDeepSearch.bind(this));
+      this._input.addEventListener("blur", this._onBlur.bind(this));
       this._startPlaceholderCycle();
 
       // ---- Bootstrap: fetch agent info + load conversation history ----
@@ -177,8 +177,7 @@
     // -------------------------------------------------------------------------
     // Two things happen:
     //   1. GET /api/chat → fetches the agent's name and description to
-    //      populate the header, plus the composer capabilities (business-type
-    //      placeholder prompts, and whether Deep search is available at all).
+    //      populate the header, plus the business-type placeholder prompts.
     //      This also validates the embed secret.
     //   2. If there's a saved conversation, load its history. Otherwise,
     //      show the default greeting message.
@@ -199,11 +198,6 @@
           // does not return them simply leaves the defaults in place.
           if (data && data.placeholders) {
             self._setPlaceholders(data.placeholders);
-          }
-          // Hide the Deep search chip when the agent has no knowledge tool —
-          // a toggle that could never change anything is worse than no chip.
-          if (self._deepChip) {
-            self._deepChip.hidden = !(data && data.knowledgeSearch);
           }
         })
         .catch(function () {
@@ -304,8 +298,8 @@
     // -------------------------------------------------------------------------
     // _syncExpanded — expand the composer while focused or non-empty.
     //
-    // The capability row is only worth the vertical space once the visitor is
-    // engaged, so it collapses again when the field is blurred and emptied.
+    // The composer grows once the visitor is engaged, and collapses again when
+    // the field is blurred and emptied.
     // -------------------------------------------------------------------------
     _syncExpanded() {
       var expanded = this._streaming || Boolean(this._input.value);
@@ -390,34 +384,48 @@
     }
 
     // -------------------------------------------------------------------------
-    // _toggleDeepSearch — composer chip controlling whether the agent may
-    // consult the owner's knowledge base for this turn. Sends `deepSearch` on
-    // the next message; an older server ignores it and behaves as before.
-    // -------------------------------------------------------------------------
-    _toggleDeepSearch() {
-      this._deepSearch = !this._deepSearch;
-      this._deepChip.setAttribute("aria-pressed", String(this._deepSearch));
-      this._deepChip.setAttribute(
-        "aria-label",
-        this._deepSearch ? "Deep search on" : "Deep search off",
-      );
-    }
-
-    // -------------------------------------------------------------------------
     // _onFocus / _onInput — expand the composer and park the hint while typing
     // -------------------------------------------------------------------------
     _onFocus() {
+      this._inputEngaged = true;
       this._syncExpanded();
+      this._syncPlaceholder();
+    }
+
+    _onBlur() {
+      this._inputEngaged = false;
+      this._syncExpanded();
+      this._syncPlaceholder();
     }
 
     _onInput() {
       this._syncExpanded();
-      if (this._input.value) {
+      this._syncPlaceholder();
+    }
+
+    // -------------------------------------------------------------------------
+    // _syncPlaceholder — hide the hint while the visitor is typing or focused.
+    //
+    // The hint is drawn under the input, so leaving it up while there is text
+    // makes the two overlap and the field unreadable. Once the visitor focuses
+    // the field they already know what it is for, so the hint goes away there
+    // too, and comes back when they leave an empty field.
+    //
+    // Focus is tracked by the focus/blur handlers rather than compared against
+    // document.activeElement: the field lives in a shadow root, so
+    // document.activeElement is the host element, never the input itself.
+    // -------------------------------------------------------------------------
+    _syncPlaceholder() {
+      var engaged = this._inputEngaged || Boolean(this._input.value);
+      this._composer.setAttribute("data-ph-hidden", String(engaged));
+
+      if (engaged) {
         this._stopPlaceholderCycle();
-      } else {
-        this._renderPlaceholder();
-        this._startPlaceholderCycle();
+        return;
       }
+
+      this._renderPlaceholder();
+      this._startPlaceholderCycle();
     }
 
     // -------------------------------------------------------------------------
@@ -527,8 +535,8 @@
       if (!text || this._streaming) return;
 
       this._input.value = "";
-      this._renderPlaceholder();
       this._syncExpanded();
+      this._syncPlaceholder();
       this._appendMessage("user", text);
       this._streaming = true;
       this._syncExpanded();
@@ -553,11 +561,6 @@
         message: text,
         visitorId: this._visitorId,
         conversationId: this._conversationId || undefined,
-        // Knowledge-base search for this turn. Always sent: it defaults to true on
-        // the server, so an older build that ignores the field behaves
-        // identically. When the agent has no answer_knowledge tool the server
-        // filters nothing and the value is inert either way.
-        deepSearch: this._deepSearch,
       };
 
       function doFetch(body) {
