@@ -88,7 +88,7 @@ function toPricingPlan(entry: {
     description,
     priceMonthly: priceFor(plan),
     priceLabel: isCustom ? "Custom" : undefined,
-    priceNote: isCustom ? "priced to your volume" : undefined,
+    priceNote: isCustom ? " " : undefined,
     currencySymbol: currencyPrefix(),
     summary,
     features: planFeatures(plan),
