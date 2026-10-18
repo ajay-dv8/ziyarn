@@ -1,0 +1,78 @@
+---
+title: Teams
+description: Work together in a team, with roles and seats.
+---
+
+# Teams
+
+A team is a shared workspace. Everyone in it can work on the same domains,
+agents and knowledge bases, with a role that says how much they can do.
+
+## Creating a Team
+
+1. Go to **Dashboard → Team**
+2. Click **Create team** (top right)
+3. Name it — you become its owner and first member
+
+A plan allows a number of teams. The button is disabled when you have reached
+it.
+
+## Inviting People
+
+1. On **Dashboard → Team**, use **Invite a member**
+2. Enter their email address and pick a role
+3. We email them a link to join
+
+If the deployment has no mail server configured, the invite link appears on the
+page so you can send it yourself. The link is also under **Pending invites**,
+with a copy button, for the whole life of the invite.
+
+Invites expire after 7 days, and a pending invite holds its seat until it is
+accepted, expires, or is revoked.
+
+## Roles
+
+| Role | What they can do |
+|------|------------------|
+| **Owner** | Everything, including deleting the team. One per team. |
+| **Admin** | Invite people, change roles, edit the team, manage everything in it. |
+| **Member** | Manage agents, domains and knowledge bases. |
+| **Viewer** | Read-only access to the team's agents and conversations. |
+
+Admins manage members and viewers. Only the owner manages admins — an admin
+cannot promote themselves, demote a peer, or remove one.
+
+## Seats
+
+Seats are what a plan's member limit counts. A seat is held by a member **and**
+by a pending invite, so an invite you have not followed up on still uses one.
+The header shows how many are used, and the invite form stops offering a seat
+your plan will not accept.
+
+| Plan | Seats |
+|---|---|
+| Free | 1 |
+| Plus | 3 |
+| Business | 10 |
+| Enterprise | Unlimited |
+
+## Editing and Deleting a Team
+
+Owners and admins can rename a team or delete it from the **team options** menu
+next to the Create team button.
+
+Deleting a team removes its members and its pending invites. It does **not**
+delete anyone's domains, agents or conversations — those belong to the people
+who created them, not to the team. Because it cannot be undone, the dialog
+asks you to type the team's name to confirm.
+
+## Working Together
+
+Everyone in a team sees the team's domains in **Dashboard → Domains**, and can
+work on them according to their role. A viewer can look but not change
+anything.
+
+## Leaving a Team
+
+Ask an owner or admin to remove you, or revoke your invite if you have not
+accepted it yet.
