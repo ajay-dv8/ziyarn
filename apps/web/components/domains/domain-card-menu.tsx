@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import type { BusinessType } from "@repo/api/domains/business-types";
 import type { WidgetVariantId } from "@repo/api/domains/widget-variants";
+import type { Plan } from "@repo/api/plans";
 import { Button } from "@repo/ui/components/button";
 import {
   Dialog,
@@ -44,11 +45,13 @@ export function DomainCardMenu({
   domainName,
   businessType,
   widgetVariant,
+  plan,
 }: {
   domainId: string;
   domainName: string;
   businessType: BusinessType | null;
   widgetVariant: WidgetVariantId;
+  plan: Plan;
 }) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
@@ -148,6 +151,7 @@ export function DomainCardMenu({
               <WidgetVariantPicker
                 domainId={domainId}
                 currentVariant={widgetVariant}
+                plan={plan}
               />
             </div>
           </div>

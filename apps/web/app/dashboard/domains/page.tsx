@@ -94,6 +94,7 @@ export default async function DomainsPage({
             domainName={domain.name}
             businessType={domain.businessType}
             widgetVariant={domain.widgetVariant}
+            plan={domain.plan}
           />
         </div>
 
@@ -178,6 +179,7 @@ export default async function DomainsPage({
                 domainName={domain.name}
                 businessType={domain.businessType}
                 widgetVariant={domain.widgetVariant}
+                plan={domain.plan}
               />
             </CardHeader>
             <CardContent className="space-y-4">

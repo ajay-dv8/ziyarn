@@ -3,26 +3,32 @@
 import { useState } from "react";
 
 import { WIDGET_VARIANTS, type WidgetVariantId } from "@repo/api/domains";
+import { getPlanLimits, type Plan } from "@repo/api/plans";
 import { updateDomainAction, type ActionResult } from "@/lib/actions/domains";
 
 /**
  * Per-domain widget selection.
  *
  * Reads the list from the shared registry — adding a widget is one row there,
- * never a hard-coded option in this component.
+ * never a hard-coded option in this component — and the plan's allowance from
+ * PLAN_LIMITS, so a widget the plan does not include is shown as unavailable
+ * instead of failing when it is saved.
  */
 export function WidgetVariantPicker({
   domainId,
   currentVariant,
+  plan,
 }: {
   domainId: string;
   currentVariant: WidgetVariantId;
+  plan: Plan;
 }) {
   const [selected, setSelected] = useState<WidgetVariantId>(currentVariant);
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const allowed = getPlanLimits(plan).widgetVariants;
   const dirty = selected !== currentVariant;
 
   async function save() {
@@ -53,13 +59,17 @@ export function WidgetVariantPicker({
       >
         {WIDGET_VARIANTS.map((variant) => {
           const isSelected = variant.id === selected;
+          const isIncluded = allowed.includes(variant.id);
+
           return (
             <label
               key={variant.id}
-              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
-                isSelected
-                  ? "border-primary bg-primary/5"
-                  : "hover:bg-muted/50"
+              className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
+                isIncluded
+                  ? isSelected
+                    ? "cursor-pointer border-primary bg-primary/5"
+                    : "cursor-pointer hover:bg-muted/50"
+                  : "cursor-not-allowed opacity-60"
               }`}
             >
               <input
@@ -67,6 +77,7 @@ export function WidgetVariantPicker({
                 name={`widget-variant-${domainId}`}
                 value={variant.id}
                 checked={isSelected}
+                disabled={!isIncluded}
                 onChange={() => setSelected(variant.id)}
                 className="mt-1"
               />
@@ -77,6 +88,11 @@ export function WidgetVariantPicker({
                 <span className="block text-xs text-muted-foreground">
                   {variant.description}
                 </span>
+                {!isIncluded && (
+                  <span className="block text-xs text-muted-foreground">
+                    Not included in the {plan} plan.
+                  </span>
+                )}
               </span>
             </label>
           );

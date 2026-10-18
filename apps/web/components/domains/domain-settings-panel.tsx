@@ -79,6 +79,7 @@ export function DomainSettingsPanel({
           <WidgetVariantPicker
             domainId={domainId}
             currentVariant={widgetVariant}
+            plan={plan}
           />
         </div>
       </div>
