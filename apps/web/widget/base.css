@@ -1,10 +1,16 @@
-/* ---- Reset & base ---- */
+/* ---- Reset & base ----
+   The theme tokens are private aliases (--_zy-*) that read the public names
+   (--zy-*). Declaring a custom property from itself — `--zy-muted:
+   var(--zy-muted, #64748b)` — is a cycle: it resolves to nothing at all, and
+   every colour that used it silently fell back to the inherited black. The
+   alias breaks the cycle while still letting a page override the widget by
+   setting --zy-* on the <zy-widget> element. */
 :host {
-  --zy-color: var(--zy-color, #10b981);
-  --zy-text: var(--zy-text, #0f172a);
-  --zy-muted: var(--zy-muted, #64748b);
-  --zy-bg: var(--zy-bg, #ffffff);
-  --zy-border: var(--zy-border, #e2e8f0);
+  --_zy-color: var(--zy-color, #10b981);
+  --_zy-text: var(--zy-text, #0f172a);
+  --_zy-muted: var(--zy-muted, #64748b);
+  --_zy-bg: var(--zy-bg, #ffffff);
+  --_zy-border: var(--zy-border, #e2e8f0);
   --zy-radius: 14px;
   --zy-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
   all: initial;
@@ -23,7 +29,7 @@
   gap: 12px;
   font-size: 15px;
   line-height: 1.45;
-  color: var(--zy-text);
+  color: var(--_zy-text);
 }
 .zy-wrap[data-position="bottom-left"] { left: 20px; right: auto; align-items: flex-start; }
 .zy-wrap[data-position="bottom-right"] { right: 20px; left: auto; }
@@ -34,7 +40,7 @@
   height: 58px;
   border: none;
   border-radius: 50%;
-  background: var(--zy-color);
+  background: var(--_zy-color);
   color: #fff;
   cursor: pointer;
   box-shadow: var(--zy-shadow);
@@ -57,8 +63,8 @@
   max-width: calc(100vw - 32px);
   height: 620px;
   max-height: min(80vh, 700px);
-  background: var(--zy-bg);
-  border: 1px solid var(--zy-border);
+  background: var(--_zy-bg);
+  border: 1px solid var(--_zy-border);
   border-radius: var(--zy-radius);
   box-shadow: var(--zy-shadow);
   display: none;
@@ -69,7 +75,7 @@
 
 /* ---- Header — agent name, description, online status, mobile close button ---- */
 .zy-header {
-  background: var(--zy-color);
+  background: var(--_zy-color);
   color: #fff;
   padding: 14px 16px;
   flex-shrink: 0;
@@ -129,12 +135,12 @@
   animation: zy-in 0.16s ease;
 }
 /* Agent (AI) messages — left-aligned, white background */
-.zy-msg-agent { background: #fff; border: 1px solid var(--zy-border); border-bottom-left-radius: 5px; align-self: flex-start; }
+.zy-msg-agent { background: #fff; border: 1px solid var(--_zy-border); border-bottom-left-radius: 5px; align-self: flex-start; }
 /* Owner (human support) messages — left-aligned, accent border, labeled */
-.zy-msg-owner { background: #fff; border: 1px solid var(--zy-color); border-bottom-left-radius: 5px; align-self: flex-start; }
-.zy-msg-owner::before { content: "Owner"; display: block; font-size: 11px; font-weight: 600; color: var(--zy-color); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+.zy-msg-owner { background: #fff; border: 1px solid var(--_zy-color); border-bottom-left-radius: 5px; align-self: flex-start; }
+.zy-msg-owner::before { content: "Owner"; display: block; font-size: 11px; font-weight: 600; color: var(--_zy-color); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
 /* User (visitor) messages — right-aligned, accent background, white text */
-.zy-msg-user { background: var(--zy-color); color: #fff; border-bottom-right-radius: 5px; align-self: flex-end; }
+.zy-msg-user { background: var(--_zy-color); color: #fff; border-bottom-right-radius: 5px; align-self: flex-end; }
 /* Error messages — centered, red background */
 .zy-msg-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; align-self: center; font-size: 13px; }
 /* Typing indicator — bouncing dots while waiting for AI response */
@@ -145,7 +151,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--zy-color);
+  background: var(--_zy-color);
   animation: zy-bounce 1.4s ease-in-out infinite;
 }
 .zy-dot:nth-child(2) { animation-delay: 0.2s; }
@@ -170,12 +176,12 @@
  */
 .zy-composer {
   padding: 10px 12px 12px;
-  border-top: 1px solid var(--zy-border);
+  border-top: 1px solid var(--_zy-border);
   background: #fff;
   flex-shrink: 0;
 }
 .zy-composer-shell {
-  border: 1px solid var(--zy-border);
+  border: 1px solid var(--_zy-border);
   border-radius: 26px;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -183,7 +189,7 @@
 }
 .zy-composer-shell:focus-within,
 .zy-composer-shell[data-expanded="true"] {
-  border-color: color-mix(in srgb, var(--zy-color) 55%, var(--zy-border));
+  border-color: color-mix(in srgb, var(--_zy-color) 55%, var(--_zy-border));
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
 }
 
@@ -209,11 +215,13 @@
   padding: 8px 0;
   font-size: 14.5px;
   font-family: inherit;
-  color: var(--zy-text);
+  color: var(--_zy-text);
   position: relative;
   z-index: 1;
 }
-/* Placeholder sits under the real input and is never focusable. */
+/* Placeholder sits under the real input and is never focusable. It is drawn at
+   half strength: it is a hint, not content, and the visitor's own text must
+   always win the eye. */
 .zy-composer-ph {
   position: absolute;
   left: 0;
@@ -224,11 +232,17 @@
   align-items: center;
   pointer-events: none;
   overflow: hidden;
+  transition: opacity 0.16s ease;
+}
+/* Once the visitor is in the field — focused, or typing — the hint goes, so
+   their words never sit on top of it. */
+.zy-composer[data-ph-hidden="true"] .zy-composer-ph {
+  opacity: 0;
 }
 .zy-composer-ph span {
   display: inline-block;
   white-space: nowrap;
-  color: var(--zy-muted);
+  color: color-mix(in srgb, var(--_zy-muted) 50%, transparent);
   font-size: 14.5px;
   font-family: inherit;
   animation: zy-ph-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -250,7 +264,7 @@
 .zy-send {
   border: none;
   border-radius: 50%;
-  background: var(--zy-color);
+  background: var(--_zy-color);
   color: #fff;
   width: 36px;
   height: 36px;
@@ -265,63 +279,10 @@
 .zy-send:disabled { opacity: 0.4; cursor: not-allowed; }
 .zy-send svg { width: 17px; height: 17px; }
 
-/* Row 2 — capability chips, collapsed to zero height when idle */
-.zy-composer-caps {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-  padding: 0 14px;
-}
-.zy-composer[data-expanded="true"] .zy-composer-caps { grid-template-rows: 1fr; }
-.zy-composer-caps-inner {
-  overflow: hidden;
-  min-height: 0;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.zy-chip {
-  margin: 8px 0 2px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #475569;
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 500;
-  line-height: 1;
-  padding: 8px 12px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
-}
-.zy-chip svg { width: 14px; height: 14px; flex-shrink: 0; }
-.zy-chip:hover { background: #e2e8f0; }
-.zy-chip[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--zy-color) 12%, #fff);
-  border-color: color-mix(in srgb, var(--zy-color) 55%, transparent);
-  color: color-mix(in srgb, var(--zy-color) 82%, #0f172a);
-}
-/* Label width animates so the pill grows out of its icon, mirroring the
-   reference design without needing a measured width in JS. */
-.zy-chip-label {
-  display: inline-block;
-  white-space: nowrap;
-  transition: opacity 0.18s ease, max-width 0.26s cubic-bezier(0.22, 1, 0.36, 1);
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-}
-.zy-chip[data-open="true"] .zy-chip-label { max-width: 140px; opacity: 1; }
-
 .zy-probe { color: red; }
 
 /* ---- Footer note ---- */
-.zy-note { padding: 0 16px 12px; font-size: 12px; color: var(--zy-muted); text-align: center; flex-shrink: 0; background: #fff; border-top: 1px solid var(--zy-border); }
+.zy-note { padding: 0 16px 12px; font-size: 12px; color: var(--_zy-muted); text-align: center; flex-shrink: 0; background: #fff; border-top: 1px solid var(--_zy-border); }
 
 /* ---- Animations ---- */
 @keyframes zy-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

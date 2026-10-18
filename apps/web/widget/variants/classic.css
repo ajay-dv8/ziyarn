@@ -22,7 +22,7 @@
 
 .zy-wrap[data-variant="classic"] .zy-composer-shell:focus-within,
 .zy-wrap[data-variant="classic"] .zy-composer-shell[data-expanded="true"] {
-  border-color: color-mix(in srgb, var(--zy-color) 68%, var(--zy-border));
+  border-color: color-mix(in srgb, var(--_zy-color) 68%, var(--_zy-border));
 }
 
 .zy-wrap[data-variant="classic"] .zy-launcher {
