@@ -1,12 +1,14 @@
-import { PLAN_LIMITS, type Plan } from "@repo/api/plans";
+import { PLAN_LIMITS, type Plan, type PlanLimits } from "@repo/api/plans";
+import type { PlanFeature } from "@repo/ui/components/pricing-module";
 
 /**
- * The feature list shown on a plan's card.
+ * The feature rows a pricing card shows, and the label each plan gets for them.
  *
- * Built from PLAN_LIMITS rather than written out per plan, so the pricing page
- * cannot advertise a number the billing system will not honour. Copy that is
- * not a number (capability differences between tiers) belongs in the plan's
- * tagline or in `PLAN_EXTRAS` below — anything derivable stays derivable.
+ * Every plan renders the *same* rows in the same order, with its own numbers,
+ * so two cards can be read against each other: a row crossed out on Free is
+ * visibly present on the plan above it. Labels come from PLAN_LIMITS rather
+ * than being written per plan, so the advertised numbers and the enforced ones
+ * cannot drift.
  */
 
 /** Formats a limit for people: 1000 -> "1,000", Infinity -> "Unlimited". */
@@ -25,41 +27,69 @@ function plural(
   return `${value.toLocaleString()} ${value === 1 ? singular : pluralForm}`;
 }
 
-/**
- * Per-plan extras that are not limits: capabilities that switch on at a tier.
- * Empty means "nothing beyond the numbers" — which is true for every plan
- * today, since the widget, agent, knowledge base and human handoff ship on all
- * of them. Kept as a list so a future tier has somewhere obvious to go.
- */
-const PLAN_EXTRAS: Partial<Record<Plan, readonly string[]>> = {};
-
-/** Everything a given plan includes, most fundamental first. */
-export function planFeatures(plan: Plan): string[] {
-  const limits = PLAN_LIMITS[plan];
-
-  const features = [
-    plural(limits.maxDomains, "domain"),
-    plural(limits.maxWorkspaces, "team workspace"),
-    `${formatLimit(limits.creditsPerMonth)} AI credits / month`,
-    `${formatLimit(limits.conversationsPerDay)} conversations / day`,
-    limits.emailsPerMonth === 0
-      ? "No marketing emails"
-      : `${formatLimit(limits.emailsPerMonth)} emails / month`,
-    limits.maxProductsPerDomain === 0
-      ? "No catalog products"
-      : `${plural(limits.maxProductsPerDomain, "product")} per domain`,
-    plural(limits.maxMembers, "team member"),
-    ...(PLAN_EXTRAS[plan] ?? []),
-  ];
-
-  return features;
+/** A limit that is off is shown as excluded, not as "0". */
+function hasLimit(value: number): boolean {
+  return value > 0;
 }
 
-/** Shown on the free card so the paid tiers read as "free, plus more". */
-export const PLAN_ORDER = [
-  "free",
-  "standard",
-  "pro",
-  "ultimate",
-  "custom",
-] as const satisfies readonly Plan[];
+type FeatureRow = {
+  label: (limits: PlanLimits) => string;
+  included: (limits: PlanLimits) => boolean;
+};
+
+const FEATURE_ROWS: readonly FeatureRow[] = [
+  {
+    label: (limits) => plural(limits.maxDomains, "domain"),
+    included: (limits) => hasLimit(limits.maxDomains),
+  },
+  {
+    label: (limits) => plural(limits.maxWorkspaces, "team workspace"),
+    included: (limits) => hasLimit(limits.maxWorkspaces),
+  },
+  {
+    label: (limits) => plural(limits.maxMembers, "team member"),
+    included: (limits) => hasLimit(limits.maxMembers),
+  },
+  {
+    label: (limits) =>
+      hasLimit(limits.creditsPerMonth)
+        ? `${formatLimit(limits.creditsPerMonth)} AI credits / month`
+        : "AI credits",
+    included: (limits) => hasLimit(limits.creditsPerMonth),
+  },
+  {
+    label: (limits) =>
+      hasLimit(limits.conversationsPerDay)
+        ? `${formatLimit(limits.conversationsPerDay)} conversations / day`
+        : "Conversations",
+    included: (limits) => hasLimit(limits.conversationsPerDay),
+  },
+  {
+    label: (limits) =>
+      hasLimit(limits.emailsPerMonth)
+        ? `${formatLimit(limits.emailsPerMonth)} emails / month`
+        : "Marketing emails",
+    included: (limits) => hasLimit(limits.emailsPerMonth),
+  },
+  {
+    label: (limits) =>
+      hasLimit(limits.maxProductsPerDomain)
+        ? `${plural(limits.maxProductsPerDomain, "product")} per domain`
+        : "Catalog products",
+    included: (limits) => hasLimit(limits.maxProductsPerDomain),
+  },
+];
+
+/**
+ * The rows for one plan. When a row is excluded the label is the bare feature
+ * name — "Marketing emails" struck through — instead of "0 emails / month",
+ * which reads like a bug rather than an absence.
+ */
+export function planFeatures(plan: Plan): PlanFeature[] {
+  const limits = PLAN_LIMITS[plan];
+
+  return FEATURE_ROWS.map((row) => ({
+    label: row.label(limits),
+    included: row.included(limits),
+  }));
+}
