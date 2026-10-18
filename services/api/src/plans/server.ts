@@ -66,7 +66,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     widgetVariants: [...WIDGET_VARIANT_IDS],
   },
   ultimate: {
-    maxDomains: 100,
+    maxDomains: 50,
     maxWorkspaces: Number.POSITIVE_INFINITY,
     creditsPerMonth: 3000,
     conversationsPerDay: 50000,
