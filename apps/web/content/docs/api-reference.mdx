@@ -1,292 +1,224 @@
 ---
 title: API Reference
-description: Build custom integrations with the Ziyarn REST API.
+description: The HTTP API Ziyarn exposes, and how to authenticate.
 ---
 
 # API Reference
 
-The Ziyarn API lets you build custom integrations, manage resources programmatically, and extend the platform.
+Ziyarn exposes two kinds of HTTP API:
+
+- **Public** — used by the widget and by visitor-facing pages. No account, no
+  API key. The widget authenticates with a domain's embed secret.
+- **Dashboard** — used by the dashboard itself. It authenticates with the
+  signed-in user's session cookie, exactly like the dashboard pages.
+
+There is no API key system yet. If you need to drive Ziyarn from your own
+backend, use the public endpoints with a domain's embed secret, or ask us for
+an API key.
 
 ## Base URL
 
+The API lives on the same host as the dashboard:
+
 ```
-https://api.ziyarn.com/v1
+https://ziyarn.vercel.app/api
 ```
 
 ## Authentication
 
-All API requests require an API key:
+### Public endpoints (widget and portal)
+
+The widget sends the domain's embed secret in a header:
 
 ```bash
-curl -H "Authorization: Bearer YOUR_API_KEY" \
-  https://api.ziyarn.com/v1/domains
+curl -H "x-embed-secret: YOUR_EMBED_SECRET" \
+  https://ziyarn.vercel.app/api/chat
 ```
 
-### Getting an API Key
+The embed secret is on **Dashboard → Domains → [Domain] → Settings → Embed
+secret**. It authorises the domain, not a person: anyone holding it can post
+to that agent, so treat it like a password.
 
-1. Go to **Dashboard → Settings → API Keys**
-2. Click **Create API Key**
-3. Copy the key (shown only once)
+The booking endpoints are public and need no secret — they are keyed by
+`domainId`.
 
-### Key Permissions
+### Dashboard endpoints
 
-| Permission | Description |
-|------------|-------------|
-| `read` | Read access to resources |
-| `write` | Create and update resources |
-| `admin` | Full access including delete |
+They use the session cookie of a signed-in user, so a script can only call them
+with that user's session. Every one of them checks what the caller may do:
+their own domains, and the teams they belong to.
 
-## Rate Limits
+## Chat API
 
-| Plan | Per Minute | Per Hour |
-|------|------------|----------|
-| Free | 60 | 600 |
-| Pro | 100 | 1,000 |
-| Enterprise | 1,000 | 10,000 |
-
-Rate limit headers:
-
-```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1642248000
-```
-
-## Endpoints
-
-### Domains
-
-#### List Domains
+### Get the agent's configuration
 
 ```http
-GET /v1/domains
+GET /api/chat
 ```
 
-Response:
+Requires the `x-embed-secret` header. Returns the agent's name, welcome
+message, business type, placeholder text, and the widget variant the domain
+uses.
 
 ```json
 {
-  "domains": [
-    {
-      "id": "dom_abc123",
-      "name": "Acme Support",
-      "slug": "acme",
-      "created_at": "2024-01-15T10:30:00Z"
-    }
-  ]
+  "agentName": "Acme Support",
+  "greeting": "Hi! How can we help?",
+  "businessType": "retail",
+  "placeholders": ["Where is my order?"],
+  "knowledgeSearch": true,
+  "widgetVariant": "classic"
 }
 ```
 
-#### Get Domain
+### Conversation history
 
 ```http
-GET /v1/domains/:id
+GET /api/chat?conversationId=<id>
 ```
 
-#### Create Domain
+Returns the messages of one conversation. Requires the embed secret.
+
+### Send a message
 
 ```http
-POST /v1/domains
+POST /api/chat
 ```
+
+Headers: `x-embed-secret`, `content-type: application/json`.
 
 ```json
 {
-  "name": "New Domain",
-  "slug": "new-domain",
-  "description": "A new helpdesk domain"
+  "message": "Where is my order?",
+  "conversationId": "optional-id"
 }
 ```
 
-### Conversations
+The response is a **stream** (`text/event-stream`): the agent's reply arrives
+token by token, so the widget can render it as it is written. When the agent
+escalates to a human, the owner's replies are delivered on the same stream.
 
-#### List Conversations
+Errors:
+
+| Status | Code | Meaning |
+|--------|------|---------|
+| 401 | `MISSING_SECRET` | The `x-embed-secret` header was not sent |
+| 401 | `INVALID_SECRET` | The secret does not match a domain |
+| 403 | `RATE_LIMITED` | Too many conversations for this domain today |
+| 429 | `CONVERSATION_LIMIT_REACHED` | The plan's daily conversation limit is used up |
+
+Rate limits are per domain and per day, and follow the plan's
+`conversationsPerDay` limit — see [Billing](/docs/billing).
+
+## Booking API (public)
+
+### Availability settings
 
 ```http
-GET /v1/conversations?domain_id=dom_abc123
+GET /api/public/booking-settings?domainId=<id>
 ```
 
-#### Get Conversation
+Returns the days, hours, slot duration and notice a domain offers.
+
+### Open slots
 
 ```http
-GET /v1/conversations/:id
+GET /api/public/booking-slots?domainId=<id>&date=YYYY-MM-DD
 ```
 
-#### Create Conversation
-
-```http
-POST /v1/conversations
-```
+Returns the times still free on that date.
 
 ```json
-{
-  "domain_id": "dom_abc123",
-  "customer_email": "user@example.com"
-}
+{ "slots": ["09:00", "09:30", "10:00"] }
 ```
 
-### Messages
-
-#### List Messages
+### Create a booking
 
 ```http
-GET /v1/conversations/:id/messages
-```
-
-#### Send Message
-
-```http
-POST /v1/messages
+POST /api/public/bookings
 ```
 
 ```json
 {
-  "conversation_id": "conv_abc123",
-  "content": "Hello from the API"
+  "domainId": "…",
+  "date": "2026-03-04",
+  "time": "09:30",
+  "name": "Sam",
+  "email": "sam@example.com",
+  "topic": "Order #123"
 }
 ```
 
-### Customers
+The slot is checked before the booking is written, so two visitors cannot take
+the same time. A taken slot answers `409` with `SLOT_UNAVAILABLE`.
 
-#### List Customers
+## Team API (dashboard session)
 
-```http
-GET /v1/customers?domain_id=dom_abc123
-```
+These are the endpoints the team page uses. All of them act on teams the
+caller belongs to, and check the caller's role.
 
-#### Get Customer
+| Method | Path | Who | What |
+|--------|------|-----|------|
+| `GET` | `/api/workspace` | member | The teams the caller belongs to, with their role |
+| `POST` | `/api/workspace` | member | Create a team (the caller becomes its owner) |
+| `PATCH` | `/api/workspace/[workspaceId]` | owner, admin | Rename the team |
+| `DELETE` | `/api/workspace/[workspaceId]` | owner, admin | Delete the team, its memberships and its invites |
+| `POST` | `/api/workspace/[workspaceId]/invite` | owner, admin | Invite someone by email |
+| `DELETE` | `/api/workspace/[workspaceId]/invites/[inviteId]` | owner, admin | Revoke a pending invite |
+| `PATCH` | `/api/workspace/[workspaceId]/members/[memberId]` | owner, admin | Change a member's role |
+| `DELETE` | `/api/workspace/[workspaceId]/members/[memberId]` | owner, admin | Remove a member |
+| `POST` | `/api/invite/accept` | signed in | Accept an invite with its token |
 
-```http
-GET /v1/customers/:id
-```
-
-### Products
-
-#### List Products
-
-```http
-GET /v1/products?domain_id=dom_abc123
-```
-
-#### Get Product
+Creating a team:
 
 ```http
-GET /v1/products/:id
+POST /api/workspace
+{ "name": "Acme Support" }
 ```
 
-### Bookings
-
-#### List Bookings
+Inviting someone:
 
 ```http
-GET /v1/bookings?domain_id=dom_abc123
+POST /api/workspace/<workspaceId>/invite
+{ "email": "teammate@example.com", "role": "member" }
 ```
 
-#### Create Booking
-
-```http
-POST /v1/bookings
-```
-
-```json
-{
-  "domain_id": "dom_abc123",
-  "customer_email": "user@example.com",
-  "date": "2024-01-20",
-  "time": "10:00"
-}
-```
-
-## Error Handling
-
-### Error Response Format
-
-```json
-{
-  "error": {
-    "code": "not_found",
-    "message": "Domain not found",
-    "details": {
-      "domain_id": "dom_invalid"
-    }
-  }
-}
-```
-
-### Error Codes
-
-| Code | Status | Description |
-|------|--------|-------------|
-| `unauthorized` | 401 | Invalid or missing API key |
-| `forbidden` | 403 | Insufficient permissions |
-| `not_found` | 404 | Resource doesn't exist |
-| `validation_error` | 400 | Invalid request body |
-| `rate_limit_exceeded` | 429 | Too many requests |
-| `internal_error` | 500 | Server error |
-
-### Handling Errors
-
-```typescript
-try {
-  const response = await fetch("https://api.ziyarn.com/v1/domains", {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  
-  if (!response.ok) {
-    const error = await response.json();
-    console.error(`API Error: ${error.error.message}`);
-    return;
-  }
-  
-  const data = await response.json();
-  // Handle success
-} catch (error) {
-  console.error("Network error:", error);
-}
-```
-
-## SDKs
-
-### JavaScript / TypeScript
-
-```bash
-npm install @ziyarn/sdk
-```
-
-```typescript
-import { ZiyarnClient } from "@ziyarn/sdk";
-
-const client = new ZiyarnClient({ apiKey: "your-key" });
-const domains = await client.domains.list();
-```
-
-### Python
-
-```bash
-pip install ziyarn
-```
-
-```python
-from ziyarn import ZiyarnClient
-
-client = ZiyarnClient(api_key="your-key")
-domains = client.domains.list()
-```
-
-### cURL
-
-```bash
-curl -H "Authorization: Bearer YOUR_API_KEY" \
-  https://api.ziyarn.com/v1/domains
-```
+The response carries the invite's accept link. The dashboard emails it; the
+link is also returned so a client can share it itself.
 
 ## Webhooks
 
-See [Integrations](/docs/integrations) for webhook setup and event types.
+| Path | From | What |
+|------|------|------|
+| `POST /api/webhooks/stripe` | Stripe | Payment events; a paid plan is applied to the account's domains |
+| `POST /api/webhooks/resend` | Resend | Email delivery, bounce and complaint events |
 
-## Best Practices
+Both verify the provider's signature before acting on an event.
 
-1. **Use API keys securely** — Never expose in client-side code
-2. **Handle rate limits** — Implement exponential backoff
-3. **Verify webhooks** — Check signatures for authenticity
-4. **Cache responses** — Reduce API calls where possible
-5. **Use pagination** — Don't fetch all records at once
+## Error shape
+
+Every endpoint answers a failure the same way:
+
+```json
+{ "code": "INVALID_INPUT", "message": "Please fix the highlighted fields" }
+```
+
+Some endpoints add `fieldErrors` for per-field problems:
+
+```json
+{
+  "code": "INVALID_INPUT",
+  "message": "Please fix the highlighted fields",
+  "fieldErrors": { "email": ["Invalid email address"] }
+}
+```
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| `INVALID_INPUT` | 400 | The request did not validate |
+| `UNAUTHORIZED` | 401 | No or invalid credentials |
+| `FORBIDDEN` | 403 | Signed in, but not allowed to do this |
+| `NOT_FOUND` | 404 | No such resource, or none you can see |
+| `CONFLICT` | 409 | The slug or email is already taken |
+| `PLAN_LIMIT_EXCEEDED` | 429 | The plan's limit would be passed |
+| `INTERNAL` | 500 | Something went wrong on our side |

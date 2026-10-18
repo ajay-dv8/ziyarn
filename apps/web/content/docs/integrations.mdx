@@ -5,161 +5,75 @@ description: Connect third-party services and build custom integrations.
 
 # Integrations
 
-Connect external services and build custom integrations with Ziyarn.
+Connect external services to Ziyarn, and drive Ziyarn from your own code.
 
 ## Available Integrations
 
 ### Databases
+
+Connect a database and use its tables as your product catalog. Configure it in
+**Dashboard → Integrations**.
 
 - **PostgreSQL** — Neon, Supabase, Railway
 - **MySQL** — PlanetScale, Railway
 - **MongoDB** — Atlas
 - **Convex** — Convex platform
 
+The schema is read on connect, so you can pick which tables and columns become
+products. See [Database](/docs/database).
+
 ### Payments
 
-- **Stripe** — International payments
-- **Paystack** — African payments
+- **Paystack** — Card, mobile money and bank transfer checkout
+- **Stripe** — International card payments
 
-### Calendar
-
-- **Google Calendar** — Sync bookings
-- **Outlook Calendar** — Sync bookings
+Both are processed through the platform: the webhook applies the plan to your
+domains when a payment succeeds.
 
 ### Email
 
-- **Transactional email** — Booking confirmations, notifications
-- **Campaigns** — Marketing emails
+- **Transactional email** — Booking confirmations, cancellations, escalation
+  notices, team invites
+- **Campaigns** — Marketing emails to a customer segment
 
-## Webhooks
+Email is sent through the SMTP server the deployment is configured with. If
+none is configured, transactional sends are skipped quietly and campaigns
+cannot be sent.
 
-Send real-time events to your server:
+## Talking to Ziyarn
 
-### Event Types
+The HTTP API is documented in full in the [API Reference](/docs/api-reference).
+In short:
 
-| Event | Description |
-|-------|-------------|
-| `conversation.created` | New conversation started |
-| `conversation.ended` | Conversation resolved |
-| `message.received` | Visitor sent a message |
-| `escalation.triggered` | Conversation escalated |
-| `booking.created` | New booking made |
-| `payment.completed` | Payment successful |
-| `contact.created` | New contact added |
+- **Public endpoints** — the widget and the visitor-facing booking pages. The
+  widget authenticates with a domain's embed secret.
+- **Dashboard endpoints** — the endpoints the dashboard itself uses, with the
+  signed-in user's session.
 
-### Webhook Payload
+There is no API key system and no published SDK yet. If you need to drive
+Ziyarn from a backend, the public endpoints plus an embed secret are the
+supported route today — and a custom chat interface is a matter of posting to
+`/api/chat` and reading the stream back.
 
-```json
-{
-  "event": "conversation.created",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "data": {
-    "id": "conv_abc123",
-    "domain_id": "dom_xyz789",
-    "customer_email": "user@example.com",
-    "message": "Hello, I need help"
-  }
-}
-```
+## Receiving events
 
-### Setting Up Webhooks
+Today the platform receives webhooks rather than sending them:
 
-1. Go to **Dashboard → Integrations → Webhooks**
-2. Click **Add Webhook**
-3. Enter your endpoint URL
-4. Select events to listen for
-5. Save
+| Endpoint | From | What it does |
+|----------|------|--------------|
+| `POST /api/webhooks/stripe` | Stripe | Payment events; a paid plan is applied to your domains |
+| `POST /api/webhooks/resend` | Resend | Delivery, bounce and complaint events |
 
-### Verifying Webhooks
+Both verify the provider's signature before acting.
 
-Verify webhook signatures:
-
-```typescript
-import crypto from "crypto";
-
-function verifyWebhook(payload, signature, secret) {
-  const expected = crypto
-    .createHmac("sha256", secret)
-    .update(payload)
-    .digest("hex");
-  return signature === expected;
-}
-```
-
-## REST API
-
-Build custom integrations with the API:
-
-### Authentication
-
-```bash
-curl -H "Authorization: Bearer YOUR_API_KEY" \
-  https://api.ziyarn.com/v1/domains
-```
-
-### Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/v1/domains` | List domains |
-| GET | `/v1/domains/:id` | Get domain |
-| POST | `/v1/conversations` | Create conversation |
-| GET | `/v1/conversations/:id` | Get conversation |
-| POST | `/v1/messages` | Send message |
-| GET | `/v1/customers` | List customers |
-| GET | `/v1/products` | List products |
-
-### Rate Limits
-
-- 100 requests per minute per API key
-- 1000 requests per hour per API key
-
-### Error Responses
-
-```json
-{
-  "error": {
-    "code": "unauthorized",
-    "message": "Invalid API key"
-  }
-}
-```
-
-## Custom Integrations
-
-### Using the SDK
-
-```typescript
-import { ZiyarnClient } from "@ziyarn/sdk";
-
-const client = new ZiyarnClient({
-  apiKey: "your-api-key",
-  baseUrl: "https://api.ziyarn.com",
-});
-
-// List conversations
-const conversations = await client.conversations.list();
-
-// Send a message
-await client.messages.send({
-  conversationId: "conv_abc123",
-  content: "Hello from custom integration",
-});
-```
-
-### Building a Custom Widget
-
-Use the API to build a custom chat interface:
-
-1. Authenticate with API key
-2. Create or join a conversation
-3. Send and receive messages
-4. Handle events via webhooks
+Outgoing webhooks — "tell my server when a conversation is created" — are on
+the roadmap. Until then, poll the dashboard endpoints, or use the chat stream
+for live conversations.
 
 ## Best Practices
 
-1. **Use webhooks** — Real-time events are more efficient than polling
-2. **Verify signatures** — Ensure webhooks are authentic
-3. **Handle errors** — Implement retry logic
-4. **Respect rate limits** — Don't exceed API quotas
-5. **Store credentials securely** — Never expose API keys
+1. **Keep the embed secret private** — it authorises your agent, not a person
+2. **Handle errors** — a failed request answers with a `code` and a `message`
+3. **Respect the plan's limits** — conversations, credits and seats are
+   enforced, not just reported
+4. **Store credentials securely** — never commit database or mail credentials
