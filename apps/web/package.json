@@ -15,6 +15,7 @@
     "lint": "node scripts/build-widget.mjs --check && eslint --max-warnings 0",
     "check-types": "next typegen && tsc --noEmit",
     "test": "vitest run",
+    "test:widget": "node scripts/widget-e2e.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {
