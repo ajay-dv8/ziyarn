@@ -50,6 +50,30 @@ function read(...parts) {
   }
 }
 
+/**
+ * Fails the build if a variant's markup does not balance.
+ *
+ * The markup is a tree of concatenated strings, so an edit that removes a
+ * wrapper has to remove the matching closing tag by eye. Get that wrong and the
+ * launcher ends up inside the closed panel: the widget still "renders", but at
+ * zero size, and it is invisible on every customer site — with no error
+ * anywhere to point at. Counting the tags is the cheapest guard that catches it.
+ */
+function assertBalancedMarkup(id, source) {
+  const tags = ["div", "span", "button", "ul", "li"];
+  for (const tag of tags) {
+    const opens = (source.match(new RegExp(`<${tag}\\b`, "g")) || []).length;
+    const closes = (source.match(new RegExp(`</${tag}>`, "g")) || []).length;
+    if (opens !== closes) {
+      throw new Error(
+        `widget/variants/${id}.js: <${tag}> opens ${opens} time(s) but closes ` +
+          `${closes}. The markup is unbalanced — check that every element you ` +
+          "removed also had its closing tag removed.",
+      );
+    }
+  }
+}
+
 /** Wraps CSS in a template literal, escaping backticks and ${ so it cannot break out. */
 function asCssLiteral(css) {
   return "`\n" + css.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${") + "`";
@@ -62,6 +86,12 @@ function build() {
     const css = read("variants", `${id}.css`);
     return `  ${JSON.stringify(id)}: ${asCssLiteral(css)},`;
   }).join("\n");
+
+  // Checked before anything is assembled, so a bad edit fails with a message
+  // about the source rather than a broken bundle.
+  for (const id of VARIANTS) {
+    assertBalancedMarkup(id, read("variants", `${id}.js`));
+  }
 
   const parts = [
     read("preamble.js"),
