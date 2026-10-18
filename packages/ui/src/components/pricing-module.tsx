@@ -36,7 +36,7 @@ export interface PricingPlan {
   /** Small line under the price. */
   priceNote?: string
   /** One-line summary shown above the feature list. */
-  summary: string
+  summary?: string
   features: PlanFeature[]
   recommended?: boolean
   /** Overrides the button text for this plan. */
@@ -130,13 +130,6 @@ export function PricingModule({
           )}
         >
           <CardTitle className="text-xl">{plan.name}</CardTitle>
-          {/* The "Recommended" pill lives next to the title. Move it out of
-              this row to badge the card itself instead. */}
-          {plan.recommended && (
-            <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium text-primary-foreground">
-              Recommended
-            </span>
-          )}
         </div>
         <CardDescription>{plan.description}</CardDescription>
       </div>
@@ -163,20 +156,16 @@ export function PricingModule({
       </Button>
     ) : null
 
-    // ---- Summary line ----
-    const summaryBlock = (
+    // ---- Summary line (omit a plan's summary by leaving it unset) ----
+    const summaryBlock = plan.summary ? (
       <p className="text-sm text-muted-foreground">{plan.summary}</p>
-    )
+    ) : null
 
     // ---- Feature list ----
+    // One item per line, always: the list reads as a single baseline, so a
+    // plan's list can be scanned straight down.
     const featuresBlock = (
-      <ul
-        className={cn(
-          "mt-8 space-y-2 text-sm",
-          plan.wide &&
-            "sm:columns-2 sm:gap-x-8 sm:[&>li]:break-inside-avoid"
-        )}
-      >
+      <ul className="mt-8 space-y-2 text-sm">
         {plan.features.map((feature) => (
           <li key={feature.label} className="flex items-start gap-2">
             {feature.included ? (
@@ -205,43 +194,59 @@ export function PricingModule({
     )
 
     return (
-      <Card
+      // The wrapper is the grid item, so the "Recommended" pill can sit on the
+      // card's top border: the card clips its own overflow, so a pill placed
+      // inside it would be cut in half.
+      <div
         key={plan.id}
-        data-slot="pricing-plan"
-        data-plan={plan.id}
-        className={cn(
-          "relative flex flex-col border-border transition-all hover:border-primary/30 hover:shadow-md",
-          plan.recommended && "border-primary ring-2 ring-primary/80 lg:scale-[1.02]",
-          plan.wide && "sm:col-span-2 lg:col-span-4"
-        )}
+        data-slot="pricing-plan-wrapper"
+        className={cn("relative", plan.wide && "sm:col-span-2 lg:col-span-4")}
       >
+        {/* ---- "Recommended" pill, centred on the card's top border ---- */}
+        {plan.recommended && (
+          <span className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground shadow-sm">
+            Recommended
+          </span>
+        )}
+
+        <Card
+          data-slot="pricing-plan"
+          data-plan={plan.id}
+          className={cn(
+            "relative flex h-full flex-col border-border transition-all hover:border-primary/30 hover:shadow-md",
+            plan.recommended && "border-primary ring-2 ring-primary/80 lg:scale-[1.02]"
+          )}
+        >
         {/* WIDE CARD LAYOUT (the full-width card below the row).
-            Order here: title | price, then summary + features | button. */}
+            Laptop and up: three columns — title, price + button, features.
+            Mobile: one column — title with the price beside it, the feature
+            list, then the button last. */}
         {plan.wide ? (
           <div className="md:grid grid-cols-3 md:px-4">
-            <CardHeader className="sm:grid-cols-[1fr_auto] md:flex flex-col  sm:gap-8">
+            <CardHeader className="grid-cols-[1fr_auto] items-start gap-4 sm:gap-8 md:flex md:flex-col">
               <div className="flex items-start gap-3">
                 {iconBlock}
                 {titleBlock}
               </div>
-             
-                <div className="flex flex-col items-start gap-3">
-                   {priceBlock}
 
-                  <div className="hidden md:block">
-                    {actionBlock && (
-                    <div className="sm:order-2 sm:w-48 sm:shrink-0">{actionBlock}</div>
+              <div className="flex flex-col items-start gap-3">
+                {priceBlock}
+
+                {/* Button beside the price on laptop and up. */}
+                <div className="hidden md:block">
+                  {actionBlock && (
+                    <div className="w-48 shrink-0">{actionBlock}</div>
                   )}
-                  </div>
-
+                </div>
               </div>
             </CardHeader>
-            {/* i want feature list on baseline */}
+            {/* The feature list: one item per line, on a single baseline. */}
             <CardContent className="col-span-2 flex items-baseline sm:flex sm:items-start sm:gap-8">
               <div className="min-w-0 flex-1 sm:order-1">
                 {summaryBlock}
                 {featuresBlock}
               </div>
+              {/* On mobile the button comes after the list. */}
               {actionBlock && (
                 <div className="sm:order-2 sm:w-48 sm:shrink-0 md:hidden">{actionBlock}</div>
               )}
@@ -272,7 +277,8 @@ export function PricingModule({
             </CardContent>
           </>
         )}
-      </Card>
+        </Card>
+      </div>
     )
   }
 
