@@ -24,26 +24,24 @@ Sync products from connected databases:
 Add products directly:
 
 1. Go to **Dashboard → Products**
-2. Click **Add Product**
-3. Enter:
+2. Click **Add product**
+3. Pick the domain it belongs to
+4. Enter:
    - **Name** — Product title
-   - **Description** — Product details
-   - **Price** — Price in cents (e.g., 2999 for $29.99)
-   - **Currency** — Currency code (USD, EUR, etc.)
-   - **Image URL** — Product image
-   - **In Stock** — Availability
-4. Click **Save**
+   - **Description** — Product details (optional)
+   - **Price** — Amount, in major units (e.g. `49.00`)
+   - **Currency** — GHS, USD, EUR or GBP
+5. Click **Add product**
 
 ## Product Fields
 
 | Field | Required | Description |
 |-------|----------|-------------|
 | Name | ✅ | Product title |
-| Description | ✅ | Product details |
-| Price | ✅ | Price in smallest currency unit |
-| Currency | ❌ | Default: USD |
-| Image URL | ❌ | Product image |
-| In Stock | ❌ | Default: true |
+| Description | ❌ | Product details |
+| Price | ✅ | Amount in major units (`49.00`), stored in the smallest unit |
+| Currency | ❌ | GHS, USD, EUR or GBP. Default: GHS |
+| Availability | ❌ | Free-text stock note shown to the agent |
 
 ## How It Works
 

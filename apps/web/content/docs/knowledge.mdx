@@ -59,27 +59,13 @@ Example entries:
 
 ## Knowledge Organization
 
-### Categories
+Knowledge belongs to a domain, and a domain has one agent. Everything uploaded
+or crawled for that domain is what that agent answers from — so keeping it
+tidy is a matter of keeping each domain's knowledge separate.
 
-Organize knowledge by topic:
-- Products
-- Shipping
-- Returns
-- Billing
-- Technical support
-
-### Priority
-
-Set priority for conflicting information:
-- Manual entries override crawled content
-- Higher priority entries take precedence
-
-### Tags
-
-Tag entries for filtering:
-- `#billing` — Billing-related questions
-- `#technical` — Technical support
-- `#urgent` — High-priority topics
+Documents are stored whole and split into chunks for retrieval. A chunk keeps
+its position in the source document, so an answer can point back at the
+passage it came from.
 
 ## How It Works
 

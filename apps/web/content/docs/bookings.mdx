@@ -85,57 +85,37 @@ https://your-domain.com/portal/book?domainId=YOUR_DOMAIN_ID
 
 Share this link in emails, social media, or your website.
 
-## Notifications
-
-### Email Notifications
-
-Configure who receives booking notifications:
-
-1. Go to **Dashboard → Settings**
-2. Enter notification email addresses
-3. Choose notification types:
-   - New booking
-   - Cancellation
-   - Reschedule
-
-### Dashboard Notifications
+## Where Bookings Appear
 
 Bookings appear in **Dashboard → Bookings**:
 - View all upcoming appointments
 - Filter by status (pending, confirmed, cancelled)
 - See customer details
 
-## Calendar Integration
-
-### Google Calendar
-
-Sync bookings to Google Calendar:
-1. Go to **Dashboard → Settings → Calendar**
-2. Connect Google account
-3. Select calendar for events
-4. Events auto-sync
-
-### Outlook Calendar
-
-Sync to Outlook Calendar:
-1. Connect Microsoft account
-2. Select calendar
-3. Events appear automatically
+A new booking also notifies you in the dashboard, and your agent can be given
+the booking tool so visitors can book from the chat itself.
 
 ## Booking Settings
 
+Availability is set per domain, from **Dashboard → Bookings → Configure**:
+
 | Setting | Description | Default |
 |---------|-------------|---------|
+| Days | Which days of the week you take bookings | — |
+| Start / end | The hours you are available | — |
 | Duration | Appointment length | 30 minutes |
-| Buffer | Time between appointments | 15 minutes |
 | Advance booking | How far ahead to book | 30 days |
 | Minimum notice | Minimum time before appointment | 2 hours |
+
+The visitor-facing booking page reads these settings through the public
+booking API, so the slots offered on your site are always the ones you
+configured.
 
 ## Best Practices
 
 1. **Set realistic hours** — Don't overbook
 2. **Add buffer time** — Prevent back-to-back meetings
-3. **Configure notifications** — Never miss a booking
+3. **Check your availability** — Keep your hours current
 4. **Test the flow** — Book a test appointment
 5. **Monitor bookings** — Check Dashboard → Bookings regularly
 
@@ -157,7 +137,6 @@ Sync to Outlook Calendar:
 
 ### No email sent
 
-1. Verify email service is configured
-2. Check notification settings
-3. Test with a manual booking
-4. Check spam folder
+1. Verify the mail server is configured (`SMTP_HOST`, `SMTP_FROM`)
+2. Test with a manual booking
+3. Check the spam folder — new senders are often filtered

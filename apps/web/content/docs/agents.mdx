@@ -11,44 +11,45 @@ Each domain has a dedicated AI agent that handles customer conversations. Config
 
 Go to **Dashboard → Agents** and select your domain.
 
-### System Prompt
+### Name
 
-The system prompt defines your agent's personality and behavior:
+What the agent is called in the dashboard, and what visitors see as the
+widget's title once the agent has loaded.
+
+### About this business
+
+A short description of what your business does. It is the strongest signal the
+agent has about your products, so make it specific:
 
 ```
-You are a helpful support agent for Acme Corp.
-
-Your role:
-- Answer questions about our products and services
-- Help with orders and returns
-- Book appointments when requested
-- Escalate complex issues to human agents
-
-Tone: Friendly, professional, concise.
-Rules:
-- Always be polite and helpful
-- If you don't know something, say so honestly
-- For billing issues, always escalate to a human
-- Never share internal company information
+We sell handmade furniture in Accra. We deliver within Greater Accra in 3
+working days, and people usually ask about delivery times, fabric, care and
+custom orders.
 ```
 
-### Model Selection
+### Filter questions
 
-Choose which AI model powers your agent:
+One question per line. They are asked at the start of a conversation, and the
+answers are saved with the lead, so you know who you are talking to before
+they ask anything:
 
-| Model | Best For | Speed |
-|-------|----------|-------|
-| Gemini Flash | General support | Fast |
-| GPT-4o | Complex reasoning | Medium |
-| Claude | Detailed responses | Medium |
+```
+How many employees do you have?
+What's your budget range?
+When do you need this by?
+```
 
-### Fallback Behavior
+### Which model answers
 
-Configure what happens when the agent can't help:
+The model is a deployment setting, not a per-agent one: the dashboard runs on
+Gemini, with an OpenRouter model as a fallback when the primary provider is
+unavailable. Both are configured with environment variables.
 
-1. **Escalate to human** — Transfer to a human agent
-2. **Collect information** — Gather details and create a ticket
-3. **Apologize and close** — End the conversation politely
+### When the agent cannot help
+
+The agent escalates to a human when it cannot answer, and the conversation
+appears in **Dashboard → Conversations** for you to take over. See
+[Conversations](/docs/conversations).
 
 ## Agent Tools
 
@@ -75,29 +76,30 @@ Transfer to humans when needed:
 - Gather context before transfer
 - Notify human agents via email/dashboard
 
-## Multi-Agent Setup
+## Agents per Domain
 
-For complex setups, you can have multiple agents:
+Each domain has one agent, configured in **Dashboard → Agents**. The agent
+answers with that domain's knowledge base, tools and products, so two domains
+can behave differently while sharing the same platform:
 
 - **Support Agent** — Handles general questions
 - **Sales Agent** — Focuses on product sales
 - **Booking Agent** — Manages appointments
 
-Configure agent routing in **Dashboard → Settings → Agent Routing**.
+A domain in a team can be worked on by everyone in that team, according to
+their role — see [Teams](/docs/teams).
 
 ## Testing Your Agent
 
-1. Go to **Dashboard → Conversations**
-2. Start a new conversation
-3. Send test messages
-4. Verify responses match your system prompt
-
-Or use the widget on your test site.
+Use the widget on a test page: embed it, ask it what you would ask a
+customer, and check the answers against your knowledge base. The conversation
+then appears in **Dashboard → Conversations**, so you can see exactly what was
+sent and what came back.
 
 ## Best Practices
 
-1. **Be specific** — Clear instructions produce better responses
-2. **Set boundaries** — Define what the agent should and shouldn't do
-3. **Include examples** — Show the agent how to handle common scenarios
-4. **Test regularly** — Verify behavior after changes
-5. **Monitor conversations** — Check for issues and adjust prompts
+1. **Be specific** — Say what you sell, where you deliver, what you don't cover
+2. **Keep the knowledge base current** — The agent can only answer from what is there
+3. **Use filter questions** — You learn what visitors need before they ask
+4. **Watch the escalations** — They show you what the agent could not answer
+5. **Test after every change** — Knowledge, products and tools all change what it says

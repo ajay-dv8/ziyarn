@@ -84,32 +84,39 @@ Click **Test Connection** to verify:
 
 ## Table Configuration
 
+You choose which tables to sync. Ziyarn then works out the columns itself —
+there is no mapping screen to fill in.
+
 ### Products Table
 
-Map your product table columns:
+A table is treated as a product catalog when it has a name column and a price
+column. The names it recognises:
 
-| Field | Description | Example |
-|-------|-------------|---------|
-| ID | Unique identifier | `id`, `product_id` |
-| Name | Product name | `name`, `title` |
-| Description | Product description | `description`, `body` |
-| Price | Price in smallest currency unit | `price`, `amount` |
-| Currency | Currency code | `currency` (default: `usd`) |
-| Image URL | Product image | `image`, `image_url` |
-| In Stock | Availability | `in_stock`, `available` |
+| Field | Recognised by | Example |
+|-------|---------------|---------|
+| Name | a column ending in `name`, `title` or `label` | `name`, `product_name`, `title` |
+| Price | a column containing `price`, `amount`, `cost`, `rate` or `fare` | `price`, `amount` |
+| Description | a column containing `description` or `body` | `description` |
+| Stock | a column containing `stock`, `available` or `availability` | `in_stock` |
+| Key | the table's primary key, or a column containing `id` or `sku` | `id`, `sku` |
+
+A price stored in cents (an integer) is used as-is; a price stored in major
+units (a decimal) is converted. Email and username columns are ignored when
+looking for the product name, so a table with both `name` and `email` still
+syncs correctly.
 
 ### Orders Table
 
-Map your order table columns:
+Orders are detected the same way:
 
-| Field | Description | Example |
-|-------|-------------|---------|
-| ID | Unique identifier | `id`, `order_id` |
-| Customer Email | Buyer's email | `email`, `customer_email` |
-| Amount | Total amount | `total`, `amount` |
-| Status | Order status | `status`, `state` |
-| Description | Order description | `description`, `notes` |
-| Created At | Order date | `created_at`, `date` |
+| Field | Recognised by | Example |
+|-------|---------------|---------|
+| Customer email | a column containing `email` | `email`, `customer_email` |
+| Amount | a column containing `total`, `amount` or `price` | `total`, `amount` |
+| Status | a column containing `status` or `state` | `status` |
+| Description | a column containing `description` or `notes` | `notes` |
+| Created at | a date column | `created_at` |
+| ID | a column containing `id` or `order` | `id`, `order_id` |
 
 ## How It Works
 
