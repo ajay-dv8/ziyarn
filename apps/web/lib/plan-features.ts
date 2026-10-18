@@ -1,5 +1,4 @@
 import { PLAN_LIMITS, type Plan, type PlanLimits } from "@repo/api/plans";
-import { WIDGET_VARIANTS } from "@repo/api/domains/widget-variants";
 import type { PlanFeature } from "@repo/ui/components/pricing-module";
 
 /**
@@ -80,18 +79,25 @@ const FEATURE_ROWS: readonly FeatureRow[] = [
     included: (limits) => hasLimit(limits.maxProductsPerDomain),
   },
   {
-    label: (limits) => {
-      const names = limits.widgetVariants.map((variantId) => {
-        const variant = WIDGET_VARIANTS.find((entry) => entry.id === variantId);
-        return variant?.label ?? variantId;
-      });
-      return names.length === 1
-        ? `${names[0]} widget`
-        : `All widgets (${names.join(", ")})`;
-    },
-    included: (limits) => limits.widgetVariants.length > 0,
+    // One label for every plan: the widget row says whether the plan lets the
+    // owner pick a widget, not which widgets exist.
+    label: () => "Choose your widget",
+    included: (limits) => limits.widgetVariants.length > 1,
   },
 ];
+
+/**
+ * Plans whose card is not a list of limits. Custom is negotiated, so its card
+ * states what it adds to the tier below rather than repeating "unlimited" on
+ * every row.
+ */
+const PLAN_FEATURE_OVERRIDES: Partial<Record<Plan, PlanFeature[]>> = {
+  custom: [
+    { label: "Everything in Enterprise", included: true },
+    { label: "Unlimited emails / month", included: true },
+    { label: "Dedicated development support", included: true },
+  ],
+};
 
 /**
  * The rows for one plan. When a row is excluded the label is the bare feature
@@ -99,6 +105,9 @@ const FEATURE_ROWS: readonly FeatureRow[] = [
  * which reads like a bug rather than an absence.
  */
 export function planFeatures(plan: Plan): PlanFeature[] {
+  const override = PLAN_FEATURE_OVERRIDES[plan];
+  if (override) return override;
+
   const limits = PLAN_LIMITS[plan];
 
   return FEATURE_ROWS.map((row) => ({
