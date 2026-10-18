@@ -23,29 +23,23 @@ const PAID_PLANS: Array<{
   plan: Plan;
   description: string;
   recommended?: boolean;
-  summary: string;
 }> = [
   {
     plan: "standard",
     description: "For growing teams",
-    summary: "Everything in Free, plus:",
   },
   {
     plan: "pro",
     description: "For busy support desks",
     recommended: true,
-    summary: "Everything in Plus, plus:",
   },
   {
     plan: "ultimate",
     description: "For high-volume operations",
-    summary: "Everything in Business, plus:",
   },
   {
     plan: "custom",
     description: "Tailored limits, hand-agreed",
-    summary:
-      "Everything in Enterprise, plus unlimited emails and dedicated development support.",
   },
 ];
 
@@ -77,9 +71,8 @@ function toPricingPlan(entry: {
   plan: Plan;
   description: string;
   recommended?: boolean;
-  summary: string;
 }): PricingPlan {
-  const { plan, description, recommended, summary } = entry;
+  const { plan, description, recommended } = entry;
   const isCustom = plan === "custom";
 
   return {
@@ -90,7 +83,6 @@ function toPricingPlan(entry: {
     priceLabel: isCustom ? "Custom" : undefined,
     priceNote: isCustom ? " " : undefined,
     currencySymbol: currencyPrefix(),
-    summary,
     features: planFeatures(plan),
     recommended,
     actionLabel: isCustom
