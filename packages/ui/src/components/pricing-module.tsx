@@ -23,7 +23,8 @@ export interface PricingPlan {
   id: string
   name: string
   description: string
-  icon: React.ReactNode
+  /** Optional. Rendered above the plan name when present. */
+  icon?: React.ReactNode
   /** Monthly price in whole currency units. */
   priceMonthly: number
   /** Yearly price in whole currency units, when annual billing is offered. */
@@ -70,9 +71,26 @@ export interface PricingModuleProps {
  * ones it does not include struck through, so the difference between two tiers
  * is readable without a comparison table.
  *
- * Everything about a plan — prices, limits, labels — is passed in. The module
- * renders it and owns nothing else, so the same component can show a plan set
- * on the pricing page, inside the dashboard, or in a campaign.
+ * Everything about a plan — names, prices, features, the button target — is
+ * passed in. The module renders it and owns nothing else, so the same
+ * component can show a plan set on the pricing page, inside the dashboard, or
+ * in a campaign.
+ *
+ * REARRANGING A CARD
+ * ------------------
+ * Every part of a card is built as its own block below, then placed in the
+ * markup further down. To move a part, move the block that renders it:
+ *
+ *   titleBlock    — the plan name and its description
+ *   iconBlock     — the optional icon, above the name
+ *   priceBlock    — the price, its currency and the note under it
+ *   actionBlock   — the button
+ *   summaryBlock  — the one-line summary above the features
+ *   featuresBlock — the list of features, checked and crossed out
+ *
+ * The wide card (the one that spans the full row below) has its own layout in
+ * the same function, so a change to the narrow card does not move the wide one
+ * by accident.
  */
 export function PricingModule({
   title = "Pricing Plans",
@@ -97,33 +115,34 @@ export function PricingModule({
     const price = (yearly ? plan.priceYearly : plan.priceMonthly) ?? 0
     const priceText = plan.priceLabel ?? `${plan.currencySymbol ?? ""}${price.toLocaleString()}`
 
-    const identity = (
-      <div
-        className={cn(
-          "flex items-start gap-3",
-          !plan.wide && "flex-col items-center text-center"
-        )}
-      >
-        <div className={cn(!plan.wide && "flex justify-center")}>{plan.icon}</div>
-        <div>
-          <div
-            className={cn(
-              "flex items-center gap-2",
-              !plan.wide && "justify-center"
-            )}
-          >
-            <CardTitle>{plan.name}</CardTitle>
-            {plan.recommended && (
-              <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium text-primary-foreground">
-                Recommended
-              </span>
-            )}
-          </div>
-          <CardDescription>{plan.description}</CardDescription>
+    // ---- Icon (optional, sits above the plan name) ----
+    const iconBlock = plan.icon ? (
+      <div className={cn(!plan.wide && "flex justify-center")}>{plan.icon}</div>
+    ) : null
+
+    // ---- Plan title and description ----
+    const titleBlock = (
+      <div>
+        <div
+          className={cn(
+            "flex items-center gap-2",
+            !plan.wide && "justify-center"
+          )}
+        >
+          <CardTitle>{plan.name}</CardTitle>
+          {/* The "Recommended" pill lives next to the title. Move it out of
+              this row to badge the card itself instead. */}
+          {plan.recommended && (
+            <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium text-primary-foreground">
+              Recommended
+            </span>
+          )}
         </div>
+        <CardDescription>{plan.description}</CardDescription>
       </div>
     )
 
+    // ---- Price ----
     const priceBlock = (
       <div className={cn("shrink-0", plan.wide ? "sm:text-right" : "text-center")}>
         <p className="text-3xl font-semibold tracking-tight">{priceText}</p>
@@ -133,7 +152,8 @@ export function PricingModule({
       </div>
     )
 
-    const action = plan.actionHref && (
+    // ---- Action button ----
+    const actionBlock = plan.actionHref ? (
       <Button
         className={cn("w-full", plan.wide && "sm:w-48 sm:shrink-0")}
         variant={plan.recommended ? "default" : "outline"}
@@ -141,6 +161,47 @@ export function PricingModule({
       >
         {plan.actionLabel ?? buttonLabel}
       </Button>
+    ) : null
+
+    // ---- Summary line ----
+    const summaryBlock = (
+      <p className="text-sm text-muted-foreground">{plan.summary}</p>
+    )
+
+    // ---- Feature list ----
+    const featuresBlock = (
+      <ul
+        className={cn(
+          "mt-4 space-y-2 text-sm",
+          plan.wide &&
+            "sm:columns-2 sm:gap-x-8 sm:[&>li]:break-inside-avoid"
+        )}
+      >
+        {plan.features.map((feature) => (
+          <li key={feature.label} className="flex items-start gap-2">
+            {feature.included ? (
+              <Check
+                className="mt-0.5 size-4 shrink-0 text-primary"
+                aria-hidden="true"
+              />
+            ) : (
+              <X
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground/50"
+                aria-hidden="true"
+              />
+            )}
+            <span
+              className={
+                feature.included
+                  ? "text-foreground"
+                  : "text-muted-foreground/60 line-through"
+              }
+            >
+              {feature.label}
+            </span>
+          </li>
+        ))}
+      </ul>
     )
 
     return (
@@ -154,62 +215,52 @@ export function PricingModule({
           plan.wide && "sm:col-span-2 lg:col-span-4"
         )}
       >
-        <CardHeader
-          className={cn(
-            // CardHeader is a grid, so the wide card needs explicit columns to
-            // sit the price beside the name instead of below it.
-            plan.wide && "sm:grid-cols-[1fr_auto] sm:gap-8"
-          )}
-        >
-          {identity}
-          {priceBlock}
-        </CardHeader>
-
-        <CardContent
-          className={cn(
-            "flex flex-1 flex-col gap-4",
-            plan.wide && "sm:flex-row sm:items-start sm:gap-8"
-          )}
-        >
-          {action && <div className={cn(plan.wide && "sm:order-2 sm:w-48 sm:shrink-0")}>{action}</div>}
-
-          <div className="min-w-0 flex-1">
-            <p className="text-sm text-muted-foreground">{plan.summary}</p>
-
-            <ul
-              className={cn(
-                "mt-4 space-y-2 text-sm",
-                plan.wide &&
-                  "sm:columns-2 sm:gap-x-8 sm:[&>li]:break-inside-avoid"
+        {/* WIDE CARD LAYOUT (the full-width card below the row).
+            Order here: title | price, then summary + features | button. */}
+        {plan.wide ? (
+          <>
+            <CardHeader className="sm:grid-cols-[1fr_auto] sm:gap-8">
+              <div className="flex items-start gap-3">
+                {iconBlock}
+                {titleBlock}
+              </div>
+              {priceBlock}
+            </CardHeader>
+            <CardContent className="sm:flex sm:items-start sm:gap-8">
+              <div className="min-w-0 flex-1 sm:order-1">
+                {summaryBlock}
+                {featuresBlock}
+              </div>
+              {actionBlock && (
+                <div className="sm:order-2 sm:w-48 sm:shrink-0">{actionBlock}</div>
               )}
-            >
-              {plan.features.map((feature) => (
-                <li key={feature.label} className="flex items-start gap-2">
-                  {feature.included ? (
-                    <Check
-                      className="mt-0.5 size-4 shrink-0 text-primary"
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    <X
-                      className="mt-0.5 size-4 shrink-0 text-muted-foreground/50"
-                      aria-hidden="true"
-                    />
-                  )}
-                  <span
-                    className={
-                      feature.included
-                        ? "text-foreground"
-                        : "text-muted-foreground/60 line-through"
-                    }
-                  >
-                    {feature.label}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </CardContent>
+            </CardContent>
+          </>
+        ) : (
+          /* NARROW CARD LAYOUT (the cards in the row).
+             Order here: icon, title, price, button, summary, features. */
+          <>
+            <CardHeader>
+              <div
+                className={cn(
+                  "flex items-start gap-3",
+                  "flex-col items-center text-center"
+                )}
+              >
+                {iconBlock}
+                {titleBlock}
+              </div>
+              {priceBlock}
+            </CardHeader>
+            <CardContent className="flex flex-1 flex-col gap-4">
+              {actionBlock}
+              <div className="min-w-0 flex-1">
+                {summaryBlock}
+                {featuresBlock}
+              </div>
+            </CardContent>
+          </>
+        )}
       </Card>
     )
   }
@@ -217,6 +268,7 @@ export function PricingModule({
   return (
     <section className={cn("w-full text-foreground", className)}>
       <div className="mx-auto w-full max-w-6xl px-4 md:px-6">
+        {/* ---- Page heading ---- */}
         <div className="text-center">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             {title}
@@ -226,6 +278,7 @@ export function PricingModule({
           </p>
         </div>
 
+        {/* ---- Monthly / annual toggle (hidden when no yearly prices) ---- */}
         {annualAvailable && (
           <div className="mt-8 flex items-center justify-center gap-2">
             <Switch
@@ -242,10 +295,12 @@ export function PricingModule({
           </div>
         )}
 
+        {/* ---- The row of plan cards ---- */}
         <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {rowPlans.map(renderCard)}
         </div>
 
+        {/* ---- The full-width card(s) below the row ---- */}
         {widePlans.length > 0 && (
           <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {widePlans.map(renderCard)}
