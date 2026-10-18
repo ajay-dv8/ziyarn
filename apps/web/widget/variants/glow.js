@@ -7,8 +7,6 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     send:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5.5 11.5 12 5l6.5 6.5"/></svg>',
-    globe:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 3.5 9A14 14 0 0 1 12 21a14 14 0 0 1-3.5-9A14 14 0 0 1 12 3z"/></svg>',
   };
 
   registerWidget("glow", {
@@ -46,13 +44,7 @@
         GLOW_ICONS.send +
         "</button>" +
         "</div>" +
-        '<div class="zy-composer-caps">' +
-        '<div class="zy-composer-caps-inner">' +
-        '<button type="button" class="zy-chip" data-chip="deep" aria-pressed="false" aria-label="Deep search" data-open="true" hidden>' +
-        GLOW_ICONS.globe +
-        '<span class="zy-chip-label">Deep search</span>' +
-        "</button>" +
-        "</div></div></div></div>" +
+        "</div>" +
         '<div class="zy-note">Powered by Ziyarn</div>' +
         "</div>" +
         '<button type="button" class="zy-launcher" aria-label="Open chat">' +

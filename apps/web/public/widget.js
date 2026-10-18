@@ -757,13 +757,19 @@
 
 /* base styles — panel, header, messages, composer, chips */
 var BASE_CSS = `
-/* ---- Reset & base ---- */
+/* ---- Reset & base ----
+   The theme tokens are private aliases (--_zy-*) that read the public names
+   (--zy-*). Declaring a custom property from itself — \`--zy-muted:
+   var(--zy-muted, #64748b)\` — is a cycle: it resolves to nothing at all, and
+   every colour that used it silently fell back to the inherited black. The
+   alias breaks the cycle while still letting a page override the widget by
+   setting --zy-* on the <zy-widget> element. */
 :host {
-  --zy-color: var(--zy-color, #10b981);
-  --zy-text: var(--zy-text, #0f172a);
-  --zy-muted: var(--zy-muted, #64748b);
-  --zy-bg: var(--zy-bg, #ffffff);
-  --zy-border: var(--zy-border, #e2e8f0);
+  --_zy-color: var(--zy-color, #10b981);
+  --_zy-text: var(--zy-text, #0f172a);
+  --_zy-muted: var(--zy-muted, #64748b);
+  --_zy-bg: var(--zy-bg, #ffffff);
+  --_zy-border: var(--zy-border, #e2e8f0);
   --zy-radius: 14px;
   --zy-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
   all: initial;
@@ -782,7 +788,7 @@ var BASE_CSS = `
   gap: 12px;
   font-size: 15px;
   line-height: 1.45;
-  color: var(--zy-text);
+  color: var(--_zy-text);
 }
 .zy-wrap[data-position="bottom-left"] { left: 20px; right: auto; align-items: flex-start; }
 .zy-wrap[data-position="bottom-right"] { right: 20px; left: auto; }
@@ -793,7 +799,7 @@ var BASE_CSS = `
   height: 58px;
   border: none;
   border-radius: 50%;
-  background: var(--zy-color);
+  background: var(--_zy-color);
   color: #fff;
   cursor: pointer;
   box-shadow: var(--zy-shadow);
@@ -816,8 +822,8 @@ var BASE_CSS = `
   max-width: calc(100vw - 32px);
   height: 620px;
   max-height: min(80vh, 700px);
-  background: var(--zy-bg);
-  border: 1px solid var(--zy-border);
+  background: var(--_zy-bg);
+  border: 1px solid var(--_zy-border);
   border-radius: var(--zy-radius);
   box-shadow: var(--zy-shadow);
   display: none;
@@ -828,7 +834,7 @@ var BASE_CSS = `
 
 /* ---- Header — agent name, description, online status, mobile close button ---- */
 .zy-header {
-  background: var(--zy-color);
+  background: var(--_zy-color);
   color: #fff;
   padding: 14px 16px;
   flex-shrink: 0;
@@ -888,12 +894,12 @@ var BASE_CSS = `
   animation: zy-in 0.16s ease;
 }
 /* Agent (AI) messages — left-aligned, white background */
-.zy-msg-agent { background: #fff; border: 1px solid var(--zy-border); border-bottom-left-radius: 5px; align-self: flex-start; }
+.zy-msg-agent { background: #fff; border: 1px solid var(--_zy-border); border-bottom-left-radius: 5px; align-self: flex-start; }
 /* Owner (human support) messages — left-aligned, accent border, labeled */
-.zy-msg-owner { background: #fff; border: 1px solid var(--zy-color); border-bottom-left-radius: 5px; align-self: flex-start; }
-.zy-msg-owner::before { content: "Owner"; display: block; font-size: 11px; font-weight: 600; color: var(--zy-color); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+.zy-msg-owner { background: #fff; border: 1px solid var(--_zy-color); border-bottom-left-radius: 5px; align-self: flex-start; }
+.zy-msg-owner::before { content: "Owner"; display: block; font-size: 11px; font-weight: 600; color: var(--_zy-color); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
 /* User (visitor) messages — right-aligned, accent background, white text */
-.zy-msg-user { background: var(--zy-color); color: #fff; border-bottom-right-radius: 5px; align-self: flex-end; }
+.zy-msg-user { background: var(--_zy-color); color: #fff; border-bottom-right-radius: 5px; align-self: flex-end; }
 /* Error messages — centered, red background */
 .zy-msg-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; align-self: center; font-size: 13px; }
 /* Typing indicator — bouncing dots while waiting for AI response */
@@ -904,7 +910,7 @@ var BASE_CSS = `
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--zy-color);
+  background: var(--_zy-color);
   animation: zy-bounce 1.4s ease-in-out infinite;
 }
 .zy-dot:nth-child(2) { animation-delay: 0.2s; }
@@ -929,12 +935,12 @@ var BASE_CSS = `
  */
 .zy-composer {
   padding: 10px 12px 12px;
-  border-top: 1px solid var(--zy-border);
+  border-top: 1px solid var(--_zy-border);
   background: #fff;
   flex-shrink: 0;
 }
 .zy-composer-shell {
-  border: 1px solid var(--zy-border);
+  border: 1px solid var(--_zy-border);
   border-radius: 26px;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -942,7 +948,7 @@ var BASE_CSS = `
 }
 .zy-composer-shell:focus-within,
 .zy-composer-shell[data-expanded="true"] {
-  border-color: color-mix(in srgb, var(--zy-color) 55%, var(--zy-border));
+  border-color: color-mix(in srgb, var(--_zy-color) 55%, var(--_zy-border));
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
 }
 
@@ -968,11 +974,13 @@ var BASE_CSS = `
   padding: 8px 0;
   font-size: 14.5px;
   font-family: inherit;
-  color: var(--zy-text);
+  color: var(--_zy-text);
   position: relative;
   z-index: 1;
 }
-/* Placeholder sits under the real input and is never focusable. */
+/* Placeholder sits under the real input and is never focusable. It is drawn at
+   half strength: it is a hint, not content, and the visitor's own text must
+   always win the eye. */
 .zy-composer-ph {
   position: absolute;
   left: 0;
@@ -983,11 +991,17 @@ var BASE_CSS = `
   align-items: center;
   pointer-events: none;
   overflow: hidden;
+  transition: opacity 0.16s ease;
+}
+/* Once the visitor is in the field — focused, or typing — the hint goes, so
+   their words never sit on top of it. */
+.zy-composer[data-ph-hidden="true"] .zy-composer-ph {
+  opacity: 0;
 }
 .zy-composer-ph span {
   display: inline-block;
   white-space: nowrap;
-  color: var(--zy-muted);
+  color: color-mix(in srgb, var(--_zy-muted) 50%, transparent);
   font-size: 14.5px;
   font-family: inherit;
   animation: zy-ph-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -1009,7 +1023,7 @@ var BASE_CSS = `
 .zy-send {
   border: none;
   border-radius: 50%;
-  background: var(--zy-color);
+  background: var(--_zy-color);
   color: #fff;
   width: 36px;
   height: 36px;
@@ -1024,63 +1038,10 @@ var BASE_CSS = `
 .zy-send:disabled { opacity: 0.4; cursor: not-allowed; }
 .zy-send svg { width: 17px; height: 17px; }
 
-/* Row 2 — capability chips, collapsed to zero height when idle */
-.zy-composer-caps {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-  padding: 0 14px;
-}
-.zy-composer[data-expanded="true"] .zy-composer-caps { grid-template-rows: 1fr; }
-.zy-composer-caps-inner {
-  overflow: hidden;
-  min-height: 0;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.zy-chip {
-  margin: 8px 0 2px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #475569;
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 500;
-  line-height: 1;
-  padding: 8px 12px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
-}
-.zy-chip svg { width: 14px; height: 14px; flex-shrink: 0; }
-.zy-chip:hover { background: #e2e8f0; }
-.zy-chip[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--zy-color) 12%, #fff);
-  border-color: color-mix(in srgb, var(--zy-color) 55%, transparent);
-  color: color-mix(in srgb, var(--zy-color) 82%, #0f172a);
-}
-/* Label width animates so the pill grows out of its icon, mirroring the
-   reference design without needing a measured width in JS. */
-.zy-chip-label {
-  display: inline-block;
-  white-space: nowrap;
-  transition: opacity 0.18s ease, max-width 0.26s cubic-bezier(0.22, 1, 0.36, 1);
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-}
-.zy-chip[data-open="true"] .zy-chip-label { max-width: 140px; opacity: 1; }
-
 .zy-probe { color: red; }
 
 /* ---- Footer note ---- */
-.zy-note { padding: 0 16px 12px; font-size: 12px; color: var(--zy-muted); text-align: center; flex-shrink: 0; background: #fff; border-top: 1px solid var(--zy-border); }
+.zy-note { padding: 0 16px 12px; font-size: 12px; color: var(--_zy-muted); text-align: center; flex-shrink: 0; background: #fff; border-top: 1px solid var(--_zy-border); }
 
 /* ---- Animations ---- */
 @keyframes zy-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -1135,7 +1096,7 @@ var VARIANT_CSS = {
 
 .zy-wrap[data-variant="classic"] .zy-composer-shell:focus-within,
 .zy-wrap[data-variant="classic"] .zy-composer-shell[data-expanded="true"] {
-  border-color: color-mix(in srgb, var(--zy-color) 68%, var(--zy-border));
+  border-color: color-mix(in srgb, var(--_zy-color) 68%, var(--_zy-border));
 }
 
 .zy-wrap[data-variant="classic"] .zy-launcher {
@@ -1288,12 +1249,6 @@ var VARIANT_CSS = {
   color: #fff;
 }
 .zy-wrap[data-variant="glow"] .zy-send:disabled { background: #a7f3d0; color: #34d399; }
-.zy-wrap[data-variant="glow"] .zy-chip[aria-pressed="true"] {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.4);
-  color: #047857;
-}
-
 /* =========================================================================
    Thinking orb — the variant's stand-in for the typing dots
    =========================================================================
@@ -1410,7 +1365,6 @@ var VARIANT_CSS = {
     chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
-    globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10"/></svg>',
   };
 
   registerWidget("classic", {
@@ -1445,13 +1399,7 @@ var VARIANT_CSS = {
         ICONS.send +
         "</button>" +
         "</div>" +
-        '<div class="zy-composer-caps">' +
-        '<div class="zy-composer-caps-inner">' +
-        '<button type="button" class="zy-chip" data-chip="deep" aria-pressed="false" aria-label="Deep search" data-open="true" hidden>' +
-        ICONS.globe +
-        '<span class="zy-chip-label">Deep search</span>' +
-        "</button>" +
-        "</div></div></div></div>" +
+        "</div>" +
         '<div class="zy-note">Powered by Ziyarn</div>' +
         "</div>" +
         '<button type="button" class="zy-launcher" aria-label="Open chat">' +
@@ -1477,8 +1425,6 @@ var VARIANT_CSS = {
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     send:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5.5 11.5 12 5l6.5 6.5"/></svg>',
-    globe:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 3.5 9A14 14 0 0 1 12 21a14 14 0 0 1-3.5-9A14 14 0 0 1 12 3z"/></svg>',
   };
 
   registerWidget("glow", {
@@ -1516,13 +1462,7 @@ var VARIANT_CSS = {
         GLOW_ICONS.send +
         "</button>" +
         "</div>" +
-        '<div class="zy-composer-caps">' +
-        '<div class="zy-composer-caps-inner">' +
-        '<button type="button" class="zy-chip" data-chip="deep" aria-pressed="false" aria-label="Deep search" data-open="true" hidden>' +
-        GLOW_ICONS.globe +
-        '<span class="zy-chip-label">Deep search</span>' +
-        "</button>" +
-        "</div></div></div></div>" +
+        "</div>" +
         '<div class="zy-note">Powered by Ziyarn</div>' +
         "</div>" +
         '<button type="button" class="zy-launcher" aria-label="Open chat">' +
@@ -1646,14 +1586,14 @@ var VARIANT_CSS = {
       this._launcher = root.querySelector(".zy-launcher");
       this._messages = root.querySelector(".zy-messages");
       this._input = root.querySelector(".zy-composer input");
-      // Select by explicit class, NOT ".zy-composer button" — the composer now
-      // holds a capability chip alongside the send button, and a positional
-      // selector would silently bind _sendBtn to the chip.
+      // Select by explicit class, NOT ".zy-composer button" — a positional
+      // selector would bind _sendBtn to whatever button comes first.
       this._sendBtn = root.querySelector(".zy-composer .zy-send");
       this._composer = root.querySelector(".zy-composer");
       this._placeholder = root.querySelector(".zy-composer-ph");
-      this._deepChip = root.querySelector('.zy-chip[data-chip="deep"]');
-      this._deepSearch = true;
+      // Whether the visitor is in the field right now. Tracked here because
+      // the input is inside a shadow root (see _syncPlaceholder).
+      this._inputEngaged = false;
       this._placeholders = [
         "How can I help you today?",
         "What are your opening hours?",
@@ -1697,7 +1637,7 @@ var VARIANT_CSS = {
       this._input.addEventListener("input", this._onInput.bind(this));
       this._input.addEventListener("focus", this._onFocus.bind(this));
       this._sendBtn.addEventListener("click", this._send.bind(this));
-      this._deepChip.addEventListener("click", this._toggleDeepSearch.bind(this));
+      this._input.addEventListener("blur", this._onBlur.bind(this));
       this._startPlaceholderCycle();
 
       // ---- Bootstrap: fetch agent info + load conversation history ----
@@ -1730,8 +1670,7 @@ var VARIANT_CSS = {
     // -------------------------------------------------------------------------
     // Two things happen:
     //   1. GET /api/chat → fetches the agent's name and description to
-    //      populate the header, plus the composer capabilities (business-type
-    //      placeholder prompts, and whether Deep search is available at all).
+    //      populate the header, plus the business-type placeholder prompts.
     //      This also validates the embed secret.
     //   2. If there's a saved conversation, load its history. Otherwise,
     //      show the default greeting message.
@@ -1752,11 +1691,6 @@ var VARIANT_CSS = {
           // does not return them simply leaves the defaults in place.
           if (data && data.placeholders) {
             self._setPlaceholders(data.placeholders);
-          }
-          // Hide the Deep search chip when the agent has no knowledge tool —
-          // a toggle that could never change anything is worse than no chip.
-          if (self._deepChip) {
-            self._deepChip.hidden = !(data && data.knowledgeSearch);
           }
         })
         .catch(function () {
@@ -1857,8 +1791,8 @@ var VARIANT_CSS = {
     // -------------------------------------------------------------------------
     // _syncExpanded — expand the composer while focused or non-empty.
     //
-    // The capability row is only worth the vertical space once the visitor is
-    // engaged, so it collapses again when the field is blurred and emptied.
+    // The composer grows once the visitor is engaged, and collapses again when
+    // the field is blurred and emptied.
     // -------------------------------------------------------------------------
     _syncExpanded() {
       var expanded = this._streaming || Boolean(this._input.value);
@@ -1943,34 +1877,48 @@ var VARIANT_CSS = {
     }
 
     // -------------------------------------------------------------------------
-    // _toggleDeepSearch — composer chip controlling whether the agent may
-    // consult the owner's knowledge base for this turn. Sends `deepSearch` on
-    // the next message; an older server ignores it and behaves as before.
-    // -------------------------------------------------------------------------
-    _toggleDeepSearch() {
-      this._deepSearch = !this._deepSearch;
-      this._deepChip.setAttribute("aria-pressed", String(this._deepSearch));
-      this._deepChip.setAttribute(
-        "aria-label",
-        this._deepSearch ? "Deep search on" : "Deep search off",
-      );
-    }
-
-    // -------------------------------------------------------------------------
     // _onFocus / _onInput — expand the composer and park the hint while typing
     // -------------------------------------------------------------------------
     _onFocus() {
+      this._inputEngaged = true;
       this._syncExpanded();
+      this._syncPlaceholder();
+    }
+
+    _onBlur() {
+      this._inputEngaged = false;
+      this._syncExpanded();
+      this._syncPlaceholder();
     }
 
     _onInput() {
       this._syncExpanded();
-      if (this._input.value) {
+      this._syncPlaceholder();
+    }
+
+    // -------------------------------------------------------------------------
+    // _syncPlaceholder — hide the hint while the visitor is typing or focused.
+    //
+    // The hint is drawn under the input, so leaving it up while there is text
+    // makes the two overlap and the field unreadable. Once the visitor focuses
+    // the field they already know what it is for, so the hint goes away there
+    // too, and comes back when they leave an empty field.
+    //
+    // Focus is tracked by the focus/blur handlers rather than compared against
+    // document.activeElement: the field lives in a shadow root, so
+    // document.activeElement is the host element, never the input itself.
+    // -------------------------------------------------------------------------
+    _syncPlaceholder() {
+      var engaged = this._inputEngaged || Boolean(this._input.value);
+      this._composer.setAttribute("data-ph-hidden", String(engaged));
+
+      if (engaged) {
         this._stopPlaceholderCycle();
-      } else {
-        this._renderPlaceholder();
-        this._startPlaceholderCycle();
+        return;
       }
+
+      this._renderPlaceholder();
+      this._startPlaceholderCycle();
     }
 
     // -------------------------------------------------------------------------
@@ -2080,8 +2028,8 @@ var VARIANT_CSS = {
       if (!text || this._streaming) return;
 
       this._input.value = "";
-      this._renderPlaceholder();
       this._syncExpanded();
+      this._syncPlaceholder();
       this._appendMessage("user", text);
       this._streaming = true;
       this._syncExpanded();
@@ -2106,11 +2054,6 @@ var VARIANT_CSS = {
         message: text,
         visitorId: this._visitorId,
         conversationId: this._conversationId || undefined,
-        // Knowledge-base search for this turn. Always sent: it defaults to true on
-        // the server, so an older build that ignores the field behaves
-        // identically. When the agent has no answer_knowledge tool the server
-        // filters nothing and the value is inert either way.
-        deepSearch: this._deepSearch,
       };
 
       function doFetch(body) {
