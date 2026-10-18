@@ -11,7 +11,12 @@ import {
 } from "@repo/database/schema";
 import type { AgentToolName } from "@repo/ai";
 import { currencyCode, formatDecimal } from "@repo/money";
-import { getPlanLimits, PlanLimitError } from "@repo/api/plans";
+import {
+  clampWidgetVariantForPlan,
+  getPlanLimits,
+  PlanLimitError,
+  planSchema,
+} from "@repo/api/plans";
 import {
   sendMessageSchema,
   type SendMessageInput,
@@ -23,7 +28,6 @@ import {
   getBusinessTypeConfig,
   type BusinessType,
 } from "@repo/api/domains/business-types";
-import { resolveWidgetVariant } from "@repo/api/domains/widget-variants";
 
 import { appendMessageSchema } from "@repo/api/chat/schemas";
 
@@ -912,7 +916,10 @@ export async function handleChatConfig(
          * for native SDKs and for anything rendering the widget outside the
          * dashboard.
          */
-        widgetVariant: resolveWidgetVariant(domain.widgetVariant),
+        widgetVariant: clampWidgetVariantForPlan(
+          planSchema.parse(domain.plan),
+          domain.widgetVariant,
+        ),
       },
       { headers: CORS_HEADERS },
     );

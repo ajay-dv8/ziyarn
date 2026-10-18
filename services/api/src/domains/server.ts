@@ -10,9 +10,12 @@ import {
 } from "@repo/database/schema/workspaces";
 
 import {
+  PlanLimitError,
   assertCanCreateDomain,
   assertCanCreateWorkspace,
+  clampWidgetVariantForPlan,
   getPlanLimits,
+  planAllowsWidgetVariant,
   planSchema,
 } from "@repo/api/plans";
 import {
@@ -22,10 +25,7 @@ import {
   type CreateDomainInput,
   type UpdateDomainInput,
 } from "@repo/api/domains/schemas";
-import {
-  DEFAULT_WIDGET_VARIANT,
-  resolveWidgetVariant,
-} from "@repo/api/domains/widget-variants";
+import { DEFAULT_WIDGET_VARIANT } from "@repo/api/domains/widget-variants";
 
 export type SessionWithUser = {
   user: { id: string };
@@ -183,8 +183,12 @@ export function createDomainsService(deps: {
             ...row,
             // Narrowed here, not cast at the call sites: a row holding a
             // retired variant id must never reach the UI as an unvalidated
-            // string.
-            widgetVariant: resolveWidgetVariant(row.widgetVariant),
+            // string. Then clamped to the plan, so a domain whose plan does
+            // not include its widget reports the one it may actually use.
+            widgetVariant: clampWidgetVariantForPlan(
+              planSchema.parse(row.plan),
+              row.widgetVariant,
+            ),
           })),
         );
     },
@@ -194,7 +198,10 @@ export function createDomainsService(deps: {
       const { domain } = await requireDomainAccess(id, headers);
       return {
         ...domain,
-        widgetVariant: resolveWidgetVariant(domain.widgetVariant),
+        widgetVariant: clampWidgetVariantForPlan(
+          planSchema.parse(domain.plan),
+          domain.widgetVariant,
+        ),
       };
     },
 
@@ -266,6 +273,13 @@ export function createDomainsService(deps: {
         workspaceId = createdWorkspace.id;
       }
 
+      // A plan that does not include the requested widget gets the first one
+      // it does include, rather than refusing to create the domain.
+      const widgetVariant = clampWidgetVariantForPlan(
+        plan,
+        body.widgetVariant ?? DEFAULT_WIDGET_VARIANT,
+      );
+
       const [created] = await db
         .insert(domains)
         .values({
@@ -274,7 +288,7 @@ export function createDomainsService(deps: {
           slug: body.slug,
           logoUrl: body.logoUrl ?? null,
           businessType: body.businessType ?? null,
-          widgetVariant: body.widgetVariant ?? DEFAULT_WIDGET_VARIANT,
+          widgetVariant,
           embedSecret: randomBytes(32).toString("hex"),
           plan,
         })
@@ -301,6 +315,21 @@ export function createDomainsService(deps: {
           .where(eq(domains.slug, body.slug))
           .limit(1);
         if (existing) throw conflict("slug");
+      }
+
+      // Switching to a widget the plan does not include is refused rather
+      // than silently ignored: the owner picked it, and the picker is the
+      // place that explains the plan does not include it.
+      const domainPlan = planSchema.parse(domain.plan);
+      if (
+        body.widgetVariant !== undefined &&
+        !planAllowsWidgetVariant(domainPlan, body.widgetVariant)
+      ) {
+        throw new PlanLimitError(
+          403,
+          "WIDGET_NOT_INCLUDED",
+          `The ${body.widgetVariant} widget is not included in the ${domainPlan} plan`,
+        );
       }
 
       const [updated] = await db
@@ -345,8 +374,13 @@ export function createDomainsService(deps: {
         widgetUrl: `${baseUrl}/widget.js`,
         secret: domain.embedSecret,
         // Emitted into the embed snippet as data-variant. Normalised so a row
-        // holding a retired variant id still produces a working snippet.
-        variant: resolveWidgetVariant(domain.widgetVariant),
+        // holding a retired variant id still produces a working snippet, and
+        // clamped to the domain's plan so a downgraded account never serves a
+        // widget it no longer includes.
+        variant: clampWidgetVariantForPlan(
+          planSchema.parse(domain.plan),
+          domain.widgetVariant,
+        ),
       };
     },
   };
