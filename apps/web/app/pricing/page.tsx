@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { PLAN_DISPLAY_NAMES, type Plan } from "@repo/api/plans";
 import { paystackCurrency, planPriceKobo } from "@repo/api/paystack";
 import { PricingModule, type PricingPlan } from "@repo/ui/components/pricing-module";
-import { Building2, Crown, Rocket, Sparkles } from "lucide-react";
 
 import { planFeatures } from "@/lib/plan-features";
 import { APP_ROUTES } from "@/constants/routes";
@@ -13,37 +12,38 @@ export const metadata: Metadata = {
   title: "Pricing",
 };
 
-/** The four paid tiers, in the order they appear. Business is recommended. */
+/**
+ * The four paid tiers, in the order they appear. Business is recommended.
+ *
+ * The cards carry no icon: the plan name and its price are enough, and an
+ * icon only competes with the name. Pass an `icon` to a plan to bring one
+ * back.
+ */
 const PAID_PLANS: Array<{
   plan: Plan;
   description: string;
-  icon: typeof Rocket;
   recommended?: boolean;
   summary: string;
 }> = [
   {
     plan: "standard",
     description: "For growing teams",
-    icon: Rocket,
     summary: "Everything in Free, plus:",
   },
   {
     plan: "pro",
     description: "For busy support desks",
-    icon: Building2,
     recommended: true,
     summary: "Everything in Plus, plus:",
   },
   {
     plan: "ultimate",
     description: "For high-volume operations",
-    icon: Crown,
     summary: "Everything in Business, plus:",
   },
   {
     plan: "custom",
     description: "Tailored limits, hand-agreed",
-    icon: Sparkles,
     summary:
       "Everything in Enterprise, plus unlimited emails and dedicated development support.",
   },
@@ -76,18 +76,16 @@ function currencyPrefix(): string {
 function toPricingPlan(entry: {
   plan: Plan;
   description: string;
-  icon: typeof Rocket;
   recommended?: boolean;
   summary: string;
 }): PricingPlan {
-  const { plan, description, icon: Icon, recommended, summary } = entry;
+  const { plan, description, recommended, summary } = entry;
   const isCustom = plan === "custom";
 
   return {
     id: plan,
     name: PLAN_DISPLAY_NAMES[plan],
     description,
-    icon: <Icon className="size-8 text-primary" aria-hidden="true" />,
     priceMonthly: priceFor(plan),
     priceLabel: isCustom ? "Custom" : undefined,
     priceNote: isCustom ? "priced to your volume" : undefined,
@@ -109,7 +107,6 @@ export default function PricingPage() {
     id: "free",
     name: PLAN_DISPLAY_NAMES.free,
     description: "Try the agent on one domain",
-    icon: <Sparkles className="size-8 text-primary" aria-hidden="true" />,
     priceMonthly: 0,
     currencySymbol: currencyPrefix(),
     priceNote: "free forever",
