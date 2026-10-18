@@ -43,7 +43,9 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@repo/ai": "workspace:*",
@@ -72,6 +74,7 @@
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.23.1",
     "eslint": "^9.39.1",
-    "typescript": "5.9.2"
+    "typescript": "5.9.2",
+    "vitest": "^5.0.5"
   }
 }

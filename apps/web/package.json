@@ -13,7 +13,9 @@
     "postinstall": "fumadocs-mdx generate",
     "start": "next start",
     "lint": "node scripts/build-widget.mjs --check && eslint --max-warnings 0",
-    "check-types": "next typegen && tsc --noEmit"
+    "check-types": "next typegen && tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.25",
@@ -48,6 +50,7 @@
     "@types/react-dom": "19.2.4",
     "eslint": "^9.39.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "5.9.2"
+    "typescript": "5.9.2",
+    "vitest": "^5.0.5"
   }
 }
