@@ -10,6 +10,11 @@ Track new features, improvements, and bug fixes.
 ## [Unreleased]
 
 ### Added
+- Teams: create a team, invite people, set roles, manage seats, rename or delete a team
+- Team roles — owner, admin, member and viewer — with admins managing members and owners managing admins
+- Team invites are emailed, can be copied as a link, expire after 7 days, and hold their seat until accepted or revoked
+- Plan-based widget allowance: the free plan includes the classic widget, paid plans include every widget
+- Pricing page with per-plan feature lists, a full-width free card and Business marked as recommended
 - Orders page with chat/DB filter tabs
 - Collapsible knowledge pages list
 - Escalation notification system (email, badge, tab title, toast, browser)
@@ -17,11 +22,15 @@ Track new features, improvements, and bug fixes.
 - `includeOrders` boolean on data source tables
 
 ### Changed
+- Plan limits: Plus gets 200 AI credits, Business 1,000 and Enterprise 3,000; emails go 500 / 2,000 / 10,000; Enterprise drops to 50 domains
 - Improved widget typing indicator (600ms minimum display)
 - Widget markdown rendering improvements
 - Conversation titles derived from first message
 
 ### Fixed
+- Dropdown menus show the highlighted row in both themes
+- Native select menus follow the theme, so their option lists are readable
+- A domain whose plan no longer includes its widget falls back to the classic widget
 - Widget mobile close button
 - Widget footer layout
 - Conversations page scroll behavior
@@ -29,7 +38,7 @@ Track new features, improvements, and bug fixes.
 ## [0.2.0] - 2024-01-15
 
 ### Added
-- Booking system with calendar integration
+- Booking system with availability settings
 - Public booking page (`/portal/book`)
 - Email notifications for bookings
 - Booking analytics
@@ -70,6 +79,5 @@ We follow [Semantic Versioning](https://semver.org/):
 
 ## Stay Updated
 
-- **Dashboard**: Check Dashboard → Settings for updates
+- **Docs**: This changelog is updated with every release
 - **GitHub**: Watch the repository for releases
-- **Email**: Subscribe to changelog notifications

@@ -173,6 +173,7 @@ docker-compose up -d
 | `BETTER_AUTH_SECRET` | Auth secret key |
 | `BETTER_AUTH_URL` | Application URL |
 | `NEXT_PUBLIC_BETTER_AUTH_URL` | Public application URL |
+| `BASE_APP_URL` | Public URL used in invite links and emails |
 
 ### Optional
 
@@ -180,10 +181,30 @@ docker-compose up -d
 |----------|-------------|
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `GEMINI_API_KEY` | Gemini API key for AI |
-| `OPENROUTER_API_KEY` | OpenRouter fallback key |
-| `STRIPE_SECRET_KEY` | Stripe secret key |
-| `PAYSTACK_SECRET_KEY` | Paystack secret key |
+| `LINKEDIN_CLIENT_ID` | LinkedIn OAuth client ID |
+| `LINKEDIN_CLIENT_SECRET` | LinkedIn OAuth client secret |
+| `GEMINI_API_KEY` | Gemini API key for AI and embeddings |
+| `OPENROUTER_API_KEY` | OpenRouter fallback key, used when Gemini is unavailable |
+| `AI_MODEL` | Model used for chat |
+| `EMBEDDING_MODEL` | Model used for embeddings |
+| `EMBEDDING_DIMENSIONS` | Embedding size (1536) |
+| `PAYSTACK_SECRET_KEY` | Paystack secret key (payments) |
+| `PAYSTACK_PUBLIC_KEY` | Paystack public key (checkout) |
+| `PAYSTACK_WEBHOOK_SECRET` | Paystack webhook signature secret |
+| `PAYSTACK_CURRENCY` | Currency charges are made in (default `GHS`) |
+| `PAYSTACK_PRICE_STANDARD` | Override the Plus price, in kobo |
+| `PAYSTACK_PRICE_PRO` | Override the Business price, in kobo |
+| `PAYSTACK_PRICE_ULTIMATE` | Override the Enterprise price, in kobo |
+| `STRIPE_SECRET_KEY` | Stripe secret key, if Stripe is enabled |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature secret |
+| `SMTP_HOST` | SMTP server for transactional email and campaigns |
+| `SMTP_PORT` | SMTP port |
+| `SMTP_USER` | SMTP username |
+| `SMTP_PASS` | SMTP password |
+| `SMTP_FROM` | Sender address |
+| `BLOB_READ_WRITE_TOKEN` | Blob storage token for uploaded files |
+| `CRON_SECRET` | Secret that guards the scheduled-jobs endpoint |
+| `LOG_LEVEL` | Log level for the server |
 
 ## Database Setup
 
