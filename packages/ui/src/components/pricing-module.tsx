@@ -122,14 +122,14 @@ export function PricingModule({
 
     // ---- Plan title and description ----
     const titleBlock = (
-      <div>
+      <div className="w-full flex items-start flex-col gap-1 mb-8">
         <div
           className={cn(
             "flex items-center gap-2",
             !plan.wide && "justify-center"
           )}
         >
-          <CardTitle>{plan.name}</CardTitle>
+          <CardTitle className="text-xl">{plan.name}</CardTitle>
           {/* The "Recommended" pill lives next to the title. Move it out of
               this row to badge the card itself instead. */}
           {plan.recommended && (
@@ -144,7 +144,7 @@ export function PricingModule({
 
     // ---- Price ----
     const priceBlock = (
-      <div className={cn("shrink-0", plan.wide ? "sm:text-right" : "text-center")}>
+      <div className={cn("shrink-0", plan.wide ? "sm:text-right" : "text-left flex items-baseline gap-1")}>
         <p className="text-3xl font-semibold tracking-tight">{priceText}</p>
         <p className="text-sm text-muted-foreground">
           {plan.priceNote ?? (plan.priceLabel ? "" : `/ ${yearly ? "year" : "month"}`)}
@@ -211,31 +211,42 @@ export function PricingModule({
         data-plan={plan.id}
         className={cn(
           "relative flex flex-col border-border transition-all hover:border-primary/30 hover:shadow-md",
-          plan.recommended && "border-primary ring-1 ring-primary/30 lg:scale-[1.02]",
+          plan.recommended && "border-primary ring-2 ring-primary/70 lg:scale-[1.02]",
           plan.wide && "sm:col-span-2 lg:col-span-4"
         )}
       >
         {/* WIDE CARD LAYOUT (the full-width card below the row).
             Order here: title | price, then summary + features | button. */}
         {plan.wide ? (
-          <>
-            <CardHeader className="sm:grid-cols-[1fr_auto] sm:gap-8">
+          <div className="grid grid-cols-3 md:px-4">
+            <CardHeader className="sm:grid-cols-[1fr_auto] md:flex flex-col  sm:gap-8">
               <div className="flex items-start gap-3">
                 {iconBlock}
                 {titleBlock}
               </div>
-              {priceBlock}
+             
+                <div className="flex flex-col items-start gap-3">
+                   {priceBlock}
+
+                  <div className="hidden md:block">
+                    {actionBlock && (
+                    <div className="sm:order-2 sm:w-48 sm:shrink-0">{actionBlock}</div>
+                  )}
+                  </div>
+
+              </div>
             </CardHeader>
-            <CardContent className="sm:flex sm:items-start sm:gap-8">
+            {/* i want feature list on baseline */}
+            <CardContent className="col-span-2 flex items-baseline sm:flex sm:items-start sm:gap-8">
               <div className="min-w-0 flex-1 sm:order-1">
                 {summaryBlock}
                 {featuresBlock}
               </div>
               {actionBlock && (
-                <div className="sm:order-2 sm:w-48 sm:shrink-0">{actionBlock}</div>
+                <div className="sm:order-2 sm:w-48 sm:shrink-0 md:hidden">{actionBlock}</div>
               )}
             </CardContent>
-          </>
+          </div>
         ) : (
           /* NARROW CARD LAYOUT (the cards in the row).
              Order here: icon, title, price, button, summary, features. */
