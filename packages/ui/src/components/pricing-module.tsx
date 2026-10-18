@@ -172,7 +172,7 @@ export function PricingModule({
     const featuresBlock = (
       <ul
         className={cn(
-          "mt-4 space-y-2 text-sm",
+          "mt-8 space-y-2 text-sm",
           plan.wide &&
             "sm:columns-2 sm:gap-x-8 sm:[&>li]:break-inside-avoid"
         )}
@@ -193,8 +193,8 @@ export function PricingModule({
             <span
               className={
                 feature.included
-                  ? "text-foreground"
-                  : "text-muted-foreground/60 line-through"
+                  ? "text-foreground/80"
+                  : "text-muted-foreground/30 line-through"
               }
             >
               {feature.label}
@@ -211,14 +211,14 @@ export function PricingModule({
         data-plan={plan.id}
         className={cn(
           "relative flex flex-col border-border transition-all hover:border-primary/30 hover:shadow-md",
-          plan.recommended && "border-primary ring-2 ring-primary/70 lg:scale-[1.02]",
+          plan.recommended && "border-primary ring-2 ring-primary/80 lg:scale-[1.02]",
           plan.wide && "sm:col-span-2 lg:col-span-4"
         )}
       >
         {/* WIDE CARD LAYOUT (the full-width card below the row).
             Order here: title | price, then summary + features | button. */}
         {plan.wide ? (
-          <div className="grid grid-cols-3 md:px-4">
+          <div className="md:grid grid-cols-3 md:px-4">
             <CardHeader className="sm:grid-cols-[1fr_auto] md:flex flex-col  sm:gap-8">
               <div className="flex items-start gap-3">
                 {iconBlock}
