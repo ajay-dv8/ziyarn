@@ -1400,6 +1400,7 @@ var VARIANT_CSS = {
         "</button>" +
         "</div>" +
         "</div>" +
+        "</div>" +
         '<div class="zy-note">Powered by Ziyarn</div>' +
         "</div>" +
         '<button type="button" class="zy-launcher" aria-label="Open chat">' +
@@ -1461,6 +1462,7 @@ var VARIANT_CSS = {
         '<button type="button" class="zy-send" aria-label="Send message">' +
         GLOW_ICONS.send +
         "</button>" +
+        "</div>" +
         "</div>" +
         "</div>" +
         '<div class="zy-note">Powered by Ziyarn</div>' +
