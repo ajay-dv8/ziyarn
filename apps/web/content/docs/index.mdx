@@ -56,12 +56,11 @@ Each domain has an embed secret that authorizes the widget. Keep it private — 
 Paste this before the closing `</body>` tag of your page:
 
 ```html
+<script defer src="https://ziyarn.vercel.app/widget.js"></script>
 <zy-widget
-  data-api="https://your-api-url.com"
-  data-domain="your-domain-id"
+  data-slug="your-domain-slug"
   data-secret="YOUR_EMBED_SECRET"
 ></zy-widget>
-<script src="https://ziyarn.vercel.app/widget.js"></script>
 ```
 
 That's it. The widget handles conversations, escalation, and real-time replies.
@@ -71,6 +70,7 @@ That's it. The widget handles conversations, escalation, and real-time replies.
 | Section | Purpose |
 |---------|---------|
 | [Domains](/docs/domains) | Create and manage your helpdesk domains |
+| [Teams](/docs/teams) | Work together: roles, invites and seats |
 | [Agents](/docs/agents) | Configure AI agent personality and behavior |
 | [Knowledge](/docs/knowledge) | Upload documents and crawl websites |
 | [Products](/docs/products) | Sync product catalogs from databases |

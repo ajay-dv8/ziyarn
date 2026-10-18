@@ -12,30 +12,54 @@ The Ziyarn widget is a vanilla JavaScript web component that runs in a Shadow DO
 Add this code before the closing `</body>` tag:
 
 ```html
+<script defer src="https://ziyarn.vercel.app/widget.js"></script>
 <zy-widget
-  data-api="https://your-api.com"
-  data-domain="YOUR_DOMAIN_ID"
+  data-slug="YOUR_DOMAIN_SLUG"
   data-secret="YOUR_EMBED_SECRET"
 ></zy-widget>
-<script src="https://ziyarn.vercel.app/widget.js"></script>
 ```
+
+Copy the snippet from **Dashboard → Domains → Install** — it already carries the
+right slug and secret.
 
 ## Configuration Options
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `data-api` | string | — | Backend API URL (required) |
-| `data-domain` | string | — | Domain ID or slug (required) |
+| `data-slug` | string | — | Domain slug (required) |
 | `data-secret` | string | — | Embed secret for authentication (required) |
-| `data-color` | string | `#000000` | Primary color (CSS hex value) |
+| `data-title` | string | `Chat with us` | Widget header title |
+| `data-subtitle` | string | `We usually reply in minutes` | Widget header subtitle |
+| `data-color` | string | `#10b981` | Accent color for the launcher, header and visitor messages (CSS hex value) |
 | `data-position` | string | `bottom-right` | Widget position: `bottom-right` or `bottom-left` |
-| `data-greeting` | string | — | Custom welcome message |
-| `data-title` | string | — | Widget header title |
-| `data-subtitle` | string | — | Widget header subtitle |
+| `data-variant` | string | `classic` | Widget style: `classic` or `glow` |
+| `data-api` | string | origin of the script | Backend API URL override — only needed when the widget is served from a different host than the API |
+
+`data-slug` is the **slug** shown on the domain page (for example `acme-support`),
+not the domain id. There is no `data-greeting` attribute: the welcome message is
+written by the agent, not by the embed snippet.
 
 :::warning
-The `data-color` attribute expects a CSS hex value (`#000000`), NOT Tailwind classes like `bg-blue-500`.
+The `data-color` attribute expects a CSS hex value (`#10b981`), NOT Tailwind classes like `bg-blue-500`.
 :::
+
+## Widget Variants
+
+Ziyarn ships two looks for the widget:
+
+| Variant | What it looks like |
+|---------|-------------------|
+| `classic` | A floating chat bubble in the corner of the page |
+| `glow` | An aurora panel with a thinking orb while the agent answers |
+
+Pick one per domain in **Dashboard → Domains → Settings → Widget**, or set
+`data-variant` on the embed element. An unknown value falls back to `classic`,
+so an embed snippet written before variants existed keeps working.
+
+The variant is a plan feature: the **Free plan includes the classic widget
+only**. If a domain's plan does not include its current widget — after a
+downgrade, for example — the widget falls back to Classic rather than serving
+something the account no longer includes.
 
 ## Platform Guides
 
@@ -52,15 +76,14 @@ The simplest installation. Add the code before `</body>`:
 <body>
   <!-- Your content -->
 
+  <script defer src="https://ziyarn.vercel.app/widget.js"></script>
   <zy-widget
-    data-api="https://api.example.com"
-    data-domain="my-domain"
+    data-slug="my-domain"
     data-secret="secret_abc123"
     data-color="#6366f1"
     data-title="Support"
     data-subtitle="How can we help?"
   ></zy-widget>
-  <script src="https://ziyarn.vercel.app/widget.js"></script>
 </body>
 </html>
 ```
@@ -81,12 +104,11 @@ export function ChatWidget() {
 
   return (
     <>
+      <script defer src="https://ziyarn.vercel.app/widget.js" />
       <zy-widget
-        data-api={process.env.NEXT_PUBLIC_API_URL}
-        data-domain="my-domain"
+        data-slug="my-domain"
         data-secret="secret_abc123"
       />
-      <script src="https://ziyarn.vercel.app/widget.js" />
     </>
   );
 }
@@ -121,14 +143,13 @@ import Script from "next/script";
 export function ChatWidget() {
   return (
     <>
-      <zy-widget
-        data-api={process.env.NEXT_PUBLIC_API_URL}
-        data-domain="my-domain"
-        data-secret="secret_abc123"
-      />
       <Script
         src="https://ziyarn.vercel.app/widget.js"
         strategy="lazyOnload"
+      />
+      <zy-widget
+        data-slug="my-domain"
+        data-secret="secret_abc123"
       />
     </>
   );
@@ -142,12 +163,11 @@ In Vue, use `<ClientOnly>` to prevent SSR issues:
 ```vue
 <template>
   <ClientOnly>
+    <script defer src="https://ziyarn.vercel.app/widget.js"></script>
     <zy-widget
-      :data-api="apiUrl"
-      data-domain="my-domain"
+      data-slug="my-domain"
       data-secret="secret_abc123"
     />
-    <script src="https://ziyarn.vercel.app/widget.js" />
   </ClientOnly>
 </template>
 
@@ -162,12 +182,11 @@ For Nuxt, add to `app.vue` or a layout:
 <template>
   <NuxtPage />
   <ClientOnly>
+    <script defer src="https://ziyarn.vercel.app/widget.js"></script>
     <zy-widget
-      data-api="https://api.example.com"
-      data-domain="my-domain"
+      data-slug="my-domain"
       data-secret="secret_abc123"
     />
-    <script src="https://ziyarn.vercel.app/widget.js" />
   </ClientOnly>
 </template>
 ```
@@ -188,12 +207,11 @@ Use `onMount` to ensure client-side rendering:
 </script>
 
 {#if mounted}
+  <script defer src="https://ziyarn.vercel.app/widget.js"></script>
   <zy-widget
-    data-api="https://api.example.com"
-    data-domain="my-domain"
+    data-slug="my-domain"
     data-secret="secret_abc123"
   />
-  <script src="https://ziyarn.vercel.app/widget.js" />
 {/if}
 ```
 
@@ -208,12 +226,11 @@ import { Component } from "@angular/core";
 @Component({
   selector: "app-root",
   template: `
+    <script defer src="https://ziyarn.vercel.app/widget.js"></script>
     <zy-widget
-      data-api="https://api.example.com"
-      data-domain="my-domain"
+      data-slug="my-domain"
       data-secret="secret_abc123"
     ></zy-widget>
-    <script src="https://ziyarn.vercel.app/widget.js"></script>
   `,
 })
 export class AppComponent {}
@@ -236,12 +253,11 @@ Add to your theme's `footer.php` or use a plugin:
 
 ```php
 <!-- Add before closing </body> tag -->
+<script defer src="https://ziyarn.vercel.app/widget.js"></script>
 <zy-widget
-  data-api="https://api.example.com"
-  data-domain="my-domain"
+  data-slug="my-domain"
   data-secret="secret_abc123"
 ></zy-widget>
-<script src="https://ziyarn.vercel.app/widget.js"></script>
 ```
 
 Or use a custom HTML widget in your sidebar/footer.
@@ -255,12 +271,11 @@ Add to your theme's `theme.liquid` before `</body>`:
 {{ content_for_header }}
 
 <!-- Add before closing </body> -->
+<script defer src="https://ziyarn.vercel.app/widget.js"></script>
 <zy-widget
-  data-api="https://api.example.com"
-  data-domain="my-domain"
+  data-slug="my-domain"
   data-secret="secret_abc123"
 ></zy-widget>
-<script src="https://ziyarn.vercel.app/widget.js"></script>
 ```
 
 ## Middleware / CSP Configuration
@@ -278,7 +293,7 @@ export function middleware(request) {
   
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://your-api.com; style-src 'self' 'unsafe-inline';"
+    "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
   );
   
   return response;
@@ -288,13 +303,13 @@ export function middleware(request) {
 ### Nginx
 
 ```nginx
-add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://your-api.com; style-src 'self' 'unsafe-inline';";
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';";
 ```
 
 ### Apache
 
 ```apache
-Header set Content-Security-Policy "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://your-api.com; style-src 'self' 'unsafe-inline';"
+Header set Content-Security-Policy "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
 ```
 
 ### Cloudflare Workers
@@ -304,7 +319,7 @@ addEventListener("fetch", (event) => {
   const response = await fetch(event.request);
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://your-api.com; style-src 'self' 'unsafe-inline';"
+    "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
   );
   return response;
 });
@@ -319,14 +334,14 @@ The widget is a vanilla JS web component. For TypeScript support, add this to yo
 declare namespace JSX {
   interface IntrinsicElements {
     "zy-widget": {
-      "data-api"?: string;
-      "data-domain"?: string;
+      "data-slug"?: string;
       "data-secret"?: string;
       "data-color"?: string;
       "data-position"?: "bottom-right" | "bottom-left";
-      "data-greeting"?: string;
+      "data-variant"?: "classic" | "glow";
       "data-title"?: string;
       "data-subtitle"?: string;
+      "data-api"?: string;
       className?: string;
       style?: React.CSSProperties;
     };
@@ -342,14 +357,14 @@ declare global {
   namespace JSX {
     interface IntrinsicElements {
       "zy-widget": {
-        "data-api"?: string;
-        "data-domain"?: string;
+        "data-slug"?: string;
         "data-secret"?: string;
         "data-color"?: string;
         "data-position"?: "bottom-right" | "bottom-left";
-        "data-greeting"?: string;
+        "data-variant"?: "classic" | "glow";
         "data-title"?: string;
         "data-subtitle"?: string;
+        "data-api"?: string;
       };
     }
   }
@@ -363,12 +378,12 @@ export {};
 ### Widget doesn't appear
 
 1. Check that the script is loaded (open DevTools → Network tab)
-2. Verify `data-domain` and `data-secret` are correct
+2. Verify `data-slug` and `data-secret` are correct
 3. Ensure no CSP headers are blocking the script
 
 ### Widget appears but doesn't respond
 
-1. Check that `data-api` points to your backend URL
+1. Check that `data-api` (if you set one) points to your backend URL
 2. Verify the backend is running and accessible
 3. Check browser console for CORS errors
 
@@ -385,4 +400,4 @@ Open DevTools → Console tab. Common errors:
 
 - `Failed to fetch` — API URL is wrong or backend is down
 - `Unauthorized` — embed secret is incorrect
-- `Domain not found` — domain ID/slug doesn't exist
+- `Domain not found` — the slug doesn't exist, or the secret belongs to another domain

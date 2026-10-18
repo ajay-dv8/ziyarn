@@ -23,7 +23,12 @@ Each domain has:
 
 ### Embed Secret
 
-A secret key that authorizes the widget. Found in **Dashboard → Domains → [Domain] → Embed**.
+A secret key that authorizes the widget. Found in **Dashboard → Domains → [Domain] → Settings → Embed secret**, with a copy button next to it.
+
+:::warning
+The secret is in the page HTML of your dashboard, and in the embed snippet on
+your site. Treat it like a password — anyone with it can post to your agent.
+:::
 
 :::warning
 Never commit your embed secret to public repositories. Use environment variables.
@@ -61,16 +66,29 @@ Each domain is independent with its own:
 Once you have a domain, embed the widget:
 
 ```html
+<script defer src="https://ziyarn.vercel.app/widget.js"></script>
 <zy-widget
-  data-api="https://your-api.com"
-  data-domain="YOUR_DOMAIN_ID"
+  data-slug="YOUR_DOMAIN_SLUG"
   data-secret="YOUR_EMBED_SECRET"
 ></zy-widget>
-<script src="https://ziyarn.vercel.app/widget.js"></script>
 ```
+
+### Widget
+
+Pick the look visitors see: the Classic chat bubble, or the Glow aurora panel.
+Set in **Dashboard → Domains → [Domain] → Settings → Widget**. Your plan
+decides which widgets you can choose — the Free plan includes the classic
+widget only.
 
 ## Domain Limits
 
-Free plans have domain limits. Check your plan in **Dashboard → Billing**.
+Every plan has a domain limit — see **Billing** for the full table. The limit is
+enforced when you create a domain, and it applies to the whole account, not per
+team.
 
 To create more domains, upgrade your plan or contact support.
+
+## Teams
+
+A domain can be worked on by everyone in a team. See **Teams** for roles,
+invites and seats.

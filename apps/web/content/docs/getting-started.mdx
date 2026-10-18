@@ -16,25 +16,30 @@ This guide walks you through creating your first domain, configuring an agent, a
 
 1. Go to **Dashboard → Domains**
 2. Click **Create Domain**
-3. Enter a name, slug, and description
-4. Click **Create**
+3. Enter:
+   - **Name** — what you call it in the dashboard, e.g. "Acme Support"
+   - **Slug** — the short name in its address, e.g. `acme-support`
+   - **Business type** — optional; it decides the pages and labels your agent uses
+4. Click **Create domain**
 
-Your domain gets a unique ID and embed secret. Copy the embed secret — you'll need it next.
+Your domain gets its own agent, knowledge base and embed secret. The slug is
+what visitors see and what goes in the embed snippet — changing it later
+breaks every live install, so pick it carefully.
 
 ## Step 2: Configure Your Agent
 
 1. Go to **Dashboard → Agents**
 2. Select your domain
-3. Set a system prompt that defines how your agent behaves
+3. Click **Create agent**
+4. Give it:
+   - **Name** — what it is called, e.g. "Sales assistant"
+   - **About this business** — what your business does; this is what shapes
+     how the agent answers
+   - **Filter questions** — one per line. These are asked at the start of each
+     conversation and saved with the lead, so you know who you are talking to
 
-Example system prompt:
-
-```
-You are a helpful support agent for Acme Corp. 
-You answer questions about our products, help with orders, 
-and can book appointments. Be friendly and concise.
-If you can't help, escalate to a human agent.
-```
+The agent uses your domain's knowledge base, tools and products when it
+answers.
 
 ## Step 3: Add Knowledge
 
@@ -62,15 +67,16 @@ Add specific Q&A pairs for common questions.
 Add this code before the closing `</body>` tag of your HTML:
 
 ```html
+<script defer src="https://ziyarn.vercel.app/widget.js"></script>
 <zy-widget
-  data-api="https://your-api.com"
-  data-domain="YOUR_DOMAIN_ID"
+  data-slug="YOUR_DOMAIN_SLUG"
   data-secret="YOUR_EMBED_SECRET"
 ></zy-widget>
-<script src="https://ziyarn.vercel.app/widget.js"></script>
 ```
 
-Replace the values with your actual domain ID and embed secret.
+Copy the snippet from **Dashboard → Domains → [Domain] → Install** — it
+already carries the right slug and secret. `data-slug` is the domain's slug
+(the short name in its address), not its id.
 
 ## Step 5: Test It
 
