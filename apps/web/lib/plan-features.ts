@@ -1,4 +1,5 @@
 import { PLAN_LIMITS, type Plan, type PlanLimits } from "@repo/api/plans";
+import { WIDGET_VARIANTS } from "@repo/api/domains/widget-variants";
 import type { PlanFeature } from "@repo/ui/components/pricing-module";
 
 /**
@@ -77,6 +78,18 @@ const FEATURE_ROWS: readonly FeatureRow[] = [
         ? `${plural(limits.maxProductsPerDomain, "product")} per domain`
         : "Catalog products",
     included: (limits) => hasLimit(limits.maxProductsPerDomain),
+  },
+  {
+    label: (limits) => {
+      const names = limits.widgetVariants.map((variantId) => {
+        const variant = WIDGET_VARIANTS.find((entry) => entry.id === variantId);
+        return variant?.label ?? variantId;
+      });
+      return names.length === 1
+        ? `${names[0]} widget`
+        : `All widgets (${names.join(", ")})`;
+    },
+    included: (limits) => limits.widgetVariants.length > 0,
   },
 ];
 

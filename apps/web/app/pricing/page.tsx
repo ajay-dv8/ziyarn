@@ -44,13 +44,15 @@ const PAID_PLANS: Array<{
     plan: "custom",
     description: "Tailored limits, hand-agreed",
     icon: Sparkles,
-    summary: "Everything in Enterprise, plus:",
+    summary:
+      "Everything in Enterprise, plus unlimited emails and dedicated development support.",
   },
 ];
 
 /** Price in whole currency units. Custom is negotiated, so it has no price. */
 function priceFor(plan: Plan): number {
   if (plan === "custom" || plan === "free") return 0;
+  // change to ghana pesswess not kobo
   return planPriceKobo(plan) / 100;
 }
 
