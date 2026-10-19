@@ -15,6 +15,8 @@ import {
   Trash2,
 } from "lucide-react";
 
+import { API_ROUTES } from "@/constants/routes";
+
 type SourceType = "postgres" | "mysql" | "mongodb" | "convex";
 
 type SourceTable = {
@@ -90,7 +92,7 @@ export function DatabaseIntegrationCard({
   const load = useCallback(async () => {
     try {
       const res = await fetch(
-        `/api/integrations/databases?domainId=${domainId}&agentId=${agentId}`,
+        `${API_ROUTES.integrations.databases}?domainId=${domainId}&agentId=${agentId}`,
       );
       // Any non-OK response still has to clear the loading state. Returning
       // early here left `loaded` false and the card spinning forever, so a
@@ -202,7 +204,7 @@ export function DatabaseIntegrationCard({
             };
 
     try {
-      const res = await fetch("/api/integrations/databases", {
+      const res = await fetch(API_ROUTES.integrations.databases, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
@@ -249,7 +251,7 @@ export function DatabaseIntegrationCard({
     const selected = selections[source.id] ?? new Set<string>();
     const selectedProducts = productSelections[source.id] ?? new Set<string>();
     try {
-      const patchRes = await fetch("/api/integrations/databases", {
+      const patchRes = await fetch(API_ROUTES.integrations.databases, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -269,7 +271,7 @@ export function DatabaseIntegrationCard({
         setError(body?.error?.message ?? "Could not save selection.");
         return;
       }
-      const syncRes = await fetch("/api/integrations/databases", {
+      const syncRes = await fetch(API_ROUTES.integrations.databases, {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ domainId, dataSourceId: source.id }),
@@ -309,7 +311,7 @@ export function DatabaseIntegrationCard({
     setSyncNotice(null);
     try {
       await fetch(
-        `/api/integrations/databases?domainId=${domainId}&dataSourceId=${sourceId}`,
+        `${API_ROUTES.integrations.databases}?domainId=${domainId}&dataSourceId=${sourceId}`,
         { method: "DELETE" },
       );
       await load();

@@ -6,6 +6,8 @@ import { CURRENCY_CODES } from "@repo/money";
 import { Button } from "@repo/ui/components/button";
 import { Label } from "@repo/ui/components/label";
 
+import { API_ROUTES } from "@/constants/routes";
+
 export function DefaultCurrencyForm({
   defaultCurrency,
 }: {
@@ -26,7 +28,7 @@ export function DefaultCurrencyForm({
     setError(null);
     setSuccess(false);
     try {
-      const response = await fetch("/api/settings", {
+      const response = await fetch(API_ROUTES.settings.root, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ defaultCurrency: currency }),

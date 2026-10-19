@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import { Button } from "@repo/ui/components/button";
 
+import { API_ROUTES } from "@/constants/routes";
+
 export function DeleteKnowledgeDocumentButton({
   documentId,
   domainId,
@@ -22,7 +24,7 @@ export function DeleteKnowledgeDocumentButton({
     setError(null);
     try {
       const response = await fetch(
-        `/api/knowledge/${documentId}?domainId=${domainId}`,
+        `${API_ROUTES.knowledge.byId(documentId)}?domainId=${domainId}`,
         { method: "DELETE" },
       );
       const body = (await response.json().catch(() => null)) as {

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { API_ROUTES } from "@/constants/routes";
+
 type PayStatus = "idle" | "loading" | "ready" | "error";
 
 export function PaymentButton({ token }: { token: string }) {
@@ -12,7 +14,7 @@ export function PaymentButton({ token }: { token: string }) {
     setStatus("loading");
     setMessage(null);
     try {
-      const response = await fetch(`/api/portal/pay?t=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_ROUTES.portal.pay}?t=${encodeURIComponent(token)}`, {
         method: "POST",
       });
       const body = (await response.json().catch(() => null)) as {

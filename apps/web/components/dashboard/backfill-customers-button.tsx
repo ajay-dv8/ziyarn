@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Button } from "@repo/ui/components/button";
 import { Loader2, Users } from "lucide-react";
 
+import { API_ROUTES } from "@/constants/routes";
+
 /** One-click migration of existing chat leads into the customers list. */
 export function BackfillCustomersButton({ domainId }: { domainId: string }) {
   const [busy, setBusy] = useState(false);
@@ -12,7 +14,7 @@ export function BackfillCustomersButton({ domainId }: { domainId: string }) {
   async function backfill() {
     setBusy(true);
     try {
-      await fetch("/api/customers", {
+      await fetch(API_ROUTES.customers, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "backfill", domainId }),

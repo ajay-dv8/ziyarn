@@ -42,6 +42,8 @@ import {
 
 import { EditProductSheet, type EditableProduct } from "./edit-product-sheet";
 
+import { API_ROUTES } from "@/constants/routes";
+
 type Product = {
   id: string;
   name: string;
@@ -99,7 +101,7 @@ export function ProductTable({
   }
 
   async function patchProduct(id: string, body: Record<string, unknown>) {
-    const res = await fetch(`/api/products/${id}`, {
+    const res = await fetch(API_ROUTES.products.byId(id), {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
@@ -108,7 +110,7 @@ export function ProductTable({
   }
 
   async function deleteProduct(id: string) {
-    const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
+    const res = await fetch(API_ROUTES.products.byId(id), { method: "DELETE" });
     return res.ok;
   }
 

@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import { Button } from "@repo/ui/components/button";
 
+import { API_ROUTES } from "@/constants/routes";
+
 export function ManageSubscriptionButton() {
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -12,7 +14,9 @@ export function ManageSubscriptionButton() {
     setState("loading");
     setError(null);
     try {
-      const response = await fetch("/api/billing/portal", { method: "POST" });
+      const response = await fetch(API_ROUTES.billing.portal, {
+        method: "POST",
+      });
       const body = (await response.json().catch(() => null)) as {
         url?: string;
         error?: { message?: string };

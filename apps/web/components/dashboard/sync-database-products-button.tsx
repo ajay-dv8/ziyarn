@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Button } from "@repo/ui/components/button";
 import { DatabaseBackup, Loader2 } from "lucide-react";
 
+import { API_ROUTES } from "@/constants/routes";
+
 type SyncResult = {
   totalUpserted?: number;
   markedUnavailable?: number;
@@ -24,7 +26,7 @@ export function SyncDatabaseProductsButton({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/products/sync-database", {
+      const res = await fetch(API_ROUTES.products.syncDatabase, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ domainId }),

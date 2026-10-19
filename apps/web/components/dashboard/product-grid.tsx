@@ -34,6 +34,8 @@ import { cn } from "@repo/ui/lib/utils";
 
 import type { Product } from "./products-list";
 
+import { API_ROUTES } from "@/constants/routes";
+
 export function ProductGrid({
   products,
   onRefetch,
@@ -56,7 +58,7 @@ export function ProductGrid({
   }
 
   async function patchProduct(id: string, body: Record<string, unknown>) {
-    const res = await fetch(`/api/products/${id}`, {
+    const res = await fetch(API_ROUTES.products.byId(id), {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
@@ -65,7 +67,7 @@ export function ProductGrid({
   }
 
   async function deleteProduct(id: string) {
-    const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
+    const res = await fetch(API_ROUTES.products.byId(id), { method: "DELETE" });
     return res.ok;
   }
 

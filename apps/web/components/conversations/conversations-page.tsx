@@ -10,6 +10,7 @@ import { Input } from "@repo/ui/components/input";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { cn } from "@repo/ui/lib/utils";
 
+import { API_ROUTES } from "@/constants/routes";
 import { formatFullDateTime, formatRelativeTime } from "@/lib/utils";
 
 import {
@@ -79,7 +80,7 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
       eventSourceRef.current = null;
     }
     const url =
-      "/api/chat?conversationId=" +
+      API_ROUTES.chat + "?conversationId=" +
       encodeURIComponent(selectedConversationRef.current) +
       "&since=" +
       encodeURIComponent(since) +
@@ -172,7 +173,7 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
 
     // Fetch full message history
     const res = await fetch(
-      "/api/chat?conversationId=" + encodeURIComponent(conversationId),
+      API_ROUTES.chat + "?conversationId=" + encodeURIComponent(conversationId),
     );
     if (res.ok) {
       const data = await res.json();

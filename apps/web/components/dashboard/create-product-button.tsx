@@ -16,6 +16,8 @@ import {
   SheetTrigger,
 } from "@repo/ui/components/sheet";
 
+import { API_ROUTES } from "@/constants/routes";
+
 const CURRENCIES = CURRENCY_CODES;
 
 export function CreateProductButton({
@@ -47,7 +49,7 @@ export function CreateProductButton({
     setSaving(true);
     setError(null);
     try {
-      const response = await fetch("/api/products/new", {
+      const response = await fetch(API_ROUTES.products.create, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

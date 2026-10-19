@@ -7,6 +7,8 @@
  * enters the client bundle.
  */
 
+import { API_ROUTES } from "@/constants/routes";
+
 export type ReconcileResult = {
   applied: boolean;
   plan: string | null;
@@ -20,7 +22,7 @@ export type ReconcileResult = {
  * "Restore my plan" control.
  */
 export async function postReconcilePaystackCheckout(): Promise<ReconcileResult> {
-  const response = await fetch("/api/billing/paystack/reconcile", {
+  const response = await fetch(API_ROUTES.billing.paystack.reconcile, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({}),

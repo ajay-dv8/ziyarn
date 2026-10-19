@@ -8,6 +8,8 @@ import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { Globe, Loader2 } from "lucide-react";
 
+import { API_ROUTES } from "@/constants/routes";
+
 type CrawlJob = {
   id: string;
   url: string;
@@ -45,7 +47,7 @@ export function WebsiteCrawlForm({
   const refresh = useCallback(async () => {
     try {
       const res = await fetch(
-        `/api/knowledge/crawl?domainId=${domainId}&agentId=${agentId}`,
+        `${API_ROUTES.knowledge.crawl}?domainId=${domainId}&agentId=${agentId}`,
       );
       if (!res.ok) return;
       const status = (await res.json()) as {
@@ -96,7 +98,7 @@ export function WebsiteCrawlForm({
     setError(null);
     refreshedRef.current = false;
     try {
-      const res = await fetch("/api/knowledge/crawl", {
+      const res = await fetch(API_ROUTES.knowledge.crawl, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ domainId, agentId, url: target }),

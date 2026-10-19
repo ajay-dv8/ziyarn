@@ -15,6 +15,8 @@ import {
 import { Label } from "@repo/ui/components/label";
 import { Loader2, Upload } from "lucide-react";
 
+import { API_ROUTES } from "@/constants/routes";
+
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
 
 function parseRows(text: string): Array<{ name?: string; email: string }> {
@@ -60,7 +62,7 @@ export function ImportCustomersDialog({ domainId }: { domainId: string }) {
     setImporting(true);
     setError(null);
     try {
-      const res = await fetch("/api/customers", {
+      const res = await fetch(API_ROUTES.customers, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ domainId, rows: parsed }),

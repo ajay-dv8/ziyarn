@@ -6,6 +6,8 @@ import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 
+import { API_ROUTES } from "@/constants/routes";
+
 type Props = {
   campaignId: string;
   status: string;
@@ -60,7 +62,7 @@ export function ScheduleCampaignControl({
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/campaigns/${campaignId}/schedule`, {
+      const response = await fetch(API_ROUTES.campaigns.schedule(campaignId), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scheduledAt: when.toISOString() }),
@@ -85,7 +87,7 @@ export function ScheduleCampaignControl({
     setError(null);
     try {
       const response = await fetch(
-        `/api/campaigns/${campaignId}/cancel-schedule`,
+        API_ROUTES.campaigns.cancelSchedule(campaignId),
         { method: "POST" },
       );
       const body = (await response.json().catch(() => null)) as {

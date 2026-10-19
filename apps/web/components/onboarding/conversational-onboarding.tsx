@@ -9,7 +9,7 @@ import { ShineBorder } from "@repo/ui/components/shine-border";
 import { Paperclip } from "lucide-react";
 
 import { createDomainAction } from "@/lib/actions/domains";
-import { APP_ROUTES } from "@/constants/routes";
+import { API_ROUTES, APP_ROUTES } from "@/constants/routes";
 
 import {
   ChatMessage,
@@ -227,7 +227,7 @@ export function ConversationalOnboarding({
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch("/api/uploads/logo", {
+      const res = await fetch(API_ROUTES.uploads.logo, {
         method: "POST",
         body: form,
       });
@@ -338,7 +338,7 @@ export function ConversationalOnboarding({
     setDomainId(createdDomainId);
 
     try {
-      const res = await fetch("/api/agents", {
+      const res = await fetch(API_ROUTES.agents.root, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -411,7 +411,7 @@ export function ConversationalOnboarding({
       form.append("domainId", domainId ?? "");
       form.append("agentId", agentId ?? "");
       form.append("file", file);
-      const res = await fetch("/api/knowledge/upload", {
+      const res = await fetch(API_ROUTES.knowledge.upload, {
         method: "POST",
         body: form,
       });

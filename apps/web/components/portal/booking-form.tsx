@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 
+import { API_ROUTES } from "@/constants/routes";
+
 type BookingFormProps = {
   /** Selected date (YYYY-MM-DD) */
   date: string;
@@ -50,7 +52,7 @@ export function BookingForm({ date, time, domainId, onBooked }: BookingFormProps
     setServerError(null);
 
     try {
-      const response = await fetch("/api/public/bookings", {
+      const response = await fetch(API_ROUTES.public.bookings, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

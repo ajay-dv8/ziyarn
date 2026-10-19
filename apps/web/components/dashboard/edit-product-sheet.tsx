@@ -15,6 +15,8 @@ import {
   SheetTitle,
 } from "@repo/ui/components/sheet";
 
+import { API_ROUTES } from "@/constants/routes";
+
 export type EditableProduct = {
   id: string;
   name: string;
@@ -57,7 +59,7 @@ export function EditProductSheet({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/products/${product!.id}`, {
+      const res = await fetch(API_ROUTES.products.byId(product!.id), {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

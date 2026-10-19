@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@repo/ui/components/button";
 
+import { API_ROUTES } from "@/constants/routes";
+
 /**
  * Shown to an owner on the free plan whose payment succeeded but whose plan
  * was never applied — the browser verify call was lost (closed tab, network
@@ -23,7 +25,7 @@ export function RestorePlanButton({ email }: { email: string }) {
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch("/api/billing/paystack/reconcile", {
+      const response = await fetch(API_ROUTES.billing.paystack.reconcile, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email }),

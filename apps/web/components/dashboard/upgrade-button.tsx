@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@repo/ui/components/button";
 
 import type { PaystackCheckout } from "@/components/dashboard/paystack-checkout-popup";
+import { API_ROUTES } from "@/constants/routes";
 
 const PAYSTACK_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY ?? "";
 
@@ -40,7 +41,7 @@ export function UpgradeButton({
     setState("loading");
     setError(null);
     try {
-      const response = await fetch("/api/billing/paystack/initialize", {
+      const response = await fetch(API_ROUTES.billing.paystack.initialize, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ plan }),
@@ -76,7 +77,7 @@ export function UpgradeButton({
       return;
     }
     try {
-      const verify = await fetch("/api/billing/paystack/verify", {
+      const verify = await fetch(API_ROUTES.billing.paystack.verify, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ reference: checkout.reference }),

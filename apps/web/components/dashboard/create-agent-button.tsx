@@ -19,6 +19,8 @@ import {
   type BusinessType,
 } from "@repo/api/domains/business-types";
 
+import { API_ROUTES } from "@/constants/routes";
+
 const DESCRIPTION_PLACEHOLDERS: Record<BusinessType, string> = {
   education: "Tell us about your institution…",
   health: "Tell us about your practice or clinic…",
@@ -59,7 +61,7 @@ export function CreateAgentButton({
     setSaving(true);
     setError(null);
     try {
-      const response = await fetch("/api/agents", {
+      const response = await fetch(API_ROUTES.agents.root, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

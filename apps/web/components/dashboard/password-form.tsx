@@ -6,6 +6,8 @@ import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 
+import { API_ROUTES } from "@/constants/routes";
+
 export function PasswordForm() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -33,7 +35,7 @@ export function PasswordForm() {
 
     setSaving(true);
     try {
-      const response = await fetch("/api/settings/password", {
+      const response = await fetch(API_ROUTES.settings.password, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ currentPassword, newPassword }),

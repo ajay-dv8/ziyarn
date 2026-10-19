@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@repo/ui/components/button";
 
+import { API_ROUTES } from "@/constants/routes";
+
 export function CancelSubscriptionButton() {
   const router = useRouter();
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
@@ -18,7 +20,7 @@ export function CancelSubscriptionButton() {
     setState("loading");
     setError(null);
     try {
-      const response = await fetch("/api/billing/paystack/cancel", {
+      const response = await fetch(API_ROUTES.billing.paystack.cancel, {
         method: "POST",
       });
       const body = (await response.json().catch(() => null)) as {

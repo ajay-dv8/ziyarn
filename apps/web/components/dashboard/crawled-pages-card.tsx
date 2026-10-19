@@ -12,6 +12,7 @@ import {
 import { ChevronDown } from "lucide-react";
 
 import { DeleteKnowledgeDocumentButton } from "@/components/dashboard/delete-knowledge-document-button";
+import { API_ROUTES } from "@/constants/routes";
 
 export type KnowledgeDocumentRow = {
   id: string;
@@ -77,7 +78,7 @@ function DocumentListItem({
       <div className="flex shrink-0 items-center gap-2">
         {variant === "file" && doc.storageKey ? (
           <a
-            href={`/api/knowledge/${doc.id}/file?domainId=${domainId}`}
+            href={`${API_ROUTES.knowledge.file(doc.id)}?domainId=${domainId}`}
             className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
             Download

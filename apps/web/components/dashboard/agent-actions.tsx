@@ -17,6 +17,8 @@ import {
 
 import { Pencil } from "lucide-react";
 
+import { API_ROUTES } from "@/constants/routes";
+
 type Agent = {
   id: string;
   name: string;
@@ -58,7 +60,7 @@ export function AgentActions({
     setError(null);
     try {
       const response = await fetch(
-        `/api/agents/${agent.id}?domainId=${encodeURIComponent(domainId)}`,
+        `${API_ROUTES.agents.byId(agent.id)}?domainId=${encodeURIComponent(domainId)}`,
         {
           method: "PATCH",
           headers: { "content-type": "application/json" },

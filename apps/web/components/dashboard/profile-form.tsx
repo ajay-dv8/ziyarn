@@ -6,6 +6,8 @@ import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 
+import { API_ROUTES } from "@/constants/routes";
+
 export function ProfileForm({
   name,
   email,
@@ -29,7 +31,7 @@ export function ProfileForm({
     setError(null);
     setSuccess(false);
     try {
-      const response = await fetch("/api/settings", {
+      const response = await fetch(API_ROUTES.settings.root, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ name: trimmed }),

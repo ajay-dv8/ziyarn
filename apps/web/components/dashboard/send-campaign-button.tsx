@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import { Button } from "@repo/ui/components/button";
 
+import { API_ROUTES } from "@/constants/routes";
+
 export function SendCampaignButton({ campaignId }: { campaignId: string }) {
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -15,7 +17,7 @@ export function SendCampaignButton({ campaignId }: { campaignId: string }) {
     setState("loading");
     setMessage(null);
     try {
-      const response = await fetch(`/api/campaigns/${campaignId}/send`, {
+      const response = await fetch(API_ROUTES.campaigns.send(campaignId), {
         method: "POST",
       });
       const body = (await response.json().catch(() => null)) as {

@@ -18,6 +18,8 @@ import {
 
 import { Pencil, Play, Pause } from "lucide-react";
 
+import { API_ROUTES } from "@/constants/routes";
+
 type Product = {
   id: string;
   name: string;
@@ -46,7 +48,7 @@ export function ProductActions({
     setSaving(true);
     setError(null);
     try {
-      const response = await fetch(`/api/products/${product.id}`, {
+      const response = await fetch(API_ROUTES.products.byId(product.id), {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),

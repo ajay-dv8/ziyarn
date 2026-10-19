@@ -5,6 +5,7 @@ import path from "node:path";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { API_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 
 export const runtime = "nodejs";
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
     const target = path.join(LOGOS_DIR, key);
     await mkdir(path.dirname(target), { recursive: true });
     await writeFile(target, data);
-    return NextResponse.json({ url: `/api/logos/${key}` });
+    return NextResponse.json({ url: API_ROUTES.logos(key) });
   } catch (error) {
     console.error("POST /api/uploads/logo failed:", error);
     return NextResponse.json(

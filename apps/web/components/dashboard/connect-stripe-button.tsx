@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import { Button } from "@repo/ui/components/button";
 
+import { API_ROUTES } from "@/constants/routes";
+
 export function ConnectStripeButton() {
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -12,7 +14,7 @@ export function ConnectStripeButton() {
     setState("loading");
     setMessage(null);
     try {
-      const response = await fetch("/api/integrations/stripe-connect");
+      const response = await fetch(API_ROUTES.integrations.stripeConnect);
       const body = (await response.json().catch(() => null)) as {
         onboardingUrl?: string;
         error?: { code?: string; message?: string };

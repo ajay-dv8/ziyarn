@@ -15,6 +15,8 @@ import {
 } from "@repo/ui/components/table";
 import { Ban, Loader2, Trash2, Undo2 } from "lucide-react";
 
+import { API_ROUTES } from "@/constants/routes";
+
 export type CustomerTableRow = {
   id: string;
   name: string | null;
@@ -85,7 +87,7 @@ export function CustomersTable({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/customers", {
+      const res = await fetch(API_ROUTES.customers, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action, domainId, ids: [...selected] }),

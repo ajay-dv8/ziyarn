@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { API_ROUTES } from "@/constants/routes";
+
 export function BookingConfirmButton({ token }: { token: string }) {
   const [status, setStatus] = useState<"idle" | "confirming" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -10,7 +12,7 @@ export function BookingConfirmButton({ token }: { token: string }) {
     setStatus("confirming");
     setError(null);
     try {
-      const response = await fetch("/api/portal/booking", {
+      const response = await fetch(API_ROUTES.portal.booking, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ token }),

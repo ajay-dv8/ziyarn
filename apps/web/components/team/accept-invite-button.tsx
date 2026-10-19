@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Button } from "@repo/ui/components/button";
 import { toast } from "sonner";
 
-import { APP_ROUTES } from "@/constants/routes";
+import { API_ROUTES, APP_ROUTES } from "@/constants/routes";
 
 export function AcceptInviteButton({ token }: { token: string }) {
   const router = useRouter();
@@ -15,7 +15,7 @@ export function AcceptInviteButton({ token }: { token: string }) {
   const handleAccept = async () => {
     setPending(true);
     try {
-      const response = await fetch("/api/invite/accept", {
+      const response = await fetch(API_ROUTES.invite.accept, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token }),

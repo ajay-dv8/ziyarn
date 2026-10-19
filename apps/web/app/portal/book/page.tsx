@@ -8,6 +8,7 @@ import { CheckCircle2 } from "lucide-react";
 import { BookingForm } from "@/components/portal/booking-form";
 import { DatePicker } from "@/components/portal/date-picker";
 import { SlotPicker } from "@/components/portal/slot-picker";
+import { API_ROUTES } from "@/constants/routes";
 
 type BookingSettings = {
   availableDays: number[];
@@ -52,7 +53,7 @@ export default function BookPage({
   // Fetch booking settings
   useEffect(() => {
     if (!domainId) return;
-    fetch(`/api/public/booking-settings?domainId=${encodeURIComponent(domainId)}`)
+    fetch(`${API_ROUTES.public.bookingSettings}?domainId=${encodeURIComponent(domainId)}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.settings) setSettings(data.settings);
@@ -83,7 +84,7 @@ export default function BookPage({
       setSelectedSlot(null);
       try {
         const res = await fetch(
-          `/api/public/booking-slots?domainId=${encodeURIComponent(domainId)}&date=${date}`,
+          `${API_ROUTES.public.bookingSlots}?domainId=${encodeURIComponent(domainId)}&date=${date}`,
         );
         const data = await res.json();
         setSlots(data.slots ?? []);

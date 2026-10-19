@@ -19,6 +19,7 @@ import {
   EmailTemplateEditor,
   type EmailTemplateDraft,
 } from "@/components/dashboard/email-template-editor";
+import { API_ROUTES } from "@/constants/routes";
 
 type Audience = "all" | "chat" | "database" | "site";
 
@@ -59,7 +60,7 @@ export function CreateCampaignButton() {
     setSaving(true);
     setError(null);
     try {
-      const response = await fetch("/api/campaigns", {
+      const response = await fetch(API_ROUTES.campaigns.root, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
