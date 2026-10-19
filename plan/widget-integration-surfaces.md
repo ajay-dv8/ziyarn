@@ -1,8 +1,13 @@
 # Widget integration surfaces
 
+> The look and the module layout are specced in
+> [`widget-redesign-spec.md`](./widget-redesign-spec.md). This document covers
+> *how the widget is delivered*; that one covers *what it looks like and where
+> the code lives*. Read both.
+
 Three ways for a customer to put the Ziyarn chat on their site, all speaking to
-the same API and behaving identically. The **React component is the design
-source of truth**; the element mirrors it and CI proves they still match.
+the same API and behaving identically. One core, one view, three deliveries — the
+element, the React package and the iframe are thin adapters over it.
 
 ## Why
 
@@ -25,6 +30,13 @@ one" step, because there is only one design.
 
 A customer picks one. All three read the same API, share the same conversation
 state, and are limited by the same plan (the server clamps the widget variant).
+
+## Phase order changed
+
+The phases below are the original sketch. The implementation order now lives in
+[`widget-redesign-spec.md`](./widget-redesign-spec.md), which folds this work
+into seven phases that end with the new design live on existing sites before any
+new surface is published.
 
 ## Why the element stays vanilla for the first release
 
