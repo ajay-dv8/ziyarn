@@ -100,7 +100,7 @@ export function KnowledgeUploadButton({
         form.append("domainId", domainId);
         form.append("agentId", agentId);
         form.append("file", file);
-        const res = await fetch(API_ROUTES.KNOWLEDGE_UPLOAD, {
+        const res = await fetch(API_ROUTES.knowledge.upload, {
           method: "POST",
           body: form,
         });
