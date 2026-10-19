@@ -1,8 +1,9 @@
 # Route constants — one source of truth for every path
 
-**Status:** Phases 0–4 done. `packages/routes` defines every page and handler
+**Status:** Phases 0–5 done. `packages/routes` defines every page and handler
 path, and `@repo/api` + `@repo/widget-core` import it directly. `apps/web` and
-`apps/admin` keep their existing import paths. The ESLint rule (Phase 5) remains.
+`apps/admin` keep their existing import paths, and both now fail lint on a route
+written by hand.
 
 ## Goal
 
@@ -518,29 +519,34 @@ without a constant. It is ~60 lines and needs no build step.
 Note: `vitest.config.ts` currently includes only `lib/**` and `components/**`.
 Put the test in `lib/` rather than `constants/`, or extend `include`.
 
-### 2. ESLint rule banning raw literals
+### 2. ESLint rule banning raw literals — done
 
-Add an override in `apps/web/eslint.config.js`, ignoring the constants folder:
+The plan called for `no-restricted-syntax`. That is not expressible: esquery has
+no attribute prefix operator (`^=` throws `Unknown operator`), and a selector
+regex is delimited by `/`, so the leading slash cannot appear inside it —
+`/^\/dashboard/` parses as the regex `^\/` followed by garbage.
 
-```js
-{
-  files: ["**/*.ts", "**/*.tsx"],
-  ignores: ["constants/routes/**"],
-  rules: {
-    "no-restricted-syntax": [
-      "warn",
-      {
-        selector: "Literal[value=/^\\/(dashboard|api|portal|sign-in|sign-up|docs|pricing|features|onboarding|accept-invite|unsubscribe)(\\/|$)/]",
-        message: "Import the path from @/constants/routes instead of writing it here.",
-      },
-      {
-        selector: "TemplateElement[value.raw=/^\\/(dashboard|api|portal)(\\/|$)/]",
-        message: "Import the path from @/constants/routes instead of writing it here.",
-      },
-    ],
-  },
-}
-```
+What shipped instead is `@repo/eslint-config/no-bare-route`: a ~30-line visitor
+over `Literal` and `TemplateElement` that takes the prefixes as an argument and
+reports `routes/no-bare-route`. `TemplateElement` is the chunk of a template
+before its first `${...}` hole, which is how `${origin}/api/chat` gets caught.
+`cooked` is preferred over `raw`, so `"\u002fdashboard"` cannot slip through.
+
+Both apps enable it, since both migrated:
+
+| App     | Prefixes                                                                                                  |
+| ------- | --------------------------------------------------------------------------------------------------------- |
+| `web`   | dashboard, api, portal, sign-in, sign-up, docs, pricing, features, onboarding, accept-invite, unsubscribe |
+| `admin` | admin, api, sign-in, sign-up, setup                                                                       |
+
+Files that legitimately name a path without linking to one are exempted at the
+call site, each with a reason:
+
+- `apps/web/proxy.ts` — the matcher has to stay a literal (see below).
+- `constants/routes/**` (web) / `constants/routes.ts` (admin) — they define the
+  paths.
+- `apps/web/lib/routes.test.ts` — classifies route files by the `/api` mount,
+  the same way `services/api`'s crawler does. It must be able to say the mount.
 
 `apps/web/package.json` already runs `eslint --max-warnings 0`, and the shared
 config uses `eslint-plugin-only-warn`, so a warning here still fails `lint`.
@@ -588,10 +594,9 @@ Each phase is independently shippable and reviewable.
 | 0b  | ~~Turn that verification into a committed test~~ **done**        | Lives in `lib/routes.test.ts`; proven to fail in both directions |
 | 1   | ~~`apps/web` page routes (27)~~ **done**                         | Only the `proxy.ts` matcher is still a literal, by design        |
 | 2   | ~~`apps/web` handler paths (53)~~ **done**                       | 39 files; query strings unchanged, so behaviour is unchanged     |
-| 2   | `apps/web` handler paths (53)                                    | Biggest mechanical chunk                                         |
-| 3   | `apps/admin` (24)                                                | Independent app; new constants file                              |
-| 4   | Package boundaries (18)                                          | Needs the cross-boundary decision                                |
-| 5   | ESLint rule                                                      | Must be last — it would fail on every unmigrated file            |
+| 3   | ~~`apps/admin` (24)~~ **done**                                   | Own constants file; 12 files migrated                            |
+| 4   | ~~Package boundaries (15)~~ **done**                             | `@repo/routes`, re-exported, so no call site moved               |
+| 5   | ~~ESLint rule~~ **done**                                         | Last by design — it would have failed on every unmigrated file   |
 
 Verification for every phase:
 
@@ -694,14 +699,13 @@ sweep.
 - [x] `packages/widget-core` has one named chat path, not four literals
 - [x] Route coverage test committed and passing in both directions (covers
       `apps/web`; `apps/admin` has only two handlers and no test yet)
-- [ ] ESLint rule enabled and `pnpm --filter web lint` clean
-- [ ] `check-types`, `lint`, and the 3 CPU / 3 GB build all pass
+- [x] ESLint rule enabled and `pnpm --filter web lint` clean
+- [x] `check-types`, `lint` (web + admin) and the 3 CPU / 3 GB build all pass
 - [ ] Signed-in walk-through: dashboard pages, one admin page, the portal
       booking flow
 
-**Known blocker for the lint items.** `pnpm --filter web lint` is already red on
-`main`, before any of this work: `bookings/page.tsx:27` and
-`create-agent-button.tsx:18` both have an unused import, and the script runs
-`eslint --max-warnings 0`. Two deletions fix it, but they are unrelated to
-routes, so they are left alone here. Until they are done, verification for every
-phase is `check-types` + build + the coverage test.
+**Lint status.** `web` and `admin` are green at `--max-warnings 0`. The repo-wide
+`pnpm lint` is still red in `@repo/api` on three warnings that predate this work
+(`email/templates.ts:216`, `workspaces/schemas.ts:5`,
+`workspaces/server.ts:656` — a service object only used as a type). They are not
+route-related and were left alone.

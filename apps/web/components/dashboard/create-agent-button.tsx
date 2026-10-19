@@ -14,10 +14,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@repo/ui/components/sheet";
-import {
-  getBusinessTypeConfig,
-  type BusinessType,
-} from "@repo/api/domains/business-types";
+import type { BusinessType } from "@repo/api/domains/business-types";
 
 import { API_ROUTES } from "@/constants/routes";
 

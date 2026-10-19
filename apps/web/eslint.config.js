@@ -1,4 +1,5 @@
 import { nextJsConfig } from "@repo/eslint-config/next-js";
+import { noBareRoute } from "@repo/eslint-config/no-bare-route";
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
@@ -30,4 +31,33 @@ export default [
       },
     },
   },
+  noBareRoute({
+    prefixes: [
+      "/dashboard",
+      "/api",
+      "/portal",
+      "/sign-in",
+      "/sign-up",
+      "/docs",
+      "/pricing",
+      "/features",
+      "/onboarding",
+      "/accept-invite",
+      "/unsubscribe",
+    ],
+    ignores: [
+      // Only re-exports @repo/routes; the package has its own lint config.
+      "constants/routes/**",
+      // The matcher must stay a literal. Next reads config.matcher with a static
+      // AST pass (extractExportedConstValue), not by running the module, so a
+      // constant there fails the build with `Unsupported node type
+      // "Identifier"`.
+      "proxy.ts",
+      // Classifies route files by mount, the same way the crawler in
+      // services/api does. Nothing here links or fetches; the file exists to
+      // compare the app tree against the constants, so it has to be able to say
+      // the mount out loud.
+      "lib/routes.test.ts",
+    ],
+  }),
 ];
