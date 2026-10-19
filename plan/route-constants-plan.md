@@ -1,7 +1,9 @@
 # Route constants — one source of truth for every path
 
-**Status:** Phase 0 done — the constants exist and are verified against the
-filesystem. Call sites are **not** migrated yet; that is Phases 1-5.
+**Status:** Phases 0–2 done. The constants exist and are verified against the
+filesystem; every `apps/web` page path and handler path now goes through
+`APP_ROUTES` / `API_ROUTES`. Admin (Phase 3), package boundaries (Phase 4) and
+the ESLint rule (Phase 5) remain.
 
 ## Goal
 
@@ -329,6 +331,19 @@ same pass as the page that owns those sites, or not at all.
 | `app/dashboard/customers/page.tsx:68,72,98,136`        | `"/dashboard/customers"` + query + `action=` | `APP_ROUTES.DASHBOARD_CUSTOMERS`                                   |
 | `proxy.ts:13`                                          | `matcher: ["/dashboard/:path*"]`             | **leave literal**, add a comment explaining Next's static analysis |
 
+All 16 files migrated. Two judgement calls worth recording:
+
+- `lib/actions/workspaces.ts` kept its `revalidateTeam()` helper and moved the
+  constant inside it, instead of inlining `APP_ROUTES.DASHBOARD_TEAM` at every
+  call site. The helper is useful deduplication; the private copy of the path
+  was the actual problem (failure #2 above).
+- `proxy.ts` imports `APP_ROUTES` for the `/sign-in` redirect but keeps the
+  matcher literal, with a comment recording why.
+
+Query strings were left untouched — every `?domainId=` still builds the way it
+did, so this phase is a pure rename with no behaviour change. `withQuery`
+remains open question 3.
+
 ### Phase 2 — `apps/web` handler paths (53 references, 39 files)
 
 Grouped by the resource key each one maps to. Line numbers are from the current
@@ -353,6 +368,20 @@ tree.
 
 `apps/web/app/api/uploads/logo/route.ts:71` is a handler _returning_ a URL that
 the browser will later request; it still uses the constant.
+
+All 39 files migrated, in two passes: an exact-match script (each edit carried an
+expected occurrence count, so a drifted line failed loudly instead of being
+skipped), then a normaliser that moved the new import into each file's existing
+`@/` group in sorted order. `lib/paystack-client.ts` has no imports at all — it
+is deliberately browser-safe — so its import was added by hand after the
+docblock.
+
+Query strings were again left alone. The build does not exercise a client-side
+`fetch`, so the built chunks were searched afterwards for every path string the
+migration touched; all 28 are present with their original values. (One, the
+portal pay URL, appears as `` `${API_ROUTES.portal.pay}?t=` `` rather than a
+contiguous literal — the bundler keeps the object and the concatenation
+separate, which is why a naive grep for `/api/portal/pay?t=` misses it.)
 
 ### Phase 3 — `apps/admin` (24 references, 12 files)
 
@@ -518,15 +547,16 @@ and `next.config.js` does not enable it. Worth doing as a follow-up:
 
 Each phase is independently shippable and reviewable.
 
-| #   | Phase                                                            | Why this order                                                    |
-| --- | ---------------------------------------------------------------- | ----------------------------------------------------------------- |
-| 0   | ~~Rewrite `api-routes.ts`, add 4 `APP_ROUTES` entries~~ **done** | Verified 29 ↔ 29 pages and 55 ↔ 51 handlers, both directions      |
-| 0b  | Turn that verification into a committed test                     | The throwaway checker passed; it needs a permanent home in `lib/` |
-| 1   | `apps/web` page routes (27)                                      | Smallest surface, highest existing adoption                       |
-| 2   | `apps/web` handler paths (53)                                    | Biggest mechanical chunk                                          |
-| 3   | `apps/admin` (24)                                                | Independent app; new constants file                               |
-| 4   | Package boundaries (18)                                          | Needs the cross-boundary decision                                 |
-| 5   | ESLint rule                                                      | Must be last — it would fail on every unmigrated file             |
+| #   | Phase                                                            | Why this order                                                   |
+| --- | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| 0   | ~~Rewrite `api-routes.ts`, add 4 `APP_ROUTES` entries~~ **done** | Verified 29 ↔ 29 pages and 55 ↔ 51 handlers, both directions     |
+| 0b  | ~~Turn that verification into a committed test~~ **done**        | Lives in `lib/routes.test.ts`; proven to fail in both directions |
+| 1   | ~~`apps/web` page routes (27)~~ **done**                         | Only the `proxy.ts` matcher is still a literal, by design        |
+| 2   | ~~`apps/web` handler paths (53)~~ **done**                       | 39 files; query strings unchanged, so behaviour is unchanged     |
+| 2   | `apps/web` handler paths (53)                                    | Biggest mechanical chunk                                         |
+| 3   | `apps/admin` (24)                                                | Independent app; new constants file                              |
+| 4   | Package boundaries (18)                                          | Needs the cross-boundary decision                                |
+| 5   | ESLint rule                                                      | Must be last — it would fail on every unmigrated file            |
 
 Verification for every phase:
 
@@ -630,7 +660,7 @@ sweep.
 - [x] `APP_ROUTES` covers all 29 pages (added `UNSUBSCRIBE`, `PORTAL_BOOK`,
       `PORTAL_BOOKING`, `PORTAL_PAY`)
 - [x] `API_ROUTES` covers all 51 handlers under `apps/web/app/api`
-- [ ] No `/dashboard`, `/api`, `/portal` literal outside the constants files —
+- [x] No `/dashboard`, `/api`, `/portal` literal outside the constants files —
       except `proxy.ts`'s matcher, with a comment
 - [ ] `apps/admin` has `constants/routes.ts` and imports it everywhere
 - [ ] `packages/widget-core` has one named chat path, not four literals
