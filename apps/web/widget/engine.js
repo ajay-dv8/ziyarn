@@ -116,26 +116,10 @@
       this._subEl.textContent = this._subtitle;
       this._sendBtn.disabled = false;
 
-      // ---- Restore visitor ID from localStorage ----
-      // The visitor ID persists across page reloads so the backend can track
-      // conversation history per visitor. Generated via crypto.randomUUID()
-      // with a fallback for older browsers/private mode.
-      this._visitorId = this._loadStore("visitor");
-      if (!this._visitorId) {
-        this._visitorId =
-          typeof crypto !== "undefined" && crypto.randomUUID
-            ? crypto.randomUUID()
-            : "v-" +
-              Math.random().toString(36).slice(2) +
-              Date.now().toString(36);
-        this._saveStore("visitor", this._visitorId);
-      }
-
-      // ---- Restore in-progress conversation from localStorage ----
-      this._conversationId = this._loadStore("conversation") || null;
-      this._lastMsgAt = null;      // timestamp of last message (for delta polling)
-      this._deltaActive = false;   // true while the delta SSE loop is running
-      this._deltaTimer = null;     // setTimeout ID for reconnecting the delta loop
+      // ---- Visitor and conversation ids live in the session ----
+      // Both persist across reloads so a returning visitor resumes the same
+      // conversation. _createSession() (below) reads and writes them.
+      this._session = null;
 
       // ---- Wire up event listeners ----
       this._launcher.addEventListener("click", this._toggle.bind(this));
@@ -156,46 +140,40 @@
     // -------------------------------------------------------------------------
     // Keys are namespaced with the domain slug so multiple widgets on the
     // same page (different domains) don't collide.
-    _loadStore(key) {
-      try {
-        return localStorage.getItem("zy:" + key + ":" + this._slug);
-      } catch (_) {
-        return null; // private browsing or storage full
-      }
-    }
-
-    _saveStore(key, value) {
-      try {
-        localStorage.setItem("zy:" + key + ":" + this._slug, value);
-      } catch (_) {
-        /* private mode — ignore */
-      }
+    // -------------------------------------------------------------------------
+    // The conversation itself lives in @repo/widget-core — transport, streaming,
+    // storage and reconnect live there, so the React package and a future native
+    // client share them. Everything below is rendering.
+    // -------------------------------------------------------------------------
+    _createSession() {
+      var self = this;
+      this._session = ZiyarnCore.createSession({
+        apiBase: this._apiBase,
+        secret: this._secret,
+        slug: this._slug,
+      });
+      this._visitorId = this._session.visitorId;
+      this._conversationId = this._session.conversationId;
+      return this._session;
     }
 
     // -------------------------------------------------------------------------
     // _init — bootstrap the widget after DOM is ready
     // -------------------------------------------------------------------------
-    // Two things happen:
-    //   1. GET /api/chat → fetches the agent's name and description to
-    //      populate the header, plus the business-type placeholder prompts.
-    //      This also validates the embed secret.
-    //   2. If there's a saved conversation, load its history. Otherwise,
-    //      show the default greeting message.
+    //   1. Load the agent's config: name, description, placeholder prompts. This
+    //      also validates the embed secret.
+    //   2. If there is a saved conversation, replay it; otherwise greet.
     _init() {
       var self = this;
-      this._fetch(this._apiBase + "/api/chat", {
-        method: "GET",
-        headers: { "x-embed-secret": this._secret },
-      })
+      this._createSession();
+      this._session
+        .loadConfig()
         .then(function (data) {
-          // Update header with the agent's actual name and description
           if (data && data.agent) {
             if (data.agent.name) self._titleEl.textContent = data.agent.name;
             if (data.agent.description)
               self._subEl.textContent = data.agent.description;
           }
-          // Composer capabilities. Both are optional so an older backend that
-          // does not return them simply leaves the defaults in place.
           if (data && data.placeholders) {
             self._setPlaceholders(data.placeholders);
           }
@@ -204,70 +182,64 @@
           /* keep attribute defaults — API might be unreachable */
         });
 
-      // If we have a saved conversation ID, load its message history.
-      // Otherwise, show the default greeting.
-      if (this._conversationId) {
-        this._loadHistory();
-      } else {
-        this._appendMessage("agent", "Hi there! How can we help you today?");
-      }
+      this._loadHistory();
     }
 
     // -------------------------------------------------------------------------
-    // _loadHistory — fetch and render previous messages for an existing conversation
+    // _loadHistory — replay a saved conversation, then greet a new visitor
     // -------------------------------------------------------------------------
-    // Called when a conversation ID is found in localStorage (visitor returned
-    // to the page). Renders all messages in chronological order and resumes
-    // the delta loop if the conversation was escalated to a human agent.
     _loadHistory() {
       var self = this;
-      var url =
-        this._apiBase +
-        "/api/chat?conversationId=" +
-        encodeURIComponent(this._conversationId);
-      this._fetch(url, {
-        method: "GET",
-        headers: { "x-embed-secret": this._secret },
-      })
+      if (!this._session) return;
+      var restored = this._session
+        .loadHistory()
         .then(function (data) {
-          if (data && Array.isArray(data.messages)) {
+          if (data && Array.isArray(data.messages) && data.messages.length) {
             self._messages.textContent = ""; // clear greeting
-            var latest = null;
-            data.messages.forEach(function (m) {
+            data.messages.forEach(function (message) {
               // Route each message to the correct visual style:
-              //   "owner" = human support agent (green border, labeled "Owner")
-              //   "user"  = visitor (accent-colored bubble, right-aligned)
-              //   "assistant" = AI agent (white bubble, left-aligned)
-              if (m.sender === "owner") self._appendMessage("owner", m.content);
-              else if (m.role === "user") self._appendMessage("user", m.content);
-              else if (m.role === "assistant")
-                self._appendMessage("agent", m.content);
-              if (m.createdAt) latest = m.createdAt;
+              //   "owner"   = human support agent
+              //   role user = the visitor
+              //   role assistant = the AI agent
+              if (message.sender === "owner")
+                self._appendMessage("owner", message.content || "");
+              else if (message.role === "user")
+                self._appendMessage("user", message.content || "");
+              else if (message.role === "assistant")
+                self._appendMessage("agent", message.content || "");
             });
-            // Track the latest message timestamp for delta polling
-            if (latest) {
-              var t = Date.parse(latest);
-              if (!isNaN(t)) self._lastMsgAt = new Date(t);
+            // A conversation that was escalated keeps getting human replies,
+            // so start listening before the visitor says anything.
+            if (data.conversation && data.conversation.status === "escalated") {
+              self._listenForOwner();
             }
-            // If the conversation was escalated, start listening for human replies
-            if (
-              data.conversation &&
-              data.conversation.status === "escalated"
-            ) {
-              self._startDelta();
-            }
+            return true;
           }
+          return false;
         })
         .catch(function () {
           self._appendMessage("agent", "Hi there! How can we help you today?");
+          return false;
         });
+
+      void restored;
     }
 
     // -------------------------------------------------------------------------
-    // _toggle — open/close the chat panel
+    // _listenForOwner — keep the panel in step with the human teammate
     // -------------------------------------------------------------------------
-    // Toggles the data-open attribute on .zy-wrap, which CSS uses to show/hide
-    // the panel and swap the launcher icon between chat/close.
+    _listenForOwner() {
+      var self = this;
+      if (!this._session) return;
+      this._session.listenForOwnerReplies({
+        onMessage: function (message) {
+          if (message.sender !== "owner" || !message.content) return;
+          self._appendMessage("owner", message.content);
+        },
+      });
+    }
+
+
     _toggle() {
       this._open = !this._open;
       this._wrap.setAttribute("data-open", String(this._open));
@@ -521,7 +493,7 @@
     //   1. Add the user's message to the chat UI
     //   2. Add a "typing" indicator placeholder
     //   3. POST /api/chat with the message, visitor ID, and conversation ID
-    //   4. The response is an SSE stream — read it incrementally via _readStream()
+    //   4. The response is an SSE stream — read it incrementally
     //   5. On error, show an error message in the typing bubble
     //   6. On completion, re-enable the input and focus it
     //
@@ -531,8 +503,9 @@
     //   data: {"type":"done","conversationId":"x"}  — response complete
     //   data: {"type":"error","message":"..."}      — error occurred
     _send() {
+      var self = this;
       var text = this._input.value.trim();
-      if (!text || this._streaming) return;
+      if (!text || this._streaming || !this._session) return;
 
       this._input.value = "";
       this._syncExpanded();
@@ -541,78 +514,63 @@
       this._streaming = true;
       this._syncExpanded();
       this._sendBtn.disabled = true;
-      // Placeholder bubble for the in-flight reply. A variant may offer
-      // something richer than the typing dots (Glow shows a thinking orb); the
-      // controller it returns owns the node until it hands the node back.
+
+      // Placeholder bubble for the in-flight reply. A variant may offer something
+      // richer than the typing dots (Glow shows a thinking orb); the controller
+      // it returns owns the node until it hands the node back.
       var typing = this._appendMessage("agent", "");
       typing.classList.add("zy-msg-typing");
       this._thinking = this._variant.onThinking
         ? this._variant.onThinking(typing, this)
         : null;
       if (!this._thinking) {
-        typing.innerHTML = '<span class="zy-typing-dots"><span class="zy-dot"></span><span class="zy-dot"></span><span class="zy-dot"></span></span>';
+        typing.innerHTML =
+          '<span class="zy-typing-dots"><span class="zy-dot"></span><span class="zy-dot"></span><span class="zy-dot"></span></span>';
       }
-      // Track when typing started so we can enforce a minimum display time
+
+      // The agent's typing indicator must be visible for a beat even when the
+      // first token lands instantly, or a fast reply looks like a glitch.
       this._typingStartedAt = Date.now();
       this._typingMinimumMs = 600;
+      this._reply = "";
 
-      var self = this;
-      var payload = {
-        message: text,
-        visitorId: this._visitorId,
-        conversationId: this._conversationId || undefined,
-      };
-
-      function doFetch(body) {
-        return fetch(self._apiBase + "/api/chat", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-embed-secret": self._secret,
+      this._session
+        .send(text, {
+          onDelta: function (delta) {
+            self._reply += delta;
+            self._renderReply(typing);
           },
-          body: JSON.stringify(body),
-        }).then(function (response) {
-          if (!response.ok) {
-            return response
-              .json()
-              .catch(function () {
-                return {};
-              })
-              .then(function (data) {
-                var err = data && data.error;
-                var msg =
-                  err && err.message
-                    ? err.message
-                    : "Request failed (" + response.status + ")";
-                var code = err && err.code;
-                // Stale conversation — clear it and retry as a new conversation
-                if (code === "NOT_FOUND" && self._conversationId) {
-                  self._conversationId = null;
-                  self._saveStore("conversation", "");
-                  var retry = {
-                    message: text,
-                    visitorId: self._visitorId,
-                  };
-                  return doFetch(retry);
-                }
-                throw new Error(msg);
-              });
-          }
-          return response.body;
-        });
-      }
-
-      doFetch(payload)
-        .then(function (bodyStream) {
-          if (!bodyStream) return Promise.resolve();
-          return self._readStream(bodyStream, typing);
+          onTool: function () {
+            // The tool card arrives with the redesign; the event is already
+            // flowing, so nothing to do here yet.
+          },
+          onEscalate: function () {
+            self._abortThinking();
+            self._setStatus("Connecting you with a human...");
+            typing.classList.remove("zy-msg-typing");
+            typing.textContent =
+              "I've asked a human teammate to take over - they'll join this chat shortly.";
+            self._scrollToBottom();
+            self._listenForOwner();
+          },
+          onDone: function (conversationId) {
+            self._conversationId = conversationId || self._conversationId;
+            self._listenForOwner();
+          },
+          onError: function (message) {
+            self._abortThinking();
+            typing.classList.remove("zy-msg-typing");
+            typing.classList.add("zy-msg-error");
+            typing.textContent = message;
+          },
         })
-        .catch(function (error) {
-          self._abortThinking();
-          typing.classList.remove("zy-msg-typing");
-          typing.classList.add("zy-msg-error");
-          typing.textContent =
-            error.message || "Something went wrong";
+        .then(function () {
+          // A turn that ended with nothing rendered (aborted, or an error the
+          // shell handled) must not leave an empty bubble behind.
+          if (!self._reply) {
+            self._abortThinking();
+            typing.classList.remove("zy-msg-typing");
+          }
         })
         .finally(function () {
           self._streaming = false;
@@ -625,284 +583,29 @@
     }
 
     // -------------------------------------------------------------------------
-    // _readStream — consume the SSE stream from /api/chat and render tokens
+    // _renderReply — write the accumulated reply into the placeholder bubble
     // -------------------------------------------------------------------------
-    // The server sends Server-Sent Events (SSE) as:
-    //   data: {JSON}\n\n
-    //
-    // The reader accumulates chunks in a buffer, splits on "\n\n" boundaries,
-    // and processes each complete event. The "text" events append to the
-    // `reply` string and re-render the typing bubble with renderMd().
-    //
-    // After "done", the conversation ID is saved and the delta loop starts
-    // (to listen for human agent replies).
-    _readStream(stream, typingNode) {
-      var self = this;
-      var reader = stream.getReader();
-      var decoder = new TextDecoder();
-      var buffer = "";  // partial SSE data that hasn't been fully received yet
-      var reply = "";   // accumulated AI response text
-      var typingRevealed = false; // true once the typing indicator has been replaced
-      var typingTimer = null;    // setTimeout ID for delayed typing reveal
-
-      function cancelTypingTimer() {
-        if (typingTimer) {
-          clearTimeout(typingTimer);
-          typingTimer = null;
-        }
-      }
-
-      var STREAM_TIMEOUT_MS = 90000;
-      var inactivityTimer = null;
-
-      function resetInactivityTimer() {
-        clearTimeout(inactivityTimer);
-        inactivityTimer = setTimeout(function () {
-          reader.cancel();
-          cancelTypingTimer();
-          self._abortThinking();
-          typingNode.classList.remove("zy-msg-typing");
-          typingNode.classList.add("zy-msg-error");
-          typingNode.textContent = "Response timed out. Please try again.";
-        }, STREAM_TIMEOUT_MS);
-      }
-
-      function handleEvent(data) {
-        resetInactivityTimer();
-        var event;
-        try {
-          event = JSON.parse(data);
-        } catch (_) {
-          return; // ignore malformed events
-        }
-        if (event.type === "text") {
-          // Incremental text token — append and re-render
-          reply += event.delta || "";
-          function renderReply() {
-            typingNode.classList.remove("zy-msg-typing");
-            // The first token hands control back from the thinking orb. Wait for
-            // it to release the node before writing, or its cleanup would wipe
-            // the reply. Later tokens find nothing to resolve and take the
-            // synchronous path, so streaming stays token-by-token.
-            var handover = self._resolveThinking();
-            if (handover) {
-              handover.then(function () {
-                typingNode.innerHTML = renderMd(reply);
-                self._scrollToBottom();
-              });
-              return;
-            }
-            typingNode.innerHTML = renderMd(reply);
-            self._scrollToBottom();
-          }
-          if (typingRevealed) {
-            // Minimum time already enforced — render immediately
-            renderReply();
-          } else {
-            // First text token — enforce minimum typing display time
-            typingRevealed = true;
-            var elapsed = Date.now() - self._typingStartedAt;
-            var remaining = self._typingMinimumMs - elapsed;
-            if (remaining > 0) {
-              typingTimer = setTimeout(renderReply, remaining);
-            } else {
-              renderReply();
-            }
-          }
-        } else if (event.type === "escalate") {
-          cancelTypingTimer();
-          // AI decided to hand off to a human agent
-          self._abortThinking();
-          self._setStatus("Connecting you with a human...");
-          typingNode.classList.remove("zy-msg-typing");
-          typingNode.textContent =
-            "I've asked a human teammate to take over - they'll join this chat shortly.";
+    // The first token hands control back from the thinking orb. Wait for it to
+    // release the node before writing, or its cleanup would wipe the reply.
+    // Later tokens find nothing to resolve and take the synchronous path, so
+    // streaming stays token by token.
+    _renderReply(typingNode) {
+      var handover = this._resolveThinking();
+      if (handover) {
+        var node = typingNode;
+        var self = this;
+        // Read this._reply when the orb releases the node, not now: tokens
+        // keep arriving while it animates out, and a snapshot taken here
+        // would land on screen after the newer renders and undo them.
+        handover.then(function () {
+          node.innerHTML = renderMd(self._reply);
           self._scrollToBottom();
-          self._startDelta(); // start listening for human replies
-        } else if (event.type === "done") {
-          // Response complete — save conversation ID and start delta loop
-          if (event.conversationId) {
-            self._conversationId = event.conversationId;
-            self._saveStore("conversation", event.conversationId);
-          }
-          self._lastMsgAt = new Date(event.serverTime || Date.now());
-          self._startDelta();
-        } else if (event.type === "error") {
-          cancelTypingTimer();
-          self._abortThinking();
-          typingNode.classList.remove("zy-msg-typing");
-          typingNode.textContent = event.message || "Something went wrong";
-        }
-      }
-
-      // pump() reads chunks from the stream, splits on SSE boundaries,
-      // and processes complete events. The leftover partial data stays
-      // in `buffer` for the next iteration.
-      function pump(result) {
-        if (result.done) {
-          clearTimeout(inactivityTimer);
-          return;
-        }
-        resetInactivityTimer();
-        buffer += decoder.decode(result.value, { stream: true });
-        var parts = buffer.split("\n\n");
-        buffer = parts.pop(); // last element may be incomplete
-        parts.forEach(function (chunk) {
-          var line = chunk.split("\n")[0];
-          if (line.indexOf("data:") === 0) {
-            handleEvent(line.slice(5).trim());
-          }
         });
-        return reader.read().then(pump);
-      }
-
-      resetInactivityTimer();
-      return reader.read().then(pump);
-    }
-
-    // -------------------------------------------------------------------------
-    // _fetch — wrapper around fetch() that throws on non-2xx responses
-    // -------------------------------------------------------------------------
-    // Parses the error body as JSON to extract the error message, falling
-    // back to a generic message if parsing fails.
-    _fetch(url, options) {
-      return fetch(url, options).then(function (response) {
-        if (!response.ok) {
-          return response
-            .json()
-            .catch(function () {
-              return {};
-            })
-            .then(function (payload) {
-              var err = payload && payload.error;
-              throw new Error(
-                err && err.message
-                  ? err.message
-                  : "Request failed (" + response.status + ")"
-              );
-            });
-        }
-        return response.json();
-      });
-    }
-
-    // -------------------------------------------------------------------------
-    // Delta loop — realtime polling for owner (human) replies
-    // -------------------------------------------------------------------------
-    // After an AI response completes (or the conversation is escalated),
-    // the widget holds an SSE connection to:
-    //   GET /api/chat?conversationId=X&since=Y&stream=1
-    //
-    // The server long-polls Postgres for new owner messages, pushes them
-    // as SSE events, and closes the connection. The widget reconnects
-    // immediately with an updated `since` timestamp.
-    //
-    // This gives near-realtime updates without WebSockets.
-    //
-    // Events received:
-    //   {"type":"message","message":{...}} — new owner message
-    //   {"type":"done","serverTime":"..."} — server closed, reconnect
-    //   {"type":"error"}                   — error, retry after delay
-    _startDelta() {
-      var self = this;
-      if (this._deltaActive || !this._conversationId || !this._lastMsgAt) {
         return;
       }
-      this._deltaActive = true;
-      var url =
-        this._apiBase +
-        "/api/chat?conversationId=" +
-        encodeURIComponent(this._conversationId) +
-        "&since=" +
-        encodeURIComponent(this._lastMsgAt.toISOString()) +
-        "&stream=1";
-      fetch(url, {
-        method: "GET",
-        headers: { "x-embed-secret": this._secret },
-      })
-        .then(function (response) {
-          if (!response.ok) {
-            throw new Error("delta request failed (" + response.status + ")");
-          }
-          return self._readDelta(response.body);
-        })
-        .catch(function () {
-          self._deltaActive = false;
-          self._scheduleDelta(2500); // retry after 2.5s on error
-        });
+      typingNode.innerHTML = renderMd(this._reply);
+      this._scrollToBottom();
     }
 
-    _scheduleDelta(delay) {
-      var self = this;
-      clearTimeout(this._deltaTimer);
-      this._deltaTimer = setTimeout(function () {
-        if (self._conversationId) self._startDelta();
-      }, delay);
-    }
-
-    // -------------------------------------------------------------------------
-    // _readDelta — consume the SSE stream for realtime owner replies
-    // -------------------------------------------------------------------------
-    // Same SSE parsing pattern as _readStream(), but for a different event
-    // shape. The delta stream only carries "message", "done", and "error"
-    // events (no "text" tokens).
-    _readDelta(stream) {
-      var self = this;
-      var reader = stream.getReader();
-      var decoder = new TextDecoder();
-      var buffer = "";
-
-      function handleEvent(data) {
-        var event;
-        try {
-          event = JSON.parse(data);
-        } catch (_) {
-          return;
-        }
-        if (event.type === "message" && event.message) {
-          var m = event.message;
-          // Only render owner messages (human support agent replies)
-          if (m.sender === "owner" && m.content) {
-            self._appendMessage("owner", m.content);
-          }
-          if (m.createdAt) {
-            var t = Date.parse(m.createdAt);
-            if (!isNaN(t)) self._lastMsgAt = new Date(t);
-          }
-        } else if (event.type === "done") {
-          // Server closed the connection — reconnect quickly
-          self._deltaActive = false;
-          if (event.serverTime) {
-            var t = Date.parse(event.serverTime);
-            if (!isNaN(t)) self._lastMsgAt = new Date(t);
-          }
-          self._scheduleDelta(200);
-        } else if (event.type === "error") {
-          // Error — back off and retry
-          self._deltaActive = false;
-          self._scheduleDelta(2000);
-        }
-      }
-
-      function pump(result) {
-        if (result.done) {
-          // Stream ended unexpectedly — reconnect
-          self._deltaActive = false;
-          self._scheduleDelta(200);
-          return;
-        }
-        buffer += decoder.decode(result.value, { stream: true });
-        var parts = buffer.split("\n\n");
-        buffer = parts.pop();
-        parts.forEach(function (chunk) {
-          var line = chunk.split("\n")[0];
-          if (line.indexOf("data:") === 0) {
-            handleEvent(line.slice(5).trim());
-          }
-        });
-        return reader.read().then(pump);
-      }
-
-      return reader.read().then(pump);
-    }
   }
+
