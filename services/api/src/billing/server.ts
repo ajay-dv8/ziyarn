@@ -10,6 +10,8 @@ import {
   type Subscription,
 } from "@repo/database/schema";
 
+import { APP_ROUTES, absoluteUrl } from "@repo/routes";
+
 import type { BillingPlan, CheckoutPlan } from "@repo/api/billing/schemas";
 
 export class BillingServiceError extends Error {
@@ -77,6 +79,7 @@ export function createBillingService(deps: { db: Database }) {
 
       const existing = await this.getSubscription(ownerId);
       const customerId = existing?.stripeCustomerId ?? undefined;
+      const appUrl = process.env.BASE_APP_URL ?? "http://localhost:3000";
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
         customer: customerId,
@@ -86,11 +89,11 @@ export function createBillingService(deps: { db: Database }) {
           metadata: { ownerId, plan: input.plan },
         },
         metadata: { ownerId, plan: input.plan },
-        success_url: `${process.env.BASE_APP_URL ?? "http://localhost:3000"}/dashboard/billing?upgraded=1`,
-        cancel_url: `${process.env.BASE_APP_URL ?? "http://localhost:3000"}/dashboard/billing`,
+        success_url: `${absoluteUrl(appUrl, APP_ROUTES.DASHBOARD_BILLING)}?upgraded=1`,
+        cancel_url: absoluteUrl(appUrl, APP_ROUTES.DASHBOARD_BILLING),
         allow_promotion_codes: true,
       });
-      return { url: session.url ?? "/dashboard/billing" };
+      return { url: session.url ?? APP_ROUTES.DASHBOARD_BILLING };
     },
 
     /** Creates a Stripe billing portal session so owners can cancel/downgrade. */
@@ -109,9 +112,10 @@ export function createBillingService(deps: { db: Database }) {
       }
       const { default: Stripe } = await import("stripe");
       const stripe = new Stripe(secretKey);
+      const appUrl = process.env.BASE_APP_URL ?? "http://localhost:3000";
       const session = await stripe.billingPortal.sessions.create({
         customer: subscription.stripeCustomerId,
-        return_url: `${process.env.BASE_APP_URL ?? "http://localhost:3000"}/dashboard/billing`,
+        return_url: absoluteUrl(appUrl, APP_ROUTES.DASHBOARD_BILLING),
       });
       return { url: session.url };
     },

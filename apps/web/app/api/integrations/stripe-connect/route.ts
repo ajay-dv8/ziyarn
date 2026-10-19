@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { BillingServiceError } from "@repo/api/billing";
+import { APP_ROUTES, absoluteUrl } from "@repo/routes";
 import { eq } from "drizzle-orm";
 
 import { db } from "@repo/database";
@@ -12,6 +13,7 @@ import { authService } from "@/services/auth-service";
 export const runtime = "nodejs";
 
 export async function GET() {
+  const appUrl = process.env.BASE_APP_URL ?? "http://localhost:3000";
   try {
     const session = await authService.getSession(await headers());
     if (!session) {
@@ -39,8 +41,8 @@ export async function GET() {
       const stripe = new Stripe(secretKey);
       const link = await stripe.accountLinks.create({
         account: account.stripeAccountId,
-        refresh_url: `${process.env.BASE_APP_URL ?? "http://localhost:3000"}/dashboard/integrations`,
-        return_url: `${process.env.BASE_APP_URL ?? "http://localhost:3000"}/dashboard/integrations`,
+        refresh_url: `${absoluteUrl(appUrl, APP_ROUTES.DASHBOARD_INTEGRATIONS)}`,
+        return_url: `${absoluteUrl(appUrl, APP_ROUTES.DASHBOARD_INTEGRATIONS)}`,
         type: "account_onboarding",
       });
       return NextResponse.json({
@@ -72,8 +74,8 @@ export async function GET() {
     }
     const link = await stripe.accountLinks.create({
       account: stored.stripeAccountId,
-      refresh_url: `${process.env.BASE_APP_URL ?? "http://localhost:3000"}/dashboard/integrations`,
-      return_url: `${process.env.BASE_APP_URL ?? "http://localhost:3000"}/dashboard/integrations`,
+      refresh_url: `${absoluteUrl(appUrl, APP_ROUTES.DASHBOARD_INTEGRATIONS)}`,
+      return_url: `${absoluteUrl(appUrl, APP_ROUTES.DASHBOARD_INTEGRATIONS)}`,
       type: "account_onboarding",
     });
     return NextResponse.json({

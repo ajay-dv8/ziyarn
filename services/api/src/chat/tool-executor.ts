@@ -16,6 +16,7 @@ import type { ChatService } from "@repo/api/chat/server";
 import { upsertCustomers } from "@repo/api/customers/server";
 import { escalationNotificationTemplate } from "@repo/api/email/templates";
 import { sendTransactional } from "@repo/api/email/server";
+import { APP_ROUTES, absoluteUrl } from "@repo/routes";
 
 type ToolExecutorDeps = {
   db: Database;
@@ -250,7 +251,10 @@ export function createToolExecutor(deps: ToolExecutorDeps) {
               .limit(1);
             if (ownerRow?.email) {
               const firstMsg = await chatService.contextMessages(conversationId, 1);
-              const dashboardUrl = `${process.env.BETTER_AUTH_URL ?? ""}/dashboard/conversations?conversationId=${conversationId}`;
+              const dashboardUrl = `${absoluteUrl(
+                process.env.BETTER_AUTH_URL ?? "",
+                APP_ROUTES.DASHBOARD_CONVERSATIONS,
+              )}?conversationId=${conversationId}`;
               const template = escalationNotificationTemplate({
                 domainName: domainRow.domainName,
                 dashboardUrl,

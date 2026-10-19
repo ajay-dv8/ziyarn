@@ -12,6 +12,7 @@ import { user } from "@repo/database/schema/auth";
 import { domains } from "@repo/database/schema/domains";
 import { getPlanLimits, highestPlan } from "@repo/api/plans";
 import { assertCanCreateWorkspace } from "@repo/api/plans/server";
+import { APP_ROUTES, absoluteUrl } from "@repo/routes";
 import type { Plan } from "@repo/api/plans/schemas";
 import {
   createWorkspaceSchema,
@@ -107,7 +108,7 @@ function appBaseUrl(): string {
 }
 
 export function inviteUrl(token: string): string {
-  return `${appBaseUrl()}/accept-invite?token=${encodeURIComponent(token)}`;
+  return `${absoluteUrl(appBaseUrl(), APP_ROUTES.ACCEPT_INVITE)}?token=${encodeURIComponent(token)}`;
 }
 
 /** How long an invite stays acceptable. */

@@ -1,3 +1,4 @@
+import { CHAT_PATH } from "@repo/routes";
 import { createStore, newVisitorId } from "@repo/widget-core/store";
 import { createTransport, type Transport } from "@repo/widget-core/transport";
 import type {
@@ -124,7 +125,7 @@ export function createSession(config: SessionConfig): Session {
     ownerHandlers = handlers;
 
     const path =
-      `/api/chat?conversationId=${encodeURIComponent(conversationId)}` +
+      `${CHAT_PATH}?conversationId=${encodeURIComponent(conversationId)}` +
       `&since=${encodeURIComponent(lastMessageAt.toISOString())}&stream=1`;
 
     transport
@@ -157,7 +158,7 @@ export function createSession(config: SessionConfig): Session {
   ): Promise<ReadableStream<Uint8Array>> {
     try {
       return await transport.stream(
-        "/api/chat",
+        CHAT_PATH,
         {
           message: text,
           visitorId,
@@ -222,13 +223,13 @@ export function createSession(config: SessionConfig): Session {
     },
 
     async loadConfig() {
-      return transport.json<AgentConfig>("/api/chat");
+      return transport.json<AgentConfig>(CHAT_PATH);
     },
 
     async loadHistory() {
       if (!conversationId) return null;
       const history = await transport.json<HistoryResponse>(
-        `/api/chat?conversationId=${encodeURIComponent(conversationId)}`,
+        `${CHAT_PATH}?conversationId=${encodeURIComponent(conversationId)}`,
       );
       rememberNewest(history.messages ?? []);
       return history;

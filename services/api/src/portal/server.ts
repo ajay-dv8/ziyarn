@@ -39,6 +39,7 @@ import {
   getAvailableSlots,
   getBookingSettings as getBookingSettingsFn,
 } from "@repo/api/portal/availability";
+import { APP_ROUTES, absoluteUrl } from "@repo/routes";
 
 export class PortalServiceError extends Error {
   constructor(
@@ -143,9 +144,9 @@ export function createPortalService(deps: {
   }
 
   const bookingUrl = (token: string) =>
-    `${parseDomainUrl()}/portal/booking?t=${encodeURIComponent(token)}`;
+    `${absoluteUrl(parseDomainUrl(), APP_ROUTES.PORTAL_BOOKING)}?t=${encodeURIComponent(token)}`;
   const paymentUrl = (token: string) =>
-    `${parseDomainUrl()}/portal/pay?t=${encodeURIComponent(token)}`;
+    `${absoluteUrl(parseDomainUrl(), APP_ROUTES.PORTAL_PAY)}?t=${encodeURIComponent(token)}`;
 
   return {
     signToken,

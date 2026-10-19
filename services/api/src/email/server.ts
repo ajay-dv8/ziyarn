@@ -24,6 +24,7 @@ import type {
   ScheduleCampaignInput,
 } from "@repo/api/email/schemas";
 import { renderEmailBody } from "@repo/api/email/blocks";
+import { APP_ROUTES, absoluteUrl } from "@repo/routes";
 
 export class EmailServiceError extends Error {
   constructor(
@@ -137,7 +138,7 @@ async function sendOne(
   campaign: Campaign,
   recipient: CampaignRecipient,
 ): Promise<{ ok: true; id: string } | { ok: false }> {
-  const url = `${parseDomainUrl()}/unsubscribe?t=${encodeURIComponent(recipient.unsubscribeToken)}`;
+  const url = `${absoluteUrl(parseDomainUrl(), APP_ROUTES.UNSUBSCRIBE)}?t=${encodeURIComponent(recipient.unsubscribeToken)}`;
   const html = `${campaign.body}${UNSUBSCRIBE_FOOTER(url)}`;
   const text = `${campaign.body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}\n\nUnsubscribe: ${url}`;
   try {

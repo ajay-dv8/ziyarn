@@ -51,6 +51,7 @@
     "@repo/ai": "workspace:*",
     "@repo/database": "workspace:*",
     "@repo/money": "workspace:*",
+    "@repo/routes": "workspace:*",
     "@vercel/blob": "^2.8.0",
     "better-auth": "^1.6.25",
     "convex": "^1.45.0",

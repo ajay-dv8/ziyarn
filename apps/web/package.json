@@ -24,6 +24,7 @@
     "@repo/api": "workspace:*",
     "@repo/database": "workspace:*",
     "@repo/money": "workspace:*",
+    "@repo/routes": "workspace:*",
     "@repo/ui": "workspace:*",
     "@vercel/blob": "^2.8.0",
     "better-auth": "^1.6.25",

@@ -1,10 +1,8 @@
 # Route constants — one source of truth for every path
 
-**Status:** Phases 0–3 done. The constants exist and are verified against the
-filesystem; every `apps/web` page path and handler path goes through
-`APP_ROUTES` / `API_ROUTES`, and `apps/admin` has its own `ADMIN_ROUTES` /
-`ADMIN_API_ROUTES`. Package boundaries (Phase 4) and the ESLint rule (Phase 5)
-remain.
+**Status:** Phases 0–4 done. `packages/routes` defines every page and handler
+path, and `@repo/api` + `@repo/widget-core` import it directly. `apps/web` and
+`apps/admin` keep their existing import paths. The ESLint rule (Phase 5) remains.
 
 ## Goal
 
@@ -455,12 +453,21 @@ alive. The component then does `router.push(ADMIN_ROUTES.SIGN_IN)` +
 `router.refresh()`, the same pair the sign-in page already uses. It is the only
 one of these references that changed behaviour rather than just spelling.
 
-### Phase 4 — across package boundaries (18 sites)
+### Phase 4 — across package boundaries (15 sites) — done
 
-Two different problems, both created by code that cannot import
-`apps/web/constants`.
+Option B from open question 1: `packages/routes` now **defines** the paths and
+`apps/web/constants/routes/*` re-export them, so every existing import kept
+working untouched. `@repo/api` and `@repo/widget-core` depend on the package
+directly; nothing imports an app.
 
-**4a — absolute URLs (14 sites).** These are not path literals; they are
+New in the package, alongside the two maps:
+
+- `absoluteUrl(origin, path)` — trims trailing slashes off the origin and
+  appends the path. Configured origins arrive both with and without a slash;
+  `https://app.example.com//dashboard` is a different string from the constant.
+- `CHAT_PATH` — `/api/chat` exported on its own. See 4b.
+
+**4a — absolute URLs (11 sites).** These are not path literals; they are
 `origin + path` strings, which is why they were invisible to the first pass.
 
 | File:line                                                  | Path                             | Origin source             |
@@ -472,20 +479,22 @@ Two different problems, both created by code that cannot import
 | `services/api/src/paystack/server.ts:350`                  | `/dashboard/billing`             | `paystackReturnBase()`    |
 | `services/api/src/portal/server.ts:146,148`                | `/portal/booking`, `/portal/pay` | `parseDomainUrl()`        |
 | `services/api/src/email/server.ts:140`                     | `/unsubscribe`                   | `parseDomainUrl()`        |
+| `services/api/src/workspaces/server.ts:110`                | `/accept-invite`                 | `appBaseUrl()`            |
 
-Five of these live in `apps/web`, where the fix is
-`absoluteUrl(origin, APP_ROUTES.…)`.
+The last row is the one the audit missed: `inviteUrl()` builds its URL through a
+local `appBaseUrl()` helper, so the path never sat next to the env var the scan
+looked for. Found by sweeping for every `APP_ROUTES` segment rather than for
+`BASE_APP_URL`.
 
-Nine live in `services/api`, which **cannot import `apps/web/constants`** — that
-would invert the package dependency.
+**4b — `packages/widget-core` (4 sites).** `session.ts` hardcoded `/api/chat` at
+lines 127, 160, 225 and 231. It now imports `CHAT_PATH`.
 
-**4b — `packages/widget-core` (4 sites).** `session.ts` hardcodes `/api/chat` at
-lines 127, 160, 225 and 231. The package already takes `apiBase` as config, so
-the path is the same kind of contract. Options: a local `CHAT_PATH` constant
-inside the package, or a `chatPath` field on `TransportConfig` supplied by the
-host. Either works; importing `apps/web` does not.
-
-See "Open questions" for the shared-package alternative that solves 4a and 4b.
+Not `API_ROUTES.chat`, deliberately: a bundler cannot tree-shake one property
+off an object literal, so importing the map shipped the entire table to
+third-party pages — widget.js grew 2,012 bytes (+2.2%). Importing the standalone
+constant inlines a string, and the rebuild came back 12 bytes _under_ the
+pre-migration size (minifier variable renames). `API_ROUTES.chat` is assigned
+from the same `CHAT_PATH`, so the two cannot drift.
 
 ## Guardrails
 
@@ -647,24 +656,17 @@ navigational; the constants are paths. Renaming 113 references buys nothing.
 
 ## Open questions
 
-**1. Do `services/api`, `apps/admin` and `widget-core` share a package?**
+**1. Do `services/api`, `apps/admin` and `widget-core` share a package?** —
+**decided: yes, for `services/api` and `widget-core`.**
 
-The audit makes the case: three deployables need the same paths, and
-`services/api` already builds dashboard URLs independently of the web app.
+Option B was chosen and implemented in Phase 4: `packages/routes` holds
+`APP_ROUTES`, `API_ROUTES`, `CHAT_PATH` and `absoluteUrl`, and
+`apps/web/constants/routes/*` re-export them, so the app's import path is
+unchanged.
 
-- **Option A — per-app constants (this plan).** `apps/web/constants/routes/*`
-  stays as specified; admin gets its own file; `widget-core` gets a local
-  constant. No new package, but `/dashboard/billing` exists in two places and
-  `/api/chat` in two places.
-- **Option B — `@repo/routes`.** Move `APP_ROUTES`, `API_ROUTES` and
-  `absoluteUrl` into `packages/routes/src/`, and re-export from
-  `apps/web/constants/routes/*` so the existing import path keeps working. One
-  source of truth for all four consumers; `apps/web/constants/routes/routes.ts`
-  becomes a one-line re-export rather than the definition.
-
-Option B is architecturally correct, but it moves the definition out of the file
-you named. Recommend deciding this **before Phase 5**, not before Phase 2 —
-Phases 2-4 are unaffected either way.
+`apps/admin` stays out. It has its own `/api/auth` mount and its own `/admin`
+tree; sharing the web app's auth constants there is how the two mounts get
+confused.
 
 **2. Do inbound-only routes belong in `API_ROUTES`?**
 
@@ -689,7 +691,7 @@ sweep.
 - [x] No `/dashboard`, `/api`, `/portal` literal outside the constants files —
       except `proxy.ts`'s matcher, with a comment
 - [x] `apps/admin` has `constants/routes.ts` and imports it everywhere
-- [ ] `packages/widget-core` has one named chat path, not four literals
+- [x] `packages/widget-core` has one named chat path, not four literals
 - [x] Route coverage test committed and passing in both directions (covers
       `apps/web`; `apps/admin` has only two handlers and no test yet)
 - [ ] ESLint rule enabled and `pnpm --filter web lint` clean

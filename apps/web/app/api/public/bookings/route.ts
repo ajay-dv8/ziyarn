@@ -6,6 +6,7 @@ import { checkSlotAvailable } from "@repo/api/portal/availability";
 import { createBookingSchema } from "@repo/api/portal/schemas";
 import { db } from "@repo/database";
 import { bookings } from "@repo/database/schema";
+import { APP_ROUTES, absoluteUrl } from "@repo/routes";
 
 /**
  * POST /api/public/bookings
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
     const token = `${encoded}.${signature}`;
 
     const baseUrl = process.env.BASE_APP_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
-    const url = `${baseUrl}/portal/booking?t=${encodeURIComponent(token)}`;
+    const url = `${absoluteUrl(baseUrl, APP_ROUTES.PORTAL_BOOKING)}?t=${encodeURIComponent(token)}`;
 
     return NextResponse.json({ booking, token, url });
   } catch {

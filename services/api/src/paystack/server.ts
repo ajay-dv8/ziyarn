@@ -7,6 +7,7 @@ import { subscriptions, type Subscription } from "@repo/database/schema";
 
 import type { BillingService } from "@repo/api/billing/server";
 import type { CheckoutPlan } from "@repo/api/billing/schemas";
+import { APP_ROUTES, absoluteUrl } from "@repo/routes";
 
 export class PaystackServiceError extends Error {
   constructor(
@@ -347,7 +348,7 @@ export function createPaystackService(deps: {
           // Send a hosted checkout back to the billing page so the plan is
           // reconciled on return. Without this the customer pays and lands on a
           // dead end — the popup verify call never runs.
-          callback_url: `${paystackReturnBase()}/dashboard/billing?paystack=return`,
+          callback_url: `${absoluteUrl(paystackReturnBase(), APP_ROUTES.DASHBOARD_BILLING)}?paystack=return`,
           metadata: { ownerId, plan: input.plan },
         },
       );
