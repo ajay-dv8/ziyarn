@@ -18,6 +18,8 @@
  * No dependencies. Pure string concatenation in a fixed order.
  */
 import { readFileSync, writeFileSync } from "node:fs";
+import { build as bundle } from "esbuild";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -79,7 +81,38 @@ function asCssLiteral(css) {
   return "`\n" + css.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${") + "`";
 }
 
-function build() {
+/**
+ * Bundles @repo/widget-core into a single IIFE and returns its source.
+ *
+ * The core is the widget's conversation logic — transport, streaming, storage —
+ * shared with the React package and any future native client. It is bundled
+ * rather than imported so the shipped file stays self-contained: one request,
+ * no runtime dependencies, no module loader in the customer's page.
+ *
+ * The text is spliced into the output as code (esbuild's `globalName` already
+ * emits `var ZiyarnCore = (() => { … })();`), which is why it must NOT be
+ * wrapped in quotes the way the CSS literals are.
+ */
+async function coreLiteral() {
+  // Resolved by package name so the build does not hard-code the repo layout.
+  const entry = createRequire(import.meta.url).resolve(
+    "@repo/widget-core/src/index.ts",
+  );
+  const result = await bundle({
+    entryPoints: [entry],
+    bundle: true,
+    format: "iife",
+    globalName: "ZiyarnCore",
+    target: "es2020",
+    platform: "browser",
+    write: false,
+    minify: true,
+    legalComments: "none",
+  });
+  return result.outputFiles[0].text.trim();
+}
+
+async function build() {
   const baseCss = read("base.css");
 
   const cssMap = VARIANTS.map((id) => {
@@ -95,6 +128,9 @@ function build() {
 
   const parts = [
     read("preamble.js"),
+    "",
+    BANNER("core — @repo/widget-core, bundled (transport, stream, session, store)"),
+    await coreLiteral(),
     "",
     BANNER("helpers — dom utilities, markdown, variant registry"),
     read("helpers.js"),
@@ -127,25 +163,32 @@ function build() {
   return parts.join("\n") + "\n";
 }
 
-const output = build();
-const existing = (() => {
-  try {
-    return readFileSync(outFile, "utf8");
-  } catch {
-    return null;
-  }
-})();
+async function main() {
+  const output = await build();
+  const existing = (() => {
+    try {
+      return readFileSync(outFile, "utf8");
+    } catch {
+      return null;
+    }
+  })();
 
-if (process.argv.includes("--check")) {
-  if (existing !== output) {
-    console.error(
-      "public/widget.js is STALE — run: pnpm --filter web build:widget",
-    );
-    process.exit(1);
+  if (process.argv.includes("--check")) {
+    if (existing !== output) {
+      console.error(
+        "public/widget.js is STALE — run: pnpm --filter web build:widget",
+      );
+      process.exit(1);
+    }
+    console.log("public/widget.js is up to date");
+  } else {
+    writeFileSync(outFile, output);
+    const kb = (Buffer.byteLength(output) / 1024).toFixed(1);
+    console.log(`built public/widget.js — ${kb} KB (${output.split("\n").length} lines)`);
   }
-  console.log("public/widget.js is up to date");
-} else {
-  writeFileSync(outFile, output);
-  const kb = (Buffer.byteLength(output) / 1024).toFixed(1);
-  console.log(`built public/widget.js — ${kb} KB (${output.split("\n").length} lines)`);
 }
+
+main().catch((error) => {
+  console.error(error.message);
+  process.exit(1);
+});
