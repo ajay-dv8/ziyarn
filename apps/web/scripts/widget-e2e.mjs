@@ -16,7 +16,7 @@
  */
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -77,7 +77,6 @@ const server = createServer(async (req, res) => {
 
   // The widget script itself.
   if (path === "/widget.js") {
-    const { readFileSync } = await import("node:fs");
     res.writeHead(200, { "content-type": "text/javascript" });
     res.end(readFileSync(widgetFile, "utf8"));
     return;
@@ -85,7 +84,6 @@ const server = createServer(async (req, res) => {
 
   // A page with the widget on it, pointed at this fake API.
   if (path === "/") {
-    const { readFileSync } = await import("node:fs");
     res.writeHead(200, { "content-type": "text/html" });
     res.end(`<!doctype html>
 <html><head><meta charset="utf-8"><title>widget e2e</title>
@@ -219,6 +217,7 @@ async function openPage(url) {
   let nextId = 0;
   const pending = new Map();
   const pageErrors = [];
+  const pageLogs = [];
 
   socket.addEventListener("message", (event) => {
     const message = JSON.parse(event.data);
@@ -235,6 +234,24 @@ async function openPage(url) {
           message.params.exceptionDetails.text,
       );
     }
+    if (message.method === "Runtime.consoleAPICalled") {
+      pageLogs.push(
+        `[${message.params.type}] ` +
+          (message.params.args ?? [])
+            .map((arg) => arg.value ?? arg.description ?? "")
+            .join(" "),
+      );
+    }
+    if (
+      message.method === "Log.entryAdded" &&
+      message.params.entry.level === "error"
+    ) {
+      // The fake page has no favicon; that 404 is the harness, not the widget.
+      const text = String(message.params.entry.text ?? "");
+      const url = String(message.params.entry.url ?? "");
+      if (/favicon/.test(text) || /favicon/.test(url)) return;
+      pageErrors.push(`[log] ${text}`);
+    }
   });
 
   const send = (method, params = {}) => {
@@ -247,6 +264,7 @@ async function openPage(url) {
 
   await send("Page.enable");
   await send("Runtime.enable");
+  await send("Log.enable");
   await send("Page.navigate", { url });
 
   const evaluate = async (expression) => {
@@ -256,7 +274,13 @@ async function openPage(url) {
       awaitPromise: true,
     });
     if (result.exceptionDetails) {
-      throw new Error(result.exceptionDetails.text ?? "evaluate failed");
+      // Chrome reports a page-thrown error as the bare word "Uncaught"; the
+      // description carries the message, so prefer it.
+      const thrown =
+        result.exceptionDetails.exception?.description ??
+        result.exceptionDetails.text ??
+        "evaluate failed";
+      throw new Error(thrown.split("\n")[0]);
     }
     return result.result.value;
   };
@@ -264,6 +288,7 @@ async function openPage(url) {
   return {
     evaluate,
     errors: pageErrors,
+    logs: pageLogs,
     close: async () => {
       try {
         await fetch(
@@ -407,6 +432,9 @@ async function runVariant(variant) {
   check(`${variant}: owner reply appended`, ownerReplySeen);
 
   check(`${variant}: no uncaught errors`, page.errors.length === 0, page.errors[0] ?? "");
+
+  for (const line of page.logs) console.log(`      page: ${line}`);
+  for (const line of page.errors) console.log(`      error: ${String(line).split("\n")[0]}`);
 
   // Close it before the next variant: a left-open tab keeps its delta loop
   // polling and would race the run that follows.
