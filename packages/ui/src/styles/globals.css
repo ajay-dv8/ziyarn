@@ -121,12 +121,22 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --font-heading: var(--font-sans);
-  --font-sans: var(--font-sans);
 }
 
 @theme {
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
-    monospace;
+  /* The UI font is the device's own. `system-ui` is the OS interface face —
+     SF Pro on Apple, Segoe UI on Windows, Roboto/Cantarell on Android/Linux —
+     so there is no webfont to download, nothing to flash in, and the app reads
+     as native on whatever it is opened on. The named faces after it are for
+     engines without `system-ui`; `Arial` is the last resort. */
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", "Noto Sans", Arial, sans-serif;
+  /* Likewise for code, logs and ids: the platform's monospace face, which is
+     what readers of terminals and editors already recognise. */
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 }
 
 @layer base {

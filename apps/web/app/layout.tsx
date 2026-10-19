@@ -1,22 +1,8 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import "./globals.css";
-import { Inter } from "next/font/google";
-import { cn } from "@repo/ui/lib/utils";
 import { Toaster } from "sonner";
 
 import { ThemeProvider } from "@/components/theme-provider";
-
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-});
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -29,12 +15,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-      className={cn("font-sans", inter.variable)}
-    >
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased `}>
+    <html lang="en" suppressHydrationWarning>
+      <body className="antialiased">
         <ThemeProvider>{children}</ThemeProvider>
         <Toaster position="bottom-right" richColors />
       </body>
