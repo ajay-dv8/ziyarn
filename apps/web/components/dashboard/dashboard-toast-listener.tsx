@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { APP_ROUTES } from "@/constants/routes";
 import { useUnreadCount } from "@/hooks/use-unread-count";
 
 /**
@@ -79,7 +80,7 @@ export function DashboardToastListener() {
         description: "A visitor has been connected to a human agent",
         action: {
           label: "View",
-          onClick: () => router.push("/dashboard/conversations"),
+          onClick: () => router.push(APP_ROUTES.DASHBOARD_CONVERSATIONS),
         },
         duration: 10_000,
       });

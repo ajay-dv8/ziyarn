@@ -12,6 +12,7 @@ import {
 } from "@repo/ui/components/card";
 
 import { SeriesBars, StatusBars } from "@/components/dashboard/analytics-charts";
+import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
 import { analyticsService } from "@/services/analytics-service";
@@ -95,7 +96,7 @@ export default async function AnalyticsPage({
             {RANGES.map((value) => (
               <Link
                 key={value}
-                href={`/dashboard/analytics?domainId=${selected.id}&range=${value}`}
+                href={`${APP_ROUTES.DASHBOARD_ANALYTICS}?domainId=${selected.id}&range=${value}`}
                 className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
                   range === value
                     ? "bg-primary text-primary-foreground"
@@ -114,7 +115,7 @@ export default async function AnalyticsPage({
           {domains.map((domain) => (
             <Link
               key={domain.id}
-              href={`/dashboard/analytics?domainId=${domain.id}&range=${range}`}
+              href={`${APP_ROUTES.DASHBOARD_ANALYTICS}?domainId=${domain.id}&range=${range}`}
               className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
                 selected?.id === domain.id
                   ? "border-primary bg-primary/10 font-medium text-primary"

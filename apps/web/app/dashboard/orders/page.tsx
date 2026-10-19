@@ -6,6 +6,7 @@ import { Button } from "@repo/ui/components/button";
 
 import { OrdersTable } from "@/components/dashboard/orders-table";
 import { SyncDatabaseOrdersButton } from "@/components/dashboard/sync-database-orders-button";
+import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
 import { ordersService } from "@/services/orders-service";
@@ -60,11 +61,11 @@ export default async function OrdersPage({
   const businessConfig = getBusinessTypeConfig(selectedDomain?.businessType);
 
   function tabHref(value: "all" | "chat" | "db") {
-    if (!selectedDomain) return "/dashboard/orders";
+    if (!selectedDomain) return APP_ROUTES.DASHBOARD_ORDERS;
     const params = new URLSearchParams({ domainId: selectedDomain.id });
     if (value !== "all") params.set("source", value);
     if (trimmedQuery) params.set("q", trimmedQuery);
-    return `/dashboard/orders?${params.toString()}`;
+    return `${APP_ROUTES.DASHBOARD_ORDERS}?${params.toString()}`;
   }
 
   return (
@@ -87,7 +88,7 @@ export default async function OrdersPage({
           {domains.map((domain) => (
             <Link
               key={domain.id}
-              href={`/dashboard/orders?domainId=${domain.id}`}
+              href={`${APP_ROUTES.DASHBOARD_ORDERS}?domainId=${domain.id}`}
               className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
                 selectedDomain?.id === domain.id
                   ? "border-primary bg-primary/10 font-medium text-primary"
@@ -125,7 +126,7 @@ export default async function OrdersPage({
               </Link>
             ))}
             <form
-              action="/dashboard/orders"
+              action={APP_ROUTES.DASHBOARD_ORDERS}
               method="get"
               className="ml-auto flex items-center gap-2"
             >

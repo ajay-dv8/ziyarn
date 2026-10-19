@@ -12,6 +12,7 @@ import {
 import { DatabaseIntegrationCard } from "@/components/dashboard/database-integration-card";
 import { AgentPicker } from "@/components/domains/agent-picker";
 import { DomainTabs } from "@/components/domains/domain-tabs";
+import { APP_ROUTES } from "@/constants/routes";
 import { agentsService } from "@/services/agents-service";
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
@@ -75,7 +76,7 @@ export default async function DatabasesPage({
           domainId={selectedDomain.id}
           agents={agents}
           activeAgentId={selectedAgent?.id}
-          path="/dashboard/databases"
+          path={APP_ROUTES.DASHBOARD_DATABASES}
         />
       ) : null}
 

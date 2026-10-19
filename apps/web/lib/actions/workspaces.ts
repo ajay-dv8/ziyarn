@@ -14,6 +14,7 @@ import {
   type WorkspaceRole,
 } from "@repo/api/workspaces";
 
+import { APP_ROUTES } from "@/constants/routes";
 import { sendWorkspaceInviteEmail } from "@/lib/workspace-invite-email";
 import { workspaceService } from "@/services/workspace-service";
 
@@ -23,10 +24,8 @@ export type TeamActionResult =
 
 /** Every mutation on the team page revalidates the same path and reports
  * failures in the same shape. */
-const TEAM_PATH = "/dashboard/team";
-
 function revalidateTeam() {
-  revalidatePath(TEAM_PATH);
+  revalidatePath(APP_ROUTES.DASHBOARD_TEAM);
 }
 
 function errorResult(error: unknown): Extract<TeamActionResult, { ok: false }> {

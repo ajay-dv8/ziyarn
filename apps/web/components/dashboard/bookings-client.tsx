@@ -7,6 +7,7 @@ import { Card, CardContent } from "@repo/ui/components/card";
 
 import { BookingsTable } from "@/components/dashboard/bookings-table";
 import { ConfigureBookingButton } from "@/components/dashboard/configure-booking-button";
+import { API_ROUTES, APP_ROUTES } from "@/constants/routes";
 
 type Domain = { id: string; name: string };
 type Booking = {
@@ -47,7 +48,7 @@ export function BookingsClient({
   const selectedDomain = domains.find((domain) => domain.id === selectedDomainId) ?? domains[0];
 
   async function handleUpdateStatus(id: string, status: "confirmed" | "cancelled") {
-    const res = await fetch(`/api/bookings/${id}`, {
+    const res = await fetch(API_ROUTES.bookings.byId(id), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
@@ -61,7 +62,7 @@ export function BookingsClient({
 
   async function handleSaveSettings(data: Settings) {
     if (!selectedDomain) return;
-    const res = await fetch("/api/booking-settings", {
+    const res = await fetch(API_ROUTES.bookingSettings.root, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ domainId: selectedDomain.id, ...data }),
@@ -93,7 +94,7 @@ export function BookingsClient({
           {domains.map((domain) => (
             <Link
               key={domain.id}
-              href={`/dashboard/bookings?domainId=${domain.id}`}
+              href={`${APP_ROUTES.DASHBOARD_BOOKINGS}?domainId=${domain.id}`}
               className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
                 selectedDomain?.id === domain.id
                   ? "border-primary bg-primary/10 font-medium text-primary"

@@ -11,6 +11,7 @@ import {
 } from "@repo/api/domains";
 import { DomainServiceError, PlanLimitError } from "@repo/api";
 
+import { APP_ROUTES } from "@/constants/routes";
 import { domainsService } from "@/services/domains-service";
 
 export type ActionResult =
@@ -42,7 +43,7 @@ export async function createDomainAction(
     if (!domain) {
       return { ok: false, error: "Could not create the domain" };
     }
-    revalidatePath("/dashboard/domains");
+    revalidatePath(APP_ROUTES.DASHBOARD_DOMAINS);
     return { ok: true, domainId: domain.id };
   } catch (error) {
     return errorResult(error);
@@ -64,7 +65,7 @@ export async function updateDomainAction(
 
   try {
     await domainsService.updateDomain(id, parsed.data, await headers());
-    revalidatePath("/dashboard/domains");
+    revalidatePath(APP_ROUTES.DASHBOARD_DOMAINS);
     return { ok: true };
   } catch (error) {
     return errorResult(error);
@@ -74,7 +75,7 @@ export async function updateDomainAction(
 export async function deleteDomainAction(id: string): Promise<ActionResult> {
   try {
     await domainsService.deleteDomain(id, await headers());
-    revalidatePath("/dashboard/domains");
+    revalidatePath(APP_ROUTES.DASHBOARD_DOMAINS);
     return { ok: true };
   } catch (error) {
     return errorResult(error);

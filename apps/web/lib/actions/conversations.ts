@@ -12,6 +12,7 @@ import {
 import { db } from "@repo/database";
 import { leads } from "@repo/database/schema";
 
+import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 import { chatService } from "@/services/chat-service";
 
@@ -63,7 +64,7 @@ export async function replyToConversationAction(input: {
       user.id,
       parsed.data.message,
     );
-    revalidatePath("/dashboard/conversations");
+    revalidatePath(APP_ROUTES.DASHBOARD_CONVERSATIONS);
     return {
       ok: true,
       message: {
@@ -158,7 +159,7 @@ export async function setConversationStatusAction(input: {
       user.id,
       parsed.data.status,
     );
-    revalidatePath("/dashboard/conversations");
+    revalidatePath(APP_ROUTES.DASHBOARD_CONVERSATIONS);
     return { ok: true };
   } catch (error) {
     return errorResult(error);
@@ -171,7 +172,7 @@ export async function markConversationSeenAction(input: {
   try {
     const user = await requireOwner();
     await chatService.markConversationSeen(input.conversationId, user.id);
-    revalidatePath("/dashboard/conversations");
+    revalidatePath(APP_ROUTES.DASHBOARD_CONVERSATIONS);
     return { ok: true };
   } catch (error) {
     return errorResult(error);

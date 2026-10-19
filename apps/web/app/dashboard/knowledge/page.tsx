@@ -16,6 +16,7 @@ import { CrawledPagesCard } from "@/components/dashboard/crawled-pages-card";
 import { AgentPicker } from "@/components/domains/agent-picker";
 import { DomainTabs } from "@/components/domains/domain-tabs";
 import type { KnowledgeDocumentRow } from "@/components/dashboard/crawled-pages-card";
+import { API_ROUTES, APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 import { agentsService } from "@/services/agents-service";
 import { domainsService } from "@/services/domains-service";
@@ -60,7 +61,7 @@ function UploadedDocumentListItem({
       <div className="flex shrink-0 items-center gap-2">
         {doc.storageKey ? (
           <a
-            href={`/api/knowledge/${doc.id}/file?domainId=${domainId}`}
+            href={`${API_ROUTES.knowledge.file(doc.id)}?domainId=${domainId}`}
             className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
             Download
@@ -137,7 +138,7 @@ export default async function KnowledgePage({
           domainId={selectedDomain.id}
           agents={agents}
           activeAgentId={selectedAgent?.id}
-          path="/dashboard/knowledge"
+          path={APP_ROUTES.DASHBOARD_KNOWLEDGE}
         />
       ) : null}
 

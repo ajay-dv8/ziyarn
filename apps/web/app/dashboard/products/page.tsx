@@ -12,6 +12,7 @@ import { CreateProductButton } from "@/components/dashboard/create-product-butto
 import { ProductsList } from "@/components/dashboard/products-list";
 import { SyncDatabaseProductsButton } from "@/components/dashboard/sync-database-products-button";
 import { UpgradeButton } from "@/components/dashboard/upgrade-button";
+import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
 import { productsService } from "@/services/products-service";
@@ -91,7 +92,7 @@ export default async function ProductsPage({
           {domains.map((domain) => (
             <Link
               key={domain.id}
-              href={`/dashboard/products?domainId=${domain.id}`}
+              href={`${APP_ROUTES.DASHBOARD_PRODUCTS}?domainId=${domain.id}`}
               className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
                 selected?.id === domain.id
                   ? "border-primary bg-primary/10 font-medium text-primary"

@@ -39,7 +39,7 @@ export default async function DashboardLayout({
   const cookieStore = await cookies();
   const pendingInviteToken = cookieStore.get("pending_invite_token")?.value;
   if (pendingInviteToken) {
-    redirect(`/accept-invite?token=${pendingInviteToken}`);
+    redirect(`${APP_ROUTES.ACCEPT_INVITE}?token=${pendingInviteToken}`);
   }
 
   const domains = await domainsService.listDomains(await headers());

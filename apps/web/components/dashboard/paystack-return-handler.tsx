@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { toast } from "sonner";
 
+import { APP_ROUTES } from "@/constants/routes";
 import { postReconcilePaystackCheckout } from "@/lib/paystack-client";
 
 /**
@@ -38,7 +39,7 @@ export function PaystackReturnHandler() {
         toast.error(result.message);
       }
       // Drop the query params so a refresh does not re-run the check.
-      router.replace("/dashboard/billing");
+      router.replace(APP_ROUTES.DASHBOARD_BILLING);
     });
   }, [returned, router]);
 

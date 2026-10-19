@@ -144,7 +144,7 @@ export function AppSidebar({
                         isActive={activeDomainId === domain.id}
                         render={
                           <Link
-                            href={`/dashboard/domains?domainId=${domain.id}`}
+                            href={`${APP_ROUTES.DASHBOARD_DOMAINS}?domainId=${domain.id}`}
                           />
                         }
                       >
