@@ -18,6 +18,16 @@ This extends [`widget-integration-surfaces.md`](./widget-integration-surfaces.md
 which covers the delivery surfaces. Read that one first; this one is the design
 and the module layout.
 
+### Decisions taken
+
+| Question | Decision |
+|---|---|
+| Composer above or below the card? | **Composer pill first, card rises above it**, input focused as the pill lands — the visitor can type before the conversation has finished animating |
+| Modal: paid or free? | **Plan-gated**, the same allowance as Glow. Free keeps `classic` |
+| Copy button: hover or always? | **Always visible.** Touch devices have no hover to rely on |
+| Tool card: empty, or with results? | **With results.** The API starts sending `args` and a truncated `result` alongside the tool name; additive, old widgets ignore them |
+| Keep the old look available? | **Not for now.** A frozen variant is a permanent tax on every future fix. Add one the day a customer actually asks |
+
 ---
 
 ## Part 1 — the design
@@ -106,6 +116,45 @@ What it does *not* have is a result: the event carries the tool name only, not
 what it found. If we want the card to expand into something useful ("found 3
 documents"), the event needs `args` and a truncated `result`. That is the one
 optional API addition, and it is additive — old widgets ignore the new fields.
+
+---
+
+## Part 1b — what "Classic stays as it is" can and cannot mean
+
+Asked directly, because it decides whether the plan is one view or two.
+
+**The embed snippet does not change. At all.** Every existing site keeps its
+exact `<script defer src="…/widget.js">` plus `<zy-widget data-slug data-secret>`.
+Nothing is re-embedded, no attribute is renamed, and new behaviour is opt-in
+through attributes that default to today's behaviour. That part is safe.
+
+**The look is a different question.** "Classic looks exactly as it does now" can
+only be delivered by carrying two views:
+
+- the new shell (avatar + label, copy button, stop, tool card, composer outside
+  the card, the open animation) **and** today's, each with its own markup and
+  stylesheet inside the same core;
+- every future bug fix, every new feature and every harness check applied twice;
+- and a permanent question of "does Classic get the tool card?" — because the
+  moment it does, it is no longer the frozen thing.
+
+That is precisely the duplication this plan exists to remove, and it would come
+back the first time a customer reports a bug in one variant and not the other.
+
+**What Classic keeps, either way:** its name, its bottom-right position, its
+launcher, its colours, its light feel, and its place in the plan allowance. It
+is still the default variant that Free gets.
+
+**Recommended:** rebuild Classic on the new shell and let it keep its identity —
+corner bubble, its palette, its personality — while gaining the new anatomy and
+animation. Every existing customer is upgraded silently, there is one view to
+maintain, and a customer who genuinely needs the old appearance gets a variant
+added on request rather than every customer paying for it up front.
+
+**The alternative, if you would rather freeze it:** the new design ships as its
+own variant (say `reference`), Classic stays as it is, and we accept two views,
+two stylesheets and double testing from here on. Say so and I will restructure
+Phases 2–4 around it — it is a legitimate call, just an expensive one.
 
 ---
 
