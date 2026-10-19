@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+
+import { ADMIN_ROUTES } from "@/constants/routes";
 import { authClient } from "@/lib/auth-client";
 
 /**
@@ -18,7 +20,7 @@ import { authClient } from "@/lib/auth-client";
  * sign-in page an open redirect for whoever clicked the crafted link.
  */
 function readReturnTo(): string {
-  const fallback = "/admin";
+  const fallback = ADMIN_ROUTES.HOME;
   if (typeof window === "undefined") {
     return fallback;
   }

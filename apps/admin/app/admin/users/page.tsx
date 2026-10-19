@@ -1,3 +1,4 @@
+import { ADMIN_ROUTES } from "@/constants/routes";
 import { listUsers } from "@/services/admin-service";
 import Link from "next/link";
 import React from "react";
@@ -53,7 +54,7 @@ export default async function UsersPage({
               <tr key={user.id} className="border-b border-zinc-800 last:border-0">
                 <td className="p-4">
                   <Link
-                    href={`/admin/users/${user.id}`}
+                    href={ADMIN_ROUTES.USER(user.id)}
                     className="text-blue-400 hover:underline"
                   >
                     {user.name}
@@ -87,7 +88,7 @@ export default async function UsersPage({
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
             <a
               key={p}
-              href={`/admin/users?page=${p}${search ? `&search=${search}` : ""}`}
+              href={`${ADMIN_ROUTES.USERS}?page=${p}${search ? `&search=${search}` : ""}`}
               className={`rounded-lg px-3 py-1 text-sm ${
                 p === page
                   ? "bg-blue-600 text-white"

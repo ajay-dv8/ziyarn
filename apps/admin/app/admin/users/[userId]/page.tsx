@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { ADMIN_ROUTES } from "@/constants/routes";
 import { getUserDetail } from "@/services/admin-service";
 import Link from "next/link";
 import React from "react";
@@ -18,7 +19,7 @@ export default async function UserDetailPage({
   return (
     <div className="space-y-8">
       <div>
-        <Link href="/admin/users" className="text-sm text-zinc-400 hover:text-white">
+        <Link href={ADMIN_ROUTES.USERS} className="text-sm text-zinc-400 hover:text-white">
           ← Back to users
         </Link>
         <h1 className="mt-2 text-2xl font-semibold">{userDetail.name}</h1>

@@ -1,15 +1,17 @@
 import Link from "next/link";
 import React from "react";
 
+import SignOutButton from "@/components/sign-out-button";
+import { ADMIN_ROUTES } from "@/constants/routes";
 import { requireAdmin } from "@/lib/admin-auth";
 
 const NAV_ITEMS = [
-  { href: "/admin", label: "Overview" },
-  { href: "/admin/users", label: "Users" },
-  { href: "/admin/domains", label: "Domains" },
-  { href: "/admin/workspaces", label: "Workspaces" },
-  { href: "/admin/conversations", label: "Conversations" },
-  { href: "/admin/revenue", label: "Revenue" },
+  { href: ADMIN_ROUTES.HOME, label: "Overview" },
+  { href: ADMIN_ROUTES.USERS, label: "Users" },
+  { href: ADMIN_ROUTES.DOMAINS, label: "Domains" },
+  { href: ADMIN_ROUTES.WORKSPACES, label: "Workspaces" },
+  { href: ADMIN_ROUTES.CONVERSATIONS, label: "Conversations" },
+  { href: ADMIN_ROUTES.REVENUE, label: "Revenue" },
 ] as const;
 
 const NAV_LINK_CLASS =
@@ -23,7 +25,7 @@ export default async function AdminLayout({
   // NOTE: a better-auth session is NOT sufficient here. This instance resolves
   // to the shared customer tables, so any signed-up customer has a valid
   // session cookie. requireAdmin() additionally checks the `admins` allowlist.
-  const admin = await requireAdmin("/admin");
+  const admin = await requireAdmin(ADMIN_ROUTES.HOME);
 
   return (
     <div className="flex min-h-screen">
@@ -45,15 +47,7 @@ export default async function AdminLayout({
               {admin.role}
             </span>
           </div>
-          {/* Sign-out is a better-auth server endpoint, not a page — it must be
-              a full navigation, so <a> is correct here despite the lint rule. */}
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a
-            href="/api/auth/signout"
-            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-zinc-800"
-          >
-            Sign out
-          </a>
+          <SignOutButton />
         </div>
       </aside>
       <main className="ml-64 flex-1 p-8">{children}</main>

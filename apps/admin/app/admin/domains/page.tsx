@@ -1,3 +1,4 @@
+import { ADMIN_ROUTES } from "@/constants/routes";
 import { listDomains } from "@/services/admin-service";
 import Link from "next/link";
 import React from "react";
@@ -26,7 +27,7 @@ export default async function DomainsPage({
 
       <div className="flex flex-wrap gap-2">
         <Link
-          href="/admin/domains"
+          href={ADMIN_ROUTES.DOMAINS}
           className={`rounded-lg px-3 py-1.5 text-sm ${
             !plan ? "bg-blue-600 text-white" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
           }`}
@@ -36,7 +37,7 @@ export default async function DomainsPage({
         {plans.map((p) => (
           <Link
             key={p}
-            href={`/admin/domains?plan=${p}`}
+            href={`${ADMIN_ROUTES.DOMAINS}?plan=${p}`}
             className={`rounded-lg px-3 py-1.5 text-sm capitalize ${
               plan === p ? "bg-blue-600 text-white" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
             }`}
@@ -80,7 +81,7 @@ export default async function DomainsPage({
               <tr key={domain.id} className="border-b border-zinc-800 last:border-0">
                 <td className="p-4">
                   <Link
-                    href={`/admin/domains/${domain.id}`}
+                    href={ADMIN_ROUTES.DOMAIN(domain.id)}
                     className="text-blue-400 hover:underline"
                   >
                     {domain.name}
@@ -118,7 +119,7 @@ export default async function DomainsPage({
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
             <a
               key={p}
-              href={`/admin/domains?page=${p}${search ? `&search=${search}` : ""}${plan ? `&plan=${plan}` : ""}`}
+              href={`${ADMIN_ROUTES.DOMAINS}?page=${p}${search ? `&search=${search}` : ""}${plan ? `&plan=${plan}` : ""}`}
               className={`rounded-lg px-3 py-1 text-sm ${
                 p === page
                   ? "bg-blue-600 text-white"

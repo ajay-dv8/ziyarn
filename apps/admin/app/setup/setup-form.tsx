@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { ADMIN_API_ROUTES, ADMIN_ROUTES } from "@/constants/routes";
+
 const INPUT_CLASS =
   "w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
 
@@ -26,7 +28,7 @@ export default function SetupForm(): React.ReactNode {
     setError(null);
 
     try {
-      const response = await fetch("/api/admin/setup", {
+      const response = await fetch(ADMIN_API_ROUTES.setup, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ name, email, password, bootstrapSecret }),
@@ -44,7 +46,7 @@ export default function SetupForm(): React.ReactNode {
 
       // better-auth set the session cookie during signUpEmail, so this lands
       // straight on the panel with no second sign-in.
-      router.push("/admin");
+      router.push(ADMIN_ROUTES.HOME);
       router.refresh();
     } catch {
       setError("Network error. Please try again.");

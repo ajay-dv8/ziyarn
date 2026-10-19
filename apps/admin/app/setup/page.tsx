@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import React from "react";
 
+import { ADMIN_ROUTES } from "@/constants/routes";
 import { isAdminSetupAvailable } from "@/lib/admin-setup";
 
 import SetupForm from "./setup-form";
@@ -29,7 +30,7 @@ export default async function SetupPage(): Promise<React.ReactNode> {
             Sign in, or ask an existing owner to invite you.
           </p>
           <a
-            href="/sign-in"
+            href={ADMIN_ROUTES.SIGN_IN}
             className="inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             Go to sign in

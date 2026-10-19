@@ -1,3 +1,4 @@
+import { ADMIN_ROUTES } from "@/constants/routes";
 import { listWorkspaces } from "@/services/admin-service";
 import React from "react";
 
@@ -61,7 +62,7 @@ export default async function WorkspacesPage({
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
             <a
               key={p}
-              href={`/admin/workspaces?page=${p}`}
+              href={`${ADMIN_ROUTES.WORKSPACES}?page=${p}`}
               className={`rounded-lg px-3 py-1 text-sm ${
                 p === page
                   ? "bg-blue-600 text-white"

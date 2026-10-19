@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { ADMIN_ROUTES } from "@/constants/routes";
 import { getDomainDetail } from "@/services/admin-service";
 import Link from "next/link";
 import React from "react";
@@ -26,7 +27,7 @@ export default async function DomainDetailPage({
   return (
     <div className="space-y-8">
       <div>
-        <Link href="/admin/domains" className="text-sm text-zinc-400 hover:text-white">
+        <Link href={ADMIN_ROUTES.DOMAINS} className="text-sm text-zinc-400 hover:text-white">
           ← Back to domains
         </Link>
         <h1 className="mt-2 text-2xl font-semibold">{domain.name}</h1>

@@ -1,3 +1,4 @@
+import { ADMIN_ROUTES } from "@/constants/routes";
 import { listConversations } from "@/services/admin-service";
 import React from "react";
 
@@ -24,7 +25,7 @@ export default async function ConversationsPage({
 
       <div className="flex flex-wrap gap-2">
         <a
-          href="/admin/conversations"
+          href={ADMIN_ROUTES.CONVERSATIONS}
           className={`rounded-lg px-3 py-1.5 text-sm ${
             !status ? "bg-blue-600 text-white" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
           }`}
@@ -34,7 +35,7 @@ export default async function ConversationsPage({
         {STATUS_OPTIONS.map((s) => (
           <a
             key={s}
-            href={`/admin/conversations?status=${s}`}
+            href={`${ADMIN_ROUTES.CONVERSATIONS}?status=${s}`}
             className={`rounded-lg px-3 py-1.5 text-sm capitalize ${
               status === s ? "bg-blue-600 text-white" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
             }`}
@@ -106,7 +107,7 @@ export default async function ConversationsPage({
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
             <a
               key={p}
-              href={`/admin/conversations?page=${p}${status ? `&status=${status}` : ""}`}
+              href={`${ADMIN_ROUTES.CONVERSATIONS}?page=${p}${status ? `&status=${status}` : ""}`}
               className={`rounded-lg px-3 py-1 text-sm ${
                 p === page
                   ? "bg-blue-600 text-white"

@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 
 import { admins } from "@repo/database/schema";
 
+import { ADMIN_ROUTES } from "@/constants/routes";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -68,7 +69,9 @@ export async function requireAdmin(returnTo?: string): Promise<AdminIdentity> {
   const admin = await getAdminIdentity();
   if (!admin) {
     redirect(
-      returnTo ? `/sign-in?returnTo=${encodeURIComponent(returnTo)}` : "/sign-in",
+      returnTo
+        ? `${ADMIN_ROUTES.SIGN_IN}?returnTo=${encodeURIComponent(returnTo)}`
+        : ADMIN_ROUTES.SIGN_IN,
     );
   }
   return admin;

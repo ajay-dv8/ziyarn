@@ -1,9 +1,10 @@
 # Route constants — one source of truth for every path
 
-**Status:** Phases 0–2 done. The constants exist and are verified against the
-filesystem; every `apps/web` page path and handler path now goes through
-`APP_ROUTES` / `API_ROUTES`. Admin (Phase 3), package boundaries (Phase 4) and
-the ESLint rule (Phase 5) remain.
+**Status:** Phases 0–3 done. The constants exist and are verified against the
+filesystem; every `apps/web` page path and handler path goes through
+`APP_ROUTES` / `API_ROUTES`, and `apps/admin` has its own `ADMIN_ROUTES` /
+`ADMIN_API_ROUTES`. Package boundaries (Phase 4) and the ESLint rule (Phase 5)
+remain.
 
 ## Goal
 
@@ -88,10 +89,10 @@ the admin panel's sign-out is broken twice over:
 2. **It is POST-only.** The comment is right that a full navigation is needed,
    but an `<a>` sends GET, so even the corrected path would 404.
 
-Net effect: clicking **Sign out** in the admin panel renders Better Auth's 404
-JSON and leaves the session intact. The fix is a small form that POSTs to
-`ADMIN_API_ROUTES.signOut`, not a link. Out of scope for this plan; logged here
-so it is not lost.
+Net effect: clicking **Sign out** in the admin panel rendered Better Auth's 404
+JSON and left the session intact. **Fixed in Phase 3** — see "The sign-out bug"
+there; it turned out to need a client component, not a form, because a form POST
+lands on `{"success":true}` JSON instead of a page.
 
 ## Scope: what counts as a route
 
@@ -383,14 +384,15 @@ portal pay URL, appears as `` `${API_ROUTES.portal.pay}?t=` `` rather than a
 contiguous literal — the bundler keeps the object and the concatenation
 separate, which is why a naive grep for `/api/portal/pay?t=` misses it.)
 
-### Phase 3 — `apps/admin` (24 references, 12 files)
+### Phase 3 — `apps/admin` (24 references, 12 files) — done
 
-Admin has no constants file at all. Its nav is six literal hrefs, every
-pagination link is a hand-built query string, and its auth redirect is built in
+Admin had no constants file at all. Its nav was six literal hrefs, every
+pagination link a hand-built query string, and its auth redirect built in
 `lib/admin-auth.ts`.
 
-Add `apps/admin/constants/routes.ts` — admin is a separate Next app and cannot
-import `@/` from `apps/web`, so it gets its own small file:
+`apps/admin/constants/routes.ts` now holds the same pair of maps as `apps/web` —
+admin is a separate Next app and cannot import `apps/web/constants`, so it gets
+its own small file:
 
 ```ts
 export const ADMIN_ROUTES = {
@@ -402,32 +404,56 @@ export const ADMIN_ROUTES = {
   WORKSPACES: "/admin/workspaces",
   CONVERSATIONS: "/admin/conversations",
   REVENUE: "/admin/revenue",
-  SETUP: "/setup",
   SIGN_IN: "/sign-in",
+  SETUP: "/setup",
 } as const;
 
 export const ADMIN_API_ROUTES = {
+  auth: "/api/auth",
   setup: "/api/admin/setup",
-  signOut: "/api/auth/signout",
 } as const;
 ```
 
-Then replace the 22 page literals and 2 API literals:
+There is deliberately **no** `signOut` path. The plan originally listed
+`"/api/auth/signout"`; that value does not exist. Better Auth serves
+`/api/auth/sign-out`, POST only, so a path constant would only invite the
+mistake that was already in the tree — see below.
 
-- `app/admin/layout.tsx:7-12` — the six nav entries
-- `app/admin/layout.tsx:26` — `requireAdmin("/admin")`
-- `app/admin/layout.tsx:52` — `/api/auth/signout` link
-- `app/admin/domains/page.tsx:29,39,83,121`
-- `app/admin/domains/[domainId]/page.tsx:29`
-- `app/admin/users/page.tsx:56,90`
-- `app/admin/users/[userId]/page.tsx:21`
-- `app/admin/workspaces/page.tsx:64`
-- `app/admin/conversations/page.tsx:27,37,109`
-- `app/admin/page.tsx:11,13` — `/setup`, `/admin`
-- `app/sign-in/page.tsx:21` — `/admin`
-- `app/setup/page.tsx:32` — `/sign-in`
-- `app/setup/setup-form.tsx:29,47` — `/api/admin/setup`, `/admin`
-- `lib/admin-auth.ts:71` — `/sign-in?returnTo=…`
+All 12 files migrated:
+
+- `app/admin/layout.tsx` — the six nav entries, `requireAdmin(...)`, sign-out
+- `app/admin/domains/page.tsx`, `app/admin/domains/[domainId]/page.tsx`
+- `app/admin/users/page.tsx`, `app/admin/users/[userId]/page.tsx`
+- `app/admin/workspaces/page.tsx`, `app/admin/conversations/page.tsx`
+- `app/admin/page.tsx` — `/setup`, `/admin`
+- `app/sign-in/page.tsx` — the `/admin` fallback
+- `app/setup/page.tsx`, `app/setup/setup-form.tsx` — `/api/admin/setup`, `/admin`
+- `lib/admin-auth.ts` — `/sign-in?returnTo=…`
+
+#### The sign-out bug, fixed on the way through
+
+`app/admin/layout.tsx` rendered `<a href="/api/auth/signout">` (“Sign out is a
+server endpoint, not a page — `<a>` is correct here”). It was wrong twice over.
+The replacement is `components/sign-out-button.tsx`:
+
+|      | before               | after                                          |
+| ---- | -------------------- | ---------------------------------------------- |
+| path | `/api/auth/signout`  | `/api/auth/sign-out`, resolved by `authClient` |
+| verb | `GET`, from an `<a>` | `POST`, from `authClient.signOut()`            |
+
+Verified against the production build while the old link was still present:
+
+```
+POST /api/auth/sign-out  (json body) -> 200 {"success":true}
+GET  /api/auth/sign-out              -> 404
+POST /api/auth/signout               -> 404
+GET  /api/auth/signout               -> 404
+```
+
+So clicking the old link could only ever render a 404 and leave the session
+alive. The component then does `router.push(ADMIN_ROUTES.SIGN_IN)` +
+`router.refresh()`, the same pair the sign-in page already uses. It is the only
+one of these references that changed behaviour rather than just spelling.
 
 ### Phase 4 — across package boundaries (18 sites)
 
@@ -662,9 +688,10 @@ sweep.
 - [x] `API_ROUTES` covers all 51 handlers under `apps/web/app/api`
 - [x] No `/dashboard`, `/api`, `/portal` literal outside the constants files —
       except `proxy.ts`'s matcher, with a comment
-- [ ] `apps/admin` has `constants/routes.ts` and imports it everywhere
+- [x] `apps/admin` has `constants/routes.ts` and imports it everywhere
 - [ ] `packages/widget-core` has one named chat path, not four literals
-- [ ] Route coverage test committed and passing in both directions
+- [x] Route coverage test committed and passing in both directions (covers
+      `apps/web`; `apps/admin` has only two handlers and no test yet)
 - [ ] ESLint rule enabled and `pnpm --filter web lint` clean
 - [ ] `check-types`, `lint`, and the 3 CPU / 3 GB build all pass
 - [ ] Signed-in walk-through: dashboard pages, one admin page, the portal
