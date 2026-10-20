@@ -19,6 +19,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
     "@better-auth/drizzle-adapter": "^1.6.25",
     "@repo/ai": "workspace:*",
     "@repo/api": "workspace:*",
@@ -26,6 +27,7 @@
     "@repo/money": "workspace:*",
     "@repo/routes": "workspace:*",
     "@repo/ui": "workspace:*",
+    "@sentry/nextjs": "11.8.0",
     "@vercel/blob": "^2.8.0",
     "better-auth": "^1.6.25",
     "drizzle-orm": "^0.44.7",
