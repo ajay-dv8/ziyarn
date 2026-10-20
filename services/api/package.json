@@ -48,6 +48,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
     "@repo/ai": "workspace:*",
     "@repo/database": "workspace:*",
     "@repo/money": "workspace:*",
