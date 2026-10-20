@@ -12,6 +12,7 @@
     "create-admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
     "@better-auth/drizzle-adapter": "^1.6.25",
     "@neondatabase/serverless": "^1.1.0",
     "@repo/database": "workspace:*",
