@@ -55,7 +55,15 @@
     "PAYSTACK_PLAN_PRO",
     "PAYSTACK_PLAN_ULTIMATE",
     "WIDGET_E2E_PORT",
-    "WIDGET_E2E_CDP_PORT"
+    "WIDGET_E2E_CDP_PORT",
+    "SENTRY_DSN",
+    "NEXT_PUBLIC_SENTRY_DSN",
+    "SENTRY_AUTH_TOKEN",
+    "SENTRY_ORG",
+    "SENTRY_PROJECT",
+    "NODE_ENV",
+    "NEXT_RUNTIME",
+    "CI"
   ],
   "tasks": {
     "build": {
