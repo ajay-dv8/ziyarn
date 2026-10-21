@@ -653,5 +653,4 @@ export function createWorkspaceService(deps: {
   };
 }
 
-const workspaceService = {} as ReturnType<typeof createWorkspaceService>;
-export type WorkspaceService = typeof workspaceService;
+export type WorkspaceService = ReturnType<typeof createWorkspaceService>;
