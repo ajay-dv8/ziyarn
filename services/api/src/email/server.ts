@@ -1,6 +1,6 @@
 import { randomBytes, createHmac, timingSafeEqual } from "node:crypto";
 
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 
@@ -87,6 +87,16 @@ function parseDomainUrl(): string {
 
 const UNSUBSCRIBE_FOOTER = (url: string) =>
   `<br/><br/><p style="font-size:12px;color:#71717a">You are receiving this because a business you interacted with is keeping in touch. <a href="${url}">Unsubscribe</a></p>`;
+
+/**
+ * A cron tick handles a bounded slice of due campaigns. The endpoint runs on a
+ * serverless host, and sending is serial; a cap keeps one tick from timing out
+ * and starving the rest of the queue.
+ */
+const MAX_CAMPAIGNS_PER_RUN = 10;
+
+/** Failed campaigns wait one cron cycle plus a little room before retrying. */
+const FAILED_CAMPAIGN_RETRY_MS = 15 * 60 * 1000;
 
 type ResendWebhookPayload = {
   type?: string;
@@ -263,26 +273,92 @@ export function createEmailService(deps: { db: Database }) {
 
     /**
      * Sends every campaign whose scheduled time has arrived. Called by the
-     * scheduler endpoint (cron). Sends happen serially so email credits stay
-     * consistent; failures bubble up per campaign via sendCampaign.
+     * scheduler endpoint (cron).
+     *
+     * Each campaign is claimed with a conditional update before any mail is
+     * built, so two overlapping cron runs cannot both send it. A campaign that
+     * fails is put back on the queue with a cool-down instead of being left
+     * stuck in `sending`.
      */
-    async processDueCampaigns(): Promise<{ sent: number; failed: number }> {
+    async processDueCampaigns(): Promise<{
+      sent: number;
+      failed: number;
+      skipped: number;
+    }> {
+      if (!smtpConfig()) {
+        throw emailNotConfiguredError();
+      }
+
       const now = new Date();
       const due = await db
         .select()
         .from(campaigns)
-        .where(and(eq(campaigns.status, "scheduled"), lte(campaigns.scheduledAt, now)));
+        .where(
+          and(
+            eq(campaigns.status, "scheduled"),
+            lte(campaigns.scheduledAt, now),
+          ),
+        )
+        .orderBy(asc(campaigns.scheduledAt))
+        .limit(MAX_CAMPAIGNS_PER_RUN);
+
       let sent = 0;
       let failed = 0;
-      for (const campaign of due) {
+      let skipped = 0;
+
+      for (const candidate of due) {
+        const [claimed] = await db
+          .update(campaigns)
+          .set({ status: "sending", updatedAt: new Date() })
+          .where(
+            and(
+              eq(campaigns.id, candidate.id),
+              eq(campaigns.status, "scheduled"),
+              lte(campaigns.scheduledAt, now),
+            ),
+          )
+          .returning();
+
+        if (!claimed) {
+          skipped += 1;
+          continue;
+        }
+
         try {
-          await this.sendCampaign(campaign.ownerId, campaign.id);
+          await this.deliverClaimedCampaign(claimed);
           sent += 1;
-        } catch {
+        } catch (error) {
           failed += 1;
+          console.error(
+            `Campaign ${claimed.id} failed; retrying in 15 minutes:`,
+            error instanceof Error ? error.message : error,
+          );
+          try {
+            await db
+              .update(campaigns)
+              .set({
+                status: "scheduled",
+                scheduledAt: new Date(Date.now() + FAILED_CAMPAIGN_RETRY_MS),
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(campaigns.id, claimed.id),
+                  eq(campaigns.status, "sending"),
+                ),
+              );
+          } catch (releaseError) {
+            console.error(
+              `Campaign ${claimed.id} could not be rescheduled:`,
+              releaseError instanceof Error
+                ? releaseError.message
+                : releaseError,
+            );
+          }
         }
       }
-      return { sent, failed };
+
+      return { sent, failed, skipped };
     },
 
     async getRecipients(
@@ -307,17 +383,14 @@ export function createEmailService(deps: { db: Database }) {
     },
 
     /**
-     * Sends a campaign to its chosen audience (from the unified customers
-     * table). Enforces the plan's monthly email budget, skips unsubscribed
-     * emails, and records every recipient. Delivers via SMTP through
-     * Nodemailer. Gracefully rejects when SMTP is not configured.
+     * Sends a campaign immediately on behalf of its owner. The campaign is
+     * claimed atomically before delivery, so a double click cannot send twice.
      */
     async sendCampaign(
       ownerId: string,
       campaignId: string,
     ): Promise<{ recipients: number }> {
-      const config = smtpConfig();
-      if (!config) {
+      if (!smtpConfig()) {
         throw emailNotConfiguredError();
       }
       const campaign = await this.getCampaign(ownerId, campaignId);
@@ -328,8 +401,76 @@ export function createEmailService(deps: { db: Database }) {
           "This campaign has already been sent",
         );
       }
+
+      // The read above is only for ownership and an early, useful error. The
+      // conditional update is the real lock: only one caller can move the
+      // campaign out of draft/scheduled.
+      const [claimed] = await db
+        .update(campaigns)
+        .set({ status: "sending", updatedAt: new Date() })
+        .where(
+          and(
+            eq(campaigns.id, campaign.id),
+            eq(campaigns.ownerId, ownerId),
+            inArray(campaigns.status, ["draft", "scheduled"]),
+          ),
+        )
+        .returning();
+
+      if (!claimed) {
+        throw new EmailServiceError(
+          409,
+          "CAMPAIGN_ALREADY_SENT",
+          "This campaign is already being sent or has been sent",
+        );
+      }
+
+      try {
+        return await this.deliverClaimedCampaign(claimed);
+      } catch (error) {
+        const previousStatus =
+          campaign.status === "scheduled" ? "scheduled" : "draft";
+        try {
+          await db
+            .update(campaigns)
+            .set({
+              status: previousStatus,
+              scheduledAt:
+                previousStatus === "scheduled" ? campaign.scheduledAt : null,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(campaigns.id, claimed.id),
+                eq(campaigns.status, "sending"),
+              ),
+            );
+        } catch (releaseError) {
+          console.error(
+            `Campaign ${claimed.id} could not be released after a failed manual send:`,
+            releaseError instanceof Error
+              ? releaseError.message
+              : releaseError,
+          );
+        }
+        throw error;
+      }
+    },
+
+    /**
+     * Delivers a campaign already claimed as `sending`. Preflight failures
+     * bubble up so the caller can release the claim; individual SMTP failures
+     * are counted per recipient and do not abort the rest of the audience.
+     */
+    async deliverClaimedCampaign(
+      campaign: Campaign,
+    ): Promise<{ recipients: number }> {
+      const config = smtpConfig();
+      if (!config) {
+        throw emailNotConfiguredError();
+      }
       const recipients = await this.buildRecipientList(
-        ownerId,
+        campaign.ownerId,
         campaign.audience,
       );
       if (recipients.length === 0) {
@@ -340,8 +481,8 @@ export function createEmailService(deps: { db: Database }) {
         return { recipients: 0 };
       }
 
-      const emailsThisMonth = await this.emailsSentThisMonth(ownerId);
-      const plan = await this.ownerPlan(ownerId);
+      const emailsThisMonth = await this.emailsSentThisMonth(campaign.ownerId);
+      const plan = await this.ownerPlan(campaign.ownerId);
       const { emailsPerMonth } = getPlanLimits(plan);
       if (emailsThisMonth + recipients.length > emailsPerMonth) {
         throw new EmailServiceError(
@@ -350,11 +491,6 @@ export function createEmailService(deps: { db: Database }) {
           `Your ${plan} plan allows ${emailsPerMonth} emails per month and you have ${emailsThisMonth} remaining`,
         );
       }
-
-      await db
-        .update(campaigns)
-        .set({ status: "sending", updatedAt: new Date() })
-        .where(eq(campaigns.id, campaign.id));
 
       const inserted = await db
         .insert(campaignRecipients)
@@ -383,7 +519,11 @@ export function createEmailService(deps: { db: Database }) {
           sent += 1;
           await db
             .update(campaignRecipients)
-            .set({ status: "sent", resendEmailId: result.id, updatedAt: new Date() })
+            .set({
+              status: "sent",
+              resendEmailId: result.id,
+              updatedAt: new Date(),
+            })
             .where(eq(campaignRecipients.id, recipient.id));
         } else {
           failed += 1;
