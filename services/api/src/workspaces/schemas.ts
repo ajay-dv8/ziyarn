@@ -1,9 +1,6 @@
 import { z } from "zod";
 
-import {
-  assignableWorkspaceRoleSchema,
-  workspaceRoleSchema,
-} from "@repo/api/workspaces/roles";
+import { assignableWorkspaceRoleSchema } from "@repo/api/workspaces/roles";
 
 export {
   ASSIGNABLE_WORKSPACE_ROLES,
