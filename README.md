@@ -1,159 +1,174 @@
-# Turborepo starter
+# Ziyarn
 
-This Turborepo starter is maintained by the Turborepo core team.
+Ziyarn is an AI agent platform for helpdesk and sales. A business creates a
+domain, teaches an agent from its own knowledge, embeds the widget on its site,
+and lets the agent answer questions, capture leads, sell products, book
+appointments, and hand off to a human when needed.
 
-## Using this example
+## Monorepo layout
 
-Run the following command:
+| Path | What it is |
+|---|---|
+| `apps/web` | Customer app: marketing site, dashboard, chat API, widget, portal, docs (Fumadocs) |
+| `apps/admin` | Read-mostly operator panel, deployed separately on port 3001 |
+| `services/api` | Domain services: auth-adjacent flows, domains, agents, knowledge, chat, leads, products, bookings, campaigns, billing, portal |
+| `services/ai` | Provider abstraction for Gemini, OpenRouter, and fallbacks |
+| `packages/database` | Drizzle schema, migrations, and the retrying Neon client |
+| `packages/routes` | Route constants shared by the app and the widget |
+| `packages/ui` | Shared UI primitives |
+| `packages/widget-core` | Transport, session, and streaming code used by the widget |
+| `packages/money` | Money parsing/formatting helpers |
+| `packages/state` | Small shared state utilities |
+| `packages/eslint-config`, `packages/typescript-config` | Shared tooling |
 
-```sh
-npx create-turbo@latest
-```
+Next.js App Router, React, TypeScript, Tailwind, Drizzle ORM, Neon Postgres,
+Better Auth, and a dependency-free vanilla JS widget rendered in a Shadow DOM.
 
-## What's inside?
+## Requirements
 
-This Turborepo includes the following packages/apps:
+- Node.js 24 (the repo also declares `>=18`, but CI uses 24)
+- pnpm 11 (`corepack enable` or `npm i -g pnpm@11`)
+- A Postgres database (Neon free tier is enough)
+- At least one AI provider key for chat
 
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## Quickstart
 
 ```sh
-cd my-turborepo
-turbo build
+pnpm install
+
+cp apps/web/.env.example apps/web/.env
+# Fill in DATABASE_URL, BETTER_AUTH_SECRET, and one AI provider key.
+
+# Apply the schema (see "Database" below), then:
+pnpm --filter web dev
 ```
 
-Without global `turbo`, use your package manager:
+The app runs at http://localhost:3000. The widget browser test runs against a
+local fixture server (`pnpm --filter web test:widget`). The admin app is
+separate:
 
 ```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+cp apps/admin/.env.example apps/admin/.env
+pnpm --filter admin dev   # http://localhost:3001
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+On a RAM-constrained machine, cap the dev server:
 
 ```sh
-turbo build --filter=docs
+NODE_OPTIONS="--max-old-space-size=3072" taskset -c 0-2 pnpm --filter web dev
 ```
 
-Without global `turbo`:
+## Environment
+
+Copy `apps/web/.env.example` to `apps/web/.env`. The full annotated list lives
+there; the important groups are:
+
+- **Core:** `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
+  `NEXT_PUBLIC_BETTER_AUTH_URL`, `BASE_APP_URL`
+- **AI:** `GEMINI_API_KEY` and/or `OPENROUTER_API_KEY`
+- **Email:** `SMTP_*` (campaigns, escalations, password reset)
+- **Paystack:** `PAYSTACK_SECRET_KEY`, `PAYSTACK_WEBHOOK_SECRET`, price/plan codes
+- **Sentry:** `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`
+- **Scheduler:** `CRON_SECRET`
+
+Admin credentials are deliberately separate. See `apps/admin/.env.example`;
+never reuse `BETTER_AUTH_SECRET` there.
+
+Never commit a filled `.env`. The repo ignores `.env` and commits only
+`.env.example`.
+
+## Commands
 
 ```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+pnpm check-types          # every package, including next typegen
+pnpm lint                 # every package; web lint also checks the widget build
+pnpm test                 # Vitest suites
+pnpm --filter web build   # production build for the customer app
+pnpm --filter admin build # production build for the admin app
+
+pnpm --filter web build:widget   # regenerate public/widget.js
+pnpm --filter web check-widget   # fail if the committed widget is stale
+pnpm --filter web test:widget    # real-browser widget E2E (needs Chrome)
 ```
 
-### Develop
+`public/widget.js` is generated from `apps/web/widget/`. Never hand-edit it.
+`pnpm --filter web lint` fails when the committed output is stale.
 
-To develop all apps and packages, run the following command:
+For the widget E2E, Chrome must be on `PATH` or `CHROME_BIN` must point at the
+binary. CI sets this automatically.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## Database
+
+From `packages/database`:
 
 ```sh
-cd my-turborepo
-turbo dev
+DATABASE_URL="postgresql://..." pnpm exec drizzle-kit generate
+DATABASE_URL="postgresql://..." pnpm exec drizzle-kit migrate
 ```
 
-Without global `turbo`, use your package manager:
+`drizzle.config.ts` reads `DATABASE_URL` from the environment. You can either
+export it for the command or create a gitignored `packages/database/.env`
+containing just that variable. Do not point migration commands at production
+without a backup.
+
+## Widget
+
+- Source: `apps/web/widget/`
+- Built output (committed): `apps/web/public/widget.js`
+- The engine/transport lives in `packages/widget-core`
+- `pnpm --filter web build` and `dev` regenerate the widget automatically
+- The browser test lives in `apps/web/scripts/widget-e2e.mjs`
+
+## Observability and operations
+
+- `GET /api/health` returns `200` with `{ status: "ok", database: "ok" }` when
+  the app can reach Postgres, and `503` otherwise.
+- Sentry wiring is in `sentry.server.config.ts`, `sentry.edge.config.ts`, and
+  `instrumentation-client.ts`. Shared PII scrubbing is in
+  `lib/sentry-shared.ts`.
+- See [`docs/operations.md`](docs/operations.md) for the source-map token,
+  alert rules, uptime monitor, and CI secrets.
+
+## CI and scheduled checks
+
+`.github/workflows/ci.yml` runs typecheck, lint, tests, the web build, and the
+widget browser test on every PR and push to `main`. It needs no secrets; a
+`SENTRY_AUTH_TOKEN` secret is optional and only affects source-map uploads.
+
+`.github/workflows/uptime.yml` calls `/api/health` every 10 minutes. Set the
+repository variable `APP_URL` (for example `https://app.example.com`) to enable
+it; otherwise the job skips with a warning. GitHub may delay scheduled runs, so
+pair it with a free UptimeRobot monitor if you need faster paging.
+
+Campaign scheduling is **not wired yet**. `GET
+/api/campaigns/process-scheduled` exists and is guarded by `CRON_SECRET`, but
+nothing calls it; see `plan/zero-budget-next-phase.md` (P0.1).
+
+## Deployment
+
+The web app is a standard Next.js app and can run on Vercel or any Node host.
+Set the variables from `apps/web/.env.example` in the host's environment, then
+build with:
 
 ```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
+pnpm --filter web build
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+Deployment checklist:
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+1. Set all required env vars, including `BASE_APP_URL` and the auth URLs.
+2. Apply migrations from `packages/database` before routing traffic.
+3. Add `SENTRY_AUTH_TOKEN` to the build environment so source maps upload.
+4. Set the GitHub `APP_URL` variable for uptime checks.
+5. Configure the Paystack webhook URL and verify it in test mode first.
+6. Check your host's plan terms. Vercel Hobby is for non-commercial use; if you
+   charge customers, use a plan or host that permits commercial traffic.
 
-```sh
-turbo dev --filter=web
-```
+## Planning docs
 
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+- `plan/rebuild_divesai.md` — phase history and non-negotiables
+- `plan/zero-budget-next-phase.md` — prioritized zero-budget improvements
+- `plan/whats-next.md`, `plan/todo.md` — older roadmap notes (some are stale)
+- `plan/widget-redesign-spec.md`, `plan/admin-roles-plan.md`,
+  `plan/byoa-plan.md` — unimplemented designs
+- `AGENTS.md` — contributor conventions and local machine quirks
