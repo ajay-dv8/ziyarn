@@ -85,6 +85,8 @@ export const API_ROUTES = {
   },
   chat: CHAT_PATH,
   customers: "/api/customers",
+  /** Public liveness/readiness check used by uptime monitoring. */
+  health: "/api/health",
   integrations: {
     databases: "/api/integrations/databases",
     stripeConnect: "/api/integrations/stripe-connect",
