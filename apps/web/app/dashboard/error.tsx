@@ -1,13 +1,21 @@
 "use client";
 
+import { useEffect } from "react";
+
+import * as Sentry from "@sentry/nextjs";
 import { Button } from "@repo/ui/components/button";
 
 export default function DashboardError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <div className="flex min-h-64 flex-col items-center justify-center gap-4 text-center">
       <div>
