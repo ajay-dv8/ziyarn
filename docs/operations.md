@@ -170,6 +170,56 @@ if lists grow.
 GitHub may delay scheduled runs. This is a backstop for campaigns, not an exact
 delivery-time guarantee.
 
+## Auth email and sessions
+
+Verification and password reset use the same SMTP configuration as campaigns.
+Set these in the **web** deployment (not the admin app):
+
+- `BETTER_AUTH_URL` and `NEXT_PUBLIC_BETTER_AUTH_URL`: the public app origin,
+  for example `https://ziyarn.vercel.app`.
+- `BASE_APP_URL`: the origin used in email links. In production it should equal
+  the public app origin; if it is blank the code falls back to
+  `BETTER_AUTH_URL`.
+- `TRUSTED_ORIGINS`: optional comma-separated extra origins for previews. The
+  URLs above are trusted automatically.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`.
+
+A missing SMTP configuration does not fail sign-up or a reset request; it logs
+`Auth email delivery failed` and the request still returns the generic response.
+Check the function logs and SMTP credentials when a user reports no message.
+
+### Verify a real lifecycle
+
+Use a mailbox you control, then check the full path after a deployment:
+
+1. Sign up and confirm the verification email arrives. The link must use the
+   production `BASE_APP_URL`, not localhost.
+2. Open the link, click **Verify email**, and confirm the dashboard banner
+   disappears.
+3. Sign out, choose **Forgot password?**, and request a reset. Confirm an unknown
+   address receives the same “if an account exists” message as a known one.
+4. Open the reset link, set a new password, and confirm the old password no
+   longer signs in. Reusing the same reset link must fail.
+5. Wait past one hour (or shorten the token TTL in a test deployment) and
+   confirm the expired link is rejected.
+
+### Limits
+
+| Surface | Limit |
+|---|---|
+| Customer email sign-in | 10 attempts / 15 min per IP |
+| Customer sign-up | 5 / hour per IP |
+| Reset request | 3 / 15 min per IP |
+| Verification resend | 3 / 15 min per IP |
+| Admin email sign-in | 5 attempts / 15 min per IP |
+| Admin idle session | 30 min without activity |
+
+Auth limits use Better Auth's in-memory store, so each serverless instance has
+its own counter. They are a credential-stuffing speed bump, not a shared quota.
+P0.6 covers moving the public chat limit to Postgres; revisit auth if abuse
+spans instances. Admin sessions are sliding: activity within the last 30 minutes
+renews the cookie, and five minutes is the minimum renewal interval.
+
 ## Free-tier guardrails
 
 - **Neon:** keep the rate-limit table pruned; watch storage and compute.

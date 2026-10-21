@@ -7,8 +7,9 @@
 ### Progress
 
 - **2026-10-21:** Week 1 code landed: `/api/health` + the uptime workflow, CI + Dependabot, Sentry PII scrubbing and dashboard error capture, `README.md`, `apps/web/.env.example`, `docs/operations.md`, and the three pre-existing `@repo/api` lint warnings fixed. Still manual: the Sentry auth token and alert rules.
-- **2026-10-21:** P0.1 code landed: atomic campaign claims, 15-minute retry backoff, timing-safe cron authentication, and `.github/workflows/cron.yml`. Remaining: configure `APP_URL` / `CRON_SECRET` and run the workflow once.
-- Still open from P0: auth lifecycle, shared rate limiting, Paystack verification, backups, and security headers.
+- **2026-10-21:** P0.1 code landed and is running in production: atomic campaign claims, 15-minute retry backoff, timing-safe cron authentication, and `.github/workflows/cron.yml`. The cron workflow has completed successful runs; the `campaign_recipients.lead_id` foreign-key mismatch found during the first live run was fixed and deployed.
+- **2026-10-21:** P0.5 code landed: branded verification and reset emails, `/forgot-password`, `/reset-password`, `/verify-email`, a dashboard verification banner, explicit auth rate limits, trusted origins, secure cookies, and admin session/lockout limits. Remaining manual: deploy, send one real email through SMTP, and confirm the public URL in the message.
+- Still open from P0: shared rate limiting, Paystack verification, backups, and security headers.
 
 ---
 
@@ -172,7 +173,7 @@ Effort key: **S** ≤ 1 day, **M** 2–4 days, **L** 1–2 weeks.
 **How.**
 - Add Better Auth hooks using the existing transactional email service (`sendTransactional` in `services/api/src/email/server.ts`):
   - `emailVerification.sendVerificationEmail`.
-  - `emailVerification.sendResetPassword` (or the current Better Auth equivalent).
+  - `emailAndPassword.sendResetPassword` (the current Better Auth equivalent).
 - Add pages: `/forgot-password`, `/reset-password`, `/verify-email`, plus a “Forgot password?” link on `/sign-in`.
 - Configure `rateLimit` explicitly for auth endpoints, `trustedOrigins`, and secure cookie settings.
 - Decide whether verification is required to use the dashboard. Recommendation: send the email and show an in-app banner, but do not hard-block existing users on day one.
@@ -180,6 +181,8 @@ Effort key: **S** ≤ 1 day, **M** 2–4 days, **L** 1–2 weeks.
 - Admin app: add sign-in lockout and an idle session timeout. MFA can follow; passwords are the bigger risk today.
 
 **Done when.** A reset email arrives through SMTP, the token works once and expires, verification works, repeated failed sign-ins are limited, and no endpoint reveals account existence.
+
+**Progress (2026-10-21).** Implemented with Better Auth's built-in endpoints, so reset tokens are consumed by the same code path that issues them and both token types expire in one hour. Verification and reset links point at `BASE_APP_URL` (falling back to `BETTER_AUTH_URL`); `/verify-email` waits for a click before consuming the token so an email scanner cannot silently use it. Unverified users can still sign in and see a resend banner. Customer auth has explicit per-IP limits (sign-in 10/15 min, reset request 3/15 min, verification resend 3/15 min); the admin app limits sign-in to 5 attempts/15 min and uses a 30-minute sliding idle session. Tests cover reset-token single use and expiry, verification-token expiry, unknown-email responses, public link construction, and error suppression. Remaining manual: deploy with SMTP and the public auth URLs, send one real verification and reset email, and confirm the link host; the in-memory limits are per instance and will be revisited with P0.6's shared storage.
 
 **Effort:** M. **Cost:** 0 (existing SMTP).
 

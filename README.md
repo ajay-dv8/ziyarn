@@ -64,9 +64,10 @@ Copy `apps/web/.env.example` to `apps/web/.env`. The full annotated list lives
 there; the important groups are:
 
 - **Core:** `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
-  `NEXT_PUBLIC_BETTER_AUTH_URL`, `BASE_APP_URL`
+  `NEXT_PUBLIC_BETTER_AUTH_URL`, `BASE_APP_URL` (plus optional
+  `TRUSTED_ORIGINS` for preview deployments)
 - **AI:** `GEMINI_API_KEY` and/or `OPENROUTER_API_KEY`
-- **Email:** `SMTP_*` (campaigns, escalations, password reset)
+- **Email:** `SMTP_*` (verification, password reset, campaigns, escalations)
 - **Paystack:** `PAYSTACK_SECRET_KEY`, `PAYSTACK_WEBHOOK_SECRET`, price/plan codes
 - **Sentry:** `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`
 - **Scheduler:** `CRON_SECRET`
@@ -161,11 +162,13 @@ Deployment checklist:
 
 1. Set all required env vars, including `BASE_APP_URL` and the auth URLs.
 2. Apply migrations from `packages/database` before routing traffic.
-3. Add `SENTRY_AUTH_TOKEN` to the build environment so source maps upload.
-4. Set the GitHub `APP_URL` variable and the `CRON_SECRET` secret, then run the
+3. Send one verification and one password-reset email to confirm SMTP and
+   `BASE_APP_URL`; see `docs/operations.md`.
+4. Add `SENTRY_AUTH_TOKEN` to the build environment so source maps upload.
+5. Set the GitHub `APP_URL` variable and the `CRON_SECRET` secret, then run the
    uptime and cron workflows once.
-5. Configure the Paystack webhook URL and verify it in test mode first.
-6. Check your host's plan terms. Vercel Hobby is for non-commercial use; if you
+6. Configure the Paystack webhook URL and verify it in test mode first.
+7. Check your host's plan terms. Vercel Hobby is for non-commercial use; if you
    charge customers, use a plan or host that permits commercial traffic.
 
 ## Planning docs

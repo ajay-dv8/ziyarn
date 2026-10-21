@@ -85,5 +85,6 @@ See `plan/rebuild_divesai.md` for the roadmap and `plan/*.md` for architecture.
 ## Env vars (apps/web/.env)
 
 DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL, NEXT_PUBLIC_BETTER_AUTH_URL,
+BASE_APP_URL, TRUSTED_ORIGINS (optional extra origins for previews),
 GOOGLE_CLIENT_ID/SECRET, LINKEDIN_CLIENT_ID/SECRET (OAuth creds empty — social
 buttons only render when IDs are set). turbo.json globalEnv lists all of these.
