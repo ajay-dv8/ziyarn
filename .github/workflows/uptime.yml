@@ -1,0 +1,39 @@
+name: Uptime
+
+on:
+  schedule:
+    # GitHub may delay scheduled runs; this is a backstop, not a 99.99% SLA.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: uptime
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    name: Production health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check /api/health
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "::warning::Set the repository variable APP_URL to enable uptime checks."
+            exit 0
+          fi
+
+          curl \
+            --fail-with-body \
+            --silent \
+            --show-error \
+            --max-time 20 \
+            --retry 3 \
+            --retry-delay 10 \
+            "$APP_URL/api/health"
