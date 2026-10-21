@@ -258,7 +258,6 @@ export function createToolExecutor(deps: ToolExecutorDeps) {
               const template = escalationNotificationTemplate({
                 domainName: domainRow.domainName,
                 dashboardUrl,
-                conversationId,
                 firstMessage: firstMsg[0]?.content ?? null,
               });
               await sendTransactional({
