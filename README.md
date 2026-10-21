@@ -140,9 +140,12 @@ repository variable `APP_URL` (for example `https://app.example.com`) to enable
 it; otherwise the job skips with a warning. GitHub may delay scheduled runs, so
 pair it with a free UptimeRobot monitor if you need faster paging.
 
-Campaign scheduling is **not wired yet**. `GET
-/api/campaigns/process-scheduled` exists and is guarded by `CRON_SECRET`, but
-nothing calls it; see `plan/zero-budget-next-phase.md` (P0.1).
+`.github/workflows/cron.yml` calls the campaign scheduler every 10 minutes
+(and on manual dispatch). Set the repository variable `APP_URL` and the secret
+`CRON_SECRET`; see [`docs/operations.md`](docs/operations.md#scheduler). The
+endpoint claims each campaign with a conditional status update, so overlapping
+runs skip a campaign another run already owns. Failed sends are retried after
+15 minutes, and each run processes at most ten campaigns.
 
 ## Deployment
 
@@ -159,7 +162,8 @@ Deployment checklist:
 1. Set all required env vars, including `BASE_APP_URL` and the auth URLs.
 2. Apply migrations from `packages/database` before routing traffic.
 3. Add `SENTRY_AUTH_TOKEN` to the build environment so source maps upload.
-4. Set the GitHub `APP_URL` variable for uptime checks.
+4. Set the GitHub `APP_URL` variable and the `CRON_SECRET` secret, then run the
+   uptime and cron workflows once.
 5. Configure the Paystack webhook URL and verify it in test mode first.
 6. Check your host's plan terms. Vercel Hobby is for non-commercial use; if you
    charge customers, use a plan or host that permits commercial traffic.
