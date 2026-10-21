@@ -2,11 +2,13 @@
 
 **Prepared:** 2026-10-21
 **Constraint:** GH₵0 / $0 of new recurring spend. Every item below uses code we already own, a free tier we already use, or a free service with no card required. The real currency is engineering time.
-**Status:** All 13 original product phases are complete, Sentry is installed and verified end-to-end (issue `ZIYARN-1`), and local gates are green (workspace typecheck 10/10, web lint, production build, 68 + 11 tests). This plan covers what to improve next.
+**Status:** All 13 original product phases are complete, Sentry is installed and verified end-to-end (issue `ZIYARN-1`), and local gates are green (workspace typecheck 10/10, web lint, production build, 72 + 15 tests). This plan covers what to improve next.
 
 ### Progress
 
-- **2026-10-21:** Week 1 code landed: `/api/health` + the uptime workflow, CI + Dependabot, Sentry PII scrubbing and dashboard error capture, `README.md`, `apps/web/.env.example`, `docs/operations.md`, and the three pre-existing `@repo/api` lint warnings fixed. Still manual: the Sentry auth token and alert rules. Still open from P0: scheduler, auth lifecycle, shared rate limiting, Paystack verification, backups, and security headers.
+- **2026-10-21:** Week 1 code landed: `/api/health` + the uptime workflow, CI + Dependabot, Sentry PII scrubbing and dashboard error capture, `README.md`, `apps/web/.env.example`, `docs/operations.md`, and the three pre-existing `@repo/api` lint warnings fixed. Still manual: the Sentry auth token and alert rules.
+- **2026-10-21:** P0.1 code landed: atomic campaign claims, 15-minute retry backoff, timing-safe cron authentication, and `.github/workflows/cron.yml`. Remaining: configure `APP_URL` / `CRON_SECRET` and run the workflow once.
+- Still open from P0: auth lifecycle, shared rate limiting, Paystack verification, backups, and security headers.
 
 ---
 
@@ -23,7 +25,7 @@
 
 | Gap | Evidence | Consequence |
 |---|---|---|
-| Scheduled campaigns never send | `GET /api/campaigns/process-scheduled` exists but no CI/cron/`vercel.json` calls it | Owners schedule campaigns that silently never leave the queue |
+| Scheduled campaigns never send | `GET /api/campaigns/process-scheduled` had no caller | **Fixed 2026-10-21** with an atomic-claim scheduler and GitHub Actions cron; configure `APP_URL` / `CRON_SECRET` |
 | Sentry is installed but not operational | `SENTRY_AUTH_TOKEN` is empty; no alert rules; `app/dashboard/error.tsx` does not report | Production traces are minified and nobody is paged |
 | No CI | No `.github/` directory | Regressions are caught only by whoever runs the gates locally |
 | Weak auth lifecycle | No email verification, no forgot/reset password, no explicit auth rate limit | Locked-out users need manual help; credential stuffing is easier |
@@ -107,6 +109,8 @@ Effort key: **S** ≤ 1 day, **M** 2–4 days, **L** 1–2 weeks.
 - Test with `workflow_dispatch`: create a campaign due one minute ahead, run the job, confirm it flips from `scheduled` to `sent`.
 - Keep the endpoint idempotent: `processDueCampaigns` must not send twice if two runs overlap. Add a conditional update (`status = 'sending'` or a `locked_at` column) if the current query can race.
 - Later, replace the single endpoint with `/api/cron/route.ts` dispatching jobs (campaigns, booking reminders, rate-limit pruning). One workflow, one secret.
+
+**Progress (2026-10-21).** The endpoint now claims each due campaign with a conditional `scheduled → sending` update; overlapping runs skip a claim another run owns. Failed sends return to `scheduled` with a 15-minute retry delay, and each tick handles at most ten campaigns. `.github/workflows/cron.yml` calls the endpoint every ten minutes. Remaining: set `APP_URL` and `CRON_SECRET`, then run the workflow once against a one-recipient test campaign.
 
 **Done when.** A scheduled campaign sends without a human hitting the endpoint; a second concurrent run sends no duplicate; failures appear in the Actions log.
 
