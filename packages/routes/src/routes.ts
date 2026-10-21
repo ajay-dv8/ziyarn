@@ -22,6 +22,9 @@ export const APP_ROUTES = {
   DOCS: "/docs",
   SIGN_IN: "/sign-in",
   SIGN_UP: "/sign-up",
+  FORGOT_PASSWORD: "/forgot-password",
+  RESET_PASSWORD: "/reset-password",
+  VERIFY_EMAIL: "/verify-email",
   ACCEPT_INVITE: "/accept-invite",
   ONBOARDING: "/onboarding",
   /** One-click unsubscribe from a campaign email. The token goes in the query. */

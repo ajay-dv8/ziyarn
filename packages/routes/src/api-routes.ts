@@ -48,7 +48,15 @@ export const API_ROUTES = {
      * yourself writing a fetch to one of them, there is a client method for it.
      */
     signInEmail: "/api/auth/sign-in/email",
+    signInSocial: "/api/auth/sign-in/social",
     signUpEmail: "/api/auth/sign-up/email",
+    requestPasswordReset: "/api/auth/request-password-reset",
+    resetPassword: "/api/auth/reset-password",
+    sendVerificationEmail: "/api/auth/send-verification-email",
+    verifyEmail: "/api/auth/verify-email",
+    changePassword: "/api/auth/change-password",
+    changeEmail: "/api/auth/change-email",
+    deleteUser: "/api/auth/delete-user",
     /** OAuth redirect prefix. Providers append their id: `/callback/google`. */
     callback: "/api/auth/callback",
     /** POST only, despite looking like a link. */
