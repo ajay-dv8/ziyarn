@@ -12,7 +12,8 @@
  *   node scripts/widget-e2e.mjs              run the checks
  *   node scripts/widget-e2e.mjs --keep       leave the page open for debugging
  *
- * Needs `google-chrome` on PATH. Exits non-zero on the first failed check.
+ * Needs `google-chrome` on PATH, or `CHROME_BIN` pointing at a Chrome binary.
+ * Exits non-zero on the first failed check.
  */
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
@@ -173,8 +174,9 @@ const server = createServer(async (req, res) => {
 
 // --- Chrome ----------------------------------------------------------------
 const profileDir = mkdtempSync(join(tmpdir(), "widget-e2e-"));
+const chromeBinary = process.env.CHROME_BIN ?? "google-chrome";
 const chrome = spawn(
-  "google-chrome",
+  chromeBinary,
   [
     "--headless=new",
     `--remote-debugging-port=${CDP_PORT}`,
