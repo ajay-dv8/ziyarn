@@ -84,8 +84,8 @@ const WRAPPER = `
 
 function render(domainName: string, body: string): string {
   const html = `<!doctype html><html><head><meta charset="utf-8" /></head>${WRAPPER}`
-    .replace("__DOMAIN__", escapeHtml(domainName))
-    .replace("__BODY__", body);
+    .replace("__DOMAIN__", () => escapeHtml(domainName))
+    .replace("__BODY__", () => body);
   return html;
 }
 
@@ -233,6 +233,88 @@ export function escalationNotificationTemplate(
     subject: `Escalation in ${domainName} — waiting for response`,
     text,
     html: render(domainName, body),
+  };
+}
+
+function formatTokenExpiry(expiresInMinutes: number): string {
+  if (expiresInMinutes % 60 === 0) {
+    const hours = expiresInMinutes / 60;
+    return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  }
+  return `${expiresInMinutes} ${expiresInMinutes === 1 ? "minute" : "minutes"}`;
+}
+
+export type VerificationEmailTemplateInput = {
+  name: string | null;
+  verifyUrl: string;
+  expiresInMinutes: number;
+};
+
+/** Account email confirmation. Not a campaign: no unsubscribe footer. */
+export function verificationEmailTemplate(
+  input: VerificationEmailTemplateInput,
+): { subject: string; text: string; html: string } {
+  const { name, verifyUrl, expiresInMinutes } = input;
+  const greeting = name ? `Hi ${name},` : "Hi there,";
+  const safeGreeting = escapeHtml(greeting);
+  const expiry = formatTokenExpiry(expiresInMinutes);
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;color:#18181b;">Verify your email address</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#52525b;">${safeGreeting} Confirm this address to finish setting up your Ziyarn account.</p>
+    <a href="${escapeHtml(verifyUrl)}" style="display:inline-block;background-color:#18181b;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 24px;border-radius:8px;">Verify email</a>
+    <p style="margin:20px 0 0;font-size:13px;color:#71717a;">This link expires in ${escapeHtml(expiry)}. If the button does not work, paste this URL into your browser:<br /><span style="word-break:break-all;">${escapeHtml(verifyUrl)}</span></p>
+    <p style="margin:16px 0 0;font-size:13px;color:#71717a;">If you did not create a Ziyarn account, you can ignore this email.</p>`;
+  const text = [
+    "Verify your email address",
+    "",
+    `${greeting} Confirm this address to finish setting up your Ziyarn account.`,
+    "",
+    `Verify: ${verifyUrl}`,
+    "",
+    `This link expires in ${expiry}.`,
+    "If you did not create a Ziyarn account, you can ignore this email.",
+  ].join("\n");
+  return {
+    subject: "Verify your email address",
+    text,
+    html: render("Ziyarn", body),
+  };
+}
+
+export type PasswordResetEmailTemplateInput = {
+  name: string | null;
+  resetUrl: string;
+  expiresInMinutes: number;
+};
+
+/** Password reset email. The token is consumed when the new password is set. */
+export function passwordResetEmailTemplate(
+  input: PasswordResetEmailTemplateInput,
+): { subject: string; text: string; html: string } {
+  const { name, resetUrl, expiresInMinutes } = input;
+  const greeting = name ? `Hi ${name},` : "Hi there,";
+  const safeGreeting = escapeHtml(greeting);
+  const expiry = formatTokenExpiry(expiresInMinutes);
+  const body = `
+    <h1 style="margin:0 0 12px;font-size:20px;color:#18181b;">Reset your password</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#52525b;">${safeGreeting} We received a request to reset the password for your Ziyarn account.</p>
+    <a href="${escapeHtml(resetUrl)}" style="display:inline-block;background-color:#18181b;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 24px;border-radius:8px;">Choose a new password</a>
+    <p style="margin:20px 0 0;font-size:13px;color:#71717a;">This link expires in ${escapeHtml(expiry)} and can only be used once. If the button does not work, paste this URL into your browser:<br /><span style="word-break:break-all;">${escapeHtml(resetUrl)}</span></p>
+    <p style="margin:16px 0 0;font-size:13px;color:#71717a;">If you did not request this, you can ignore this email. Your password will not change.</p>`;
+  const text = [
+    "Reset your password",
+    "",
+    `${greeting} We received a request to reset the password for your Ziyarn account.`,
+    "",
+    `Choose a new password: ${resetUrl}`,
+    "",
+    `This link expires in ${expiry} and can only be used once.`,
+    "If you did not request this, you can ignore this email. Your password will not change.",
+  ].join("\n");
+  return {
+    subject: "Reset your Ziyarn password",
+    text,
+    html: render("Ziyarn", body),
   };
 }
 
