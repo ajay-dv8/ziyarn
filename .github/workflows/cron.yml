@@ -1,0 +1,55 @@
+name: Cron
+
+on:
+  schedule:
+    # GitHub may delay scheduled runs; ten minutes is the intended cadence,
+    # not a guarantee.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  # Campaign sends are serial inside the endpoint. Do not let a second runner
+  # start while one is still delivering; the service's atomic claim also
+  # protects against overlap if this guard is ever bypassed.
+  group: cron
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  campaigns:
+    name: Process scheduled campaigns
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Trigger campaign scheduler
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::Set the repository variable APP_URL and the CRON_SECRET secret."
+            exit 1
+          fi
+
+          APP_URL="${APP_URL%/}"
+
+          response=$(curl \
+            --fail-with-body \
+            --silent \
+            --show-error \
+            --max-time 90 \
+            --retry 1 \
+            --retry-delay 10 \
+            --header "x-cron-secret: $CRON_SECRET" \
+            "$APP_URL/api/campaigns/process-scheduled")
+
+          printf '%s\n' "$response"
+
+          failed=$(printf '%s' "$response" | jq -r '.failed // 0')
+          if [ "$failed" -gt 0 ]; then
+            echo "::error::$failed campaign(s) failed and were rescheduled."
+            exit 1
+          fi
