@@ -46,3 +46,14 @@ export const ADMIN_API_ROUTES = {
   auth: "/api/auth",
   setup: "/api/admin/setup",
 } as const;
+
+/**
+ * Better Auth's rate-limit rule keys are relative to its mount point, so these
+ * cannot use ADMIN_API_ROUTES.auth-prefixed paths. Kept here because they are
+ * still routes, not arbitrary strings.
+ */
+export const ADMIN_AUTH_RATE_LIMIT_PATHS = {
+  signInEmail: "/sign-in/email",
+  requestPasswordReset: "/request-password-reset",
+  resetPassword: "/reset-password",
+} as const;

@@ -10,6 +10,7 @@ import {
   admins,
 } from "@repo/database/schema";
 
+import { ADMIN_AUTH_RATE_LIMIT_PATHS } from "@/constants/routes";
 import { db } from "@/lib/db";
 
 /**
@@ -35,14 +36,15 @@ import { db } from "@/lib/db";
  * Trusted origins come from the admin URL so the panel cannot be driven from a
  * hostile origin.
  */
-const adminUrl = process.env.ADMIN_BETTER_AUTH_URL ?? "http://localhost:3001";
+const adminUrl = process.env.ADMIN_BETTER_AUTH_URL || "http://localhost:3001";
+const useSecureCookies = adminUrl.startsWith("https://");
 
 // Explicit annotation on the config as well as the instance: the adapter type
 // is not portable across the pnpm store, so TS2742 needs both spelled out
 // (same class of fix as apps/web/lib/auth.ts).
 const authConfig: BetterAuthOptions = {
   baseURL: adminUrl,
-  secret: process.env.ADMIN_BETTER_AUTH_SECRET,
+  secret: process.env.ADMIN_BETTER_AUTH_SECRET || undefined,
   database: drizzleAdapter(db, {
     provider: "pg",
     // Load-bearing: this is what keeps staff out of the customer tables.
@@ -58,15 +60,50 @@ const authConfig: BetterAuthOptions = {
     autoSignIn: true,
     minPasswordLength: 12,
   },
+  // Throttle password guessing per client IP. The 12-character minimum is the
+  // second layer; MFA can follow if the admin surface grows.
+  rateLimit: {
+    enabled: true,
+    window: 60,
+    max: 120,
+    customRules: {
+      [ADMIN_AUTH_RATE_LIMIT_PATHS.signInEmail]: {
+        window: 15 * 60,
+        max: 5,
+      },
+      [ADMIN_AUTH_RATE_LIMIT_PATHS.requestPasswordReset]: {
+        window: 15 * 60,
+        max: 3,
+      },
+      [ADMIN_AUTH_RATE_LIMIT_PATHS.resetPassword]: {
+        window: 15 * 60,
+        max: 5,
+      },
+    },
+  },
+  // Sliding idle timeout: every authenticated admin request older than five
+  // minutes extends the cookie, but 30 minutes without activity ends it.
   session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // 1 day
+    expiresIn: 60 * 30,
+    updateAge: 60 * 5,
   },
   // Distinct prefix so admin and customer cookies never collide.
   advanced: {
     cookiePrefix: "ziyarn-admin",
+    useSecureCookies,
+    defaultCookieAttributes: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: useSecureCookies,
+    },
   },
-  trustedOrigins: [adminUrl],
+  trustedOrigins: [
+    ...new Set(
+      [adminUrl, process.env.NEXT_PUBLIC_ADMIN_BETTER_AUTH_URL].filter(
+        (origin): origin is string => Boolean(origin),
+      ),
+    ),
+  ],
   plugins: [nextCookies()],
 };
 
