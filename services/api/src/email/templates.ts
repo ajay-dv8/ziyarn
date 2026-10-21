@@ -206,14 +206,13 @@ export function paymentReceiptTemplate(
 export type EscalationTemplateInput = {
   domainName: string;
   dashboardUrl: string;
-  conversationId: string;
   firstMessage: string | null;
 };
 
 export function escalationNotificationTemplate(
   input: EscalationTemplateInput,
 ): { subject: string; text: string; html: string } {
-  const { domainName, dashboardUrl, conversationId, firstMessage } = input;
+  const { domainName, dashboardUrl, firstMessage } = input;
   const messageHtml = firstMessage
     ? `<div style="background-color:#f4f4f5;border-radius:8px;padding:16px 20px;margin-bottom:20px;"><div style="font-size:13px;color:#71717a;">Visitor message</div><div style="font-size:14px;color:#18181b;margin-top:4px;">"${escapeHtml(firstMessage.length > 200 ? firstMessage.slice(0, 200) + "…" : firstMessage)}"</div></div>`
     : "";
