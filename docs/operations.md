@@ -102,20 +102,73 @@ the CI build.
 The widget job installs Chrome if the runner does not expose `google-chrome` and
 sets `CHROME_BIN` for `apps/web/scripts/widget-e2e.mjs`.
 
-## Scheduler (not wired yet)
+## Scheduler
 
-`apps/web/app/api/campaigns/process-scheduled/route.ts` is guarded by
-`x-cron-secret` and expects `CRON_SECRET`. Nothing calls it yet, so scheduled
-campaigns do not send.
+`GET /api/campaigns/process-scheduled` sends every campaign whose scheduled
+time has arrived. `.github/workflows/cron.yml` calls it every 10 minutes and on
+manual dispatch.
 
-When wiring it (plan P0.1):
+### Configure
 
-1. Set `CRON_SECRET` in the deployment and as a GitHub Actions secret.
-2. Add a workflow with a 10-minute schedule that calls
-   `GET $APP_URL/api/campaigns/process-scheduled` with
-   `x-cron-secret: ${{ secrets.CRON_SECRET }}`.
-3. Make the endpoint idempotent before enabling overlapping schedules.
-4. Reuse the same workflow later for booking reminders and rate-limit pruning.
+1. Generate a secret:
+   ```sh
+   openssl rand -hex 32
+   ```
+2. Set `CRON_SECRET` in the deployment environment (the same value the endpoint
+   reads at runtime).
+3. Repository → Settings → Secrets and variables → Actions:
+   - Secret `CRON_SECRET`: the same value as step 2.
+   - Variable `APP_URL`: the production origin, for example
+     `https://app.example.com`.
+4. Run the **Cron** workflow once with **Run workflow**. A missing variable or
+   secret fails the job with an explicit error rather than silently skipping.
+
+The endpoint returns `503 SCHEDULER_NOT_CONFIGURED` when `CRON_SECRET` is
+missing and `401 UNAUTHORIZED` when the header does not match. The comparison
+is timing-safe.
+
+### What a run does
+
+- Selects up to ten campaigns with `status = 'scheduled'` and a due
+  `scheduled_at`, oldest first.
+- Claims each one with a conditional `UPDATE … WHERE status = 'scheduled'`.
+  If another run wins the race, the campaign is counted as `skipped` and is not
+  sent.
+- Sends the claimed campaign, marks it `sent`, and records per-recipient
+  results.
+- On failure, puts the campaign back to `scheduled` with a retry time 15 minutes
+  out. A persistent failure does not leave it stuck in `sending`.
+- Returns `{ "sent": number, "failed": number, "skipped": number }`.
+
+Manual sends use the same claim, so a double click cannot send twice.
+This is at-most-once for overlapping runs. A process crash after some recipients
+have received mail can still require manual review; add a durable per-recipient
+queue before scaling beyond small audiences.
+
+### Verify it works
+
+Use a test campaign with one internal recipient, not a real customer list:
+
+1. Schedule it for one minute in the future.
+2. Run the **Cron** workflow from the Actions tab.
+3. Confirm the response reports `sent: 1` and the campaign badge changes from
+   `scheduled` to `sent`.
+
+You can also call it directly:
+
+```sh
+curl --fail-with-body \
+  -H "x-cron-secret: $CRON_SECRET" \
+  "$APP_URL/api/campaigns/process-scheduled"
+```
+
+Sending is serial and the route declares `maxDuration = 60` for serverless
+hosts. Very large audiences can outlive a single invocation; the ten-campaign
+cap protects the tick, but moving delivery to a durable queue is the next step
+if lists grow.
+
+GitHub may delay scheduled runs. This is a backstop for campaigns, not an exact
+delivery-time guarantee.
 
 ## Free-tier guardrails
 
