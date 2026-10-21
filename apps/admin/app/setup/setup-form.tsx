@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ADMIN_API_ROUTES, ADMIN_ROUTES } from "@/constants/routes";
+import { PasswordInput } from "@/components/password-input";
 
 const INPUT_CLASS =
   "w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
@@ -92,15 +93,13 @@ export default function SetupForm(): React.ReactNode {
         <label htmlFor="password" className="text-sm font-medium text-zinc-300">
           Password
         </label>
-        <input
+        <PasswordInput
           id="password"
-          type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           required
           minLength={12}
           autoComplete="new-password"
-          className={INPUT_CLASS}
           placeholder="At least 12 characters"
         />
       </div>
@@ -112,14 +111,12 @@ export default function SetupForm(): React.ReactNode {
         >
           Bootstrap secret
         </label>
-        <input
+        <PasswordInput
           id="bootstrapSecret"
-          type="password"
           value={bootstrapSecret}
           onChange={(event) => setBootstrapSecret(event.target.value)}
           required
           autoComplete="off"
-          className={INPUT_CLASS}
         />
         <p className="text-xs text-zinc-500">
           Paste <code className="text-zinc-400">ADMIN_BOOTSTRAP_SECRET</code> from
