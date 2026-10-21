@@ -67,7 +67,15 @@ export function SignInForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="password">Password</Label>
+        <div className="flex items-center justify-between gap-3">
+          <Label htmlFor="password">Password</Label>
+          <Link
+            href={APP_ROUTES.FORGOT_PASSWORD}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <Input
           id="password"
           name="password"

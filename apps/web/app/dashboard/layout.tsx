@@ -9,6 +9,7 @@ import {
 } from "@repo/ui/components/sidebar";
 import { Separator } from "@repo/ui/components/separator";
 
+import { EmailVerificationBanner } from "@/components/auth/email-verification-banner";
 import { UserMenu } from "@/components/dashboard/user-menu";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { DashboardTitleUpdater } from "@/components/dashboard/dashboard-title-updater";
@@ -72,6 +73,9 @@ export default async function DashboardLayout({
             <UserMenu email={session.user.email} />
           </div>
         </header>
+        {!session.user.emailVerified ? (
+          <EmailVerificationBanner email={session.user.email} />
+        ) : null}
         <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
       </SidebarInset>
     </SidebarProvider>
