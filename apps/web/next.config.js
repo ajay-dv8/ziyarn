@@ -18,8 +18,8 @@ const nextConfig = {
 };
 
 export default withSentryConfig(withMDX(nextConfig), {
-  org: "ajay-w6",
-  project: "ziyarn",
+  org: process.env.SENTRY_ORG || "ajay-w6",
+  project: process.env.SENTRY_PROJECT || "ziyarn",
   authToken: process.env.SENTRY_AUTH_TOKEN,
   widenClientFileUpload: true,
   silent: !process.env.CI,
