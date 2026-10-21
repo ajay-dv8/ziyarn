@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  TURBO_TELEMETRY_DISABLED: "1"
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # Build-only placeholders. Nothing in `next build` should connect to the
+      # database; if that changes, this job will fail loudly instead of silently
+      # using production data.
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ziyarn
+      BETTER_AUTH_SECRET: ci-only-placeholder-ci-only-placeholder-ci-only-placeholder
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_BETTER_AUTH_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.18.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Turborepo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      - name: Typecheck
+        run: pnpm check-types
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build web
+        run: pnpm --filter web build
+        env:
+          NODE_OPTIONS: --max-old-space-size=3072
+          # Optional. Without it Sentry skips source-map upload and the build
+          # still succeeds; with it, stack traces become readable.
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+  widget:
+    name: Widget E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.18.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Find Chrome
+        run: |
+          if ! command -v google-chrome >/dev/null 2>&1; then
+            if command -v google-chrome-stable >/dev/null 2>&1; then
+              echo "CHROME_BIN=google-chrome-stable" >> "$GITHUB_ENV"
+            else
+              echo "::error::No Chrome binary found on the runner."
+              exit 1
+            fi
+          fi
+
+      - name: Widget browser test
+        run: pnpm --filter web test:widget
+        env:
+          NODE_OPTIONS: --max-old-space-size=3072
