@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
+import { PasswordInput } from "@repo/ui/components/password-input";
 
 import { authClientService } from "./auth-client";
 import { APP_ROUTES } from "@/constants/routes";
@@ -88,10 +89,9 @@ export function SignUpForm({
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">Password</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           placeholder="At least 8 characters"
           autoComplete="new-password"
           required

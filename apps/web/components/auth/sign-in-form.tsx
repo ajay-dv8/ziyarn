@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
+import { PasswordInput } from "@repo/ui/components/password-input";
 
 import { authClientService } from "./auth-client";
 import { APP_ROUTES } from "@/constants/routes";
@@ -76,10 +77,9 @@ export function SignInForm({
             Forgot password?
           </Link>
         </div>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           placeholder="••••••••"
           autoComplete="current-password"
           required

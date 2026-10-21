@@ -4,8 +4,8 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 
 import { Button } from "@repo/ui/components/button";
-import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
+import { PasswordInput } from "@repo/ui/components/password-input";
 
 import { authClientService } from "./auth-client";
 import { APP_ROUTES } from "@/constants/routes";
@@ -64,10 +64,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">New password</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           placeholder="At least 8 characters"
           autoComplete="new-password"
           required
@@ -83,10 +82,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="confirmPassword">Confirm new password</Label>
-        <Input
+        <PasswordInput
           id="confirmPassword"
           name="confirmPassword"
-          type="password"
           placeholder="Repeat your new password"
           autoComplete="new-password"
           required
