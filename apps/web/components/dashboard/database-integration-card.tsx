@@ -7,6 +7,7 @@ import { Button } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
+import { PasswordInput } from "@repo/ui/components/password-input";
 import {
   ChevronDown,
   Database,
@@ -422,9 +423,8 @@ export function DatabaseIntegrationCard({
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="db-pass">Password</Label>
-                  <Input
+                  <PasswordInput
                     id="db-pass"
-                    type="password"
                     autoComplete="new-password"
                     value={form.password}
                     onChange={(e) => update("password", e.target.value)}
@@ -474,9 +474,8 @@ export function DatabaseIntegrationCard({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="convex-key">Deploy key</Label>
-                <Input
+                <PasswordInput
                   id="convex-key"
-                  type="password"
                   placeholder="prod:acme-xyz123|..."
                   value={form.deployKey}
                   onChange={(e) => update("deployKey", e.target.value)}

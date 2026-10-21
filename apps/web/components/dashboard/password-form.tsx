@@ -3,8 +3,8 @@
 import { useState } from "react";
 
 import { Button } from "@repo/ui/components/button";
-import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
+import { PasswordInput } from "@repo/ui/components/password-input";
 
 import { API_ROUTES } from "@/constants/routes";
 
@@ -63,27 +63,27 @@ export function PasswordForm() {
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="current-password">Current password</Label>
-        <Input
+        <PasswordInput
           id="current-password"
-          type="password"
+          autoComplete="current-password"
           value={currentPassword}
           onChange={(event) => setCurrentPassword(event.target.value)}
         />
       </div>
       <div className="space-y-2">
         <Label htmlFor="new-password">New password</Label>
-        <Input
+        <PasswordInput
           id="new-password"
-          type="password"
+          autoComplete="new-password"
           value={newPassword}
           onChange={(event) => setNewPassword(event.target.value)}
         />
       </div>
       <div className="space-y-2">
         <Label htmlFor="confirm-password">Confirm new password</Label>
-        <Input
+        <PasswordInput
           id="confirm-password"
-          type="password"
+          autoComplete="new-password"
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
         />
