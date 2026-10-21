@@ -495,10 +495,12 @@ export function createEmailService(deps: { db: Database }) {
       const inserted = await db
         .insert(campaignRecipients)
         .values(
-          recipients.map((lead) => ({
+          recipients.map((recipient) => ({
             campaignId: campaign.id,
-            leadId: lead.id,
-            email: lead.email,
+            // `campaign_recipients.lead_id` still references the retired
+            // `leads` table. Customers are email-keyed now, so leave that
+            // legacy link null instead of writing a customer id into it.
+            email: recipient.email,
             unsubscribeToken: randomBytes(24).toString("base64url"),
           })),
         )
