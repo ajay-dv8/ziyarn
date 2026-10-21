@@ -5,6 +5,11 @@ import SignOutButton from "@/components/sign-out-button";
 import { ADMIN_ROUTES } from "@/constants/routes";
 import { requireAdmin } from "@/lib/admin-auth";
 
+// Every page here is session-guarded. Never prerender it at build time: that
+// would both bake an unauthenticated shell and make `next build` depend on a
+// live database.
+export const dynamic = "force-dynamic";
+
 const NAV_ITEMS = [
   { href: ADMIN_ROUTES.HOME, label: "Overview" },
   { href: ADMIN_ROUTES.USERS, label: "Users" },
