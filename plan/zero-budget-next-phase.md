@@ -4,6 +4,10 @@
 **Constraint:** GH₵0 / $0 of new recurring spend. Every item below uses code we already own, a free tier we already use, or a free service with no card required. The real currency is engineering time.
 **Status:** All 13 original product phases are complete, Sentry is installed and verified end-to-end (issue `ZIYARN-1`), and local gates are green (workspace typecheck 10/10, web lint, production build, 68 + 11 tests). This plan covers what to improve next.
 
+### Progress
+
+- **2026-10-21:** Week 1 code landed: `/api/health` + the uptime workflow, CI + Dependabot, Sentry PII scrubbing and dashboard error capture, `README.md`, `apps/web/.env.example`, `docs/operations.md`, and the three pre-existing `@repo/api` lint warnings fixed. Still manual: the Sentry auth token and alert rules. Still open from P0: scheduler, auth lifecycle, shared rate limiting, Paystack verification, backups, and security headers.
+
 ---
 
 ## 1. Where the product stands
