@@ -1,0 +1,83 @@
+name: Database backup
+
+on:
+  schedule:
+    # Weekly, Monday 03:00 UTC. GitHub may delay scheduled runs slightly.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Dump production database
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL 18 client
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y --no-install-recommends curl ca-certificates
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL --retry 3 \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y --no-install-recommends postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      - name: Check backup credentials
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Set the DATABASE_URL repository secret to the Neon production connection string."
+            exit 1
+          fi
+          pg_dump --version
+          pg_restore --version
+
+      - name: Create compressed dump
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          mkdir -p backups
+          scripts/backup-db.sh
+          ls -lh backups/*.dump
+
+      - name: Upload backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: neon-backup-${{ github.run_id }}
+          path: backups/*.dump
+          retention-days: 14
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Database backup"
+            echo ""
+            echo "- Run: $GITHUB_RUN_ID"
+            echo "- Artifact retention: **14 days**"
+            echo "- Backup file:"
+            if compgen -G 'backups/*.dump' >/dev/null; then
+              ls -lh backups/*.dump
+            else
+              echo "  - none"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
