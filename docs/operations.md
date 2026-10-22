@@ -2,7 +2,7 @@
 
 This is the zero-budget operating runbook. It covers the parts that cannot be
 configured from code: Sentry credentials and alert rules, the uptime monitor,
-and CI variables.
+database backups, and CI variables.
 
 ## Sentry
 
@@ -88,6 +88,32 @@ If the health check fails, check in this order:
 2. Neon project status and connection limits.
 3. The web app's server logs for `health` or database errors.
 4. `curl -i https://your-domain/api/health` from outside the host.
+
+## Backups
+
+`.github/workflows/backup.yml` runs every Monday at 03:00 UTC and on manual
+dispatch. It installs the PostgreSQL 18 client, runs
+`scripts/backup-db.sh` against the production database, validates the custom
+dump with `pg_restore --list`, and uploads it as a private GitHub Actions
+artifact with 14-day retention.
+
+Setup:
+
+1. Repository → Settings → Secrets and variables → Actions → Secrets.
+2. Add `DATABASE_URL` with the production Neon connection string (including
+   `sslmode=require`). Do not reuse the CI placeholder.
+3. Run **Database backup** once with **Run workflow** and confirm a
+   `neon-backup-<run-id>` artifact appears.
+
+Neon's free plan keeps a **6-hour** point-in-time window
+(`history_retention_seconds: 21600`). Use PITR for mistakes caught quickly and
+the weekly artifact for anything older. The full restore procedure, the
+row-count check, and the 2026-10-22 drill record are in
+[`docs/restore.md`](restore.md).
+
+The backup script requires `pg_dump` and `pg_restore` from PostgreSQL 18; an
+older client refuses a PostgreSQL 18 server. Use the branch's direct
+(non-pooler) host for `pg_restore` and verification queries.
 
 ## CI
 
