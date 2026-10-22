@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { EmailServiceError } from "@repo/api/email";
 
 import { emailService } from "@/services/email-service";
+import { pruneRateLimitWindows } from "@/lib/rate-limit-db";
 
 export const runtime = "nodejs";
 
@@ -26,8 +27,9 @@ function secretsMatch(provided: string, secret: string): boolean {
 
 /**
  * Scheduler entrypoint — sends every campaign whose scheduled time has
- * arrived. Protected by the CRON_SECRET header; called by the GitHub Actions
- * cron workflow on a regular interval.
+ * arrived and prunes expired chat rate-limit windows. Protected by the
+ * CRON_SECRET header; called by the GitHub Actions cron workflow on a regular
+ * interval.
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -50,11 +52,21 @@ export async function GET(request: Request) {
       { status: 401 },
     );
   }
+  let rateLimitWindowsPruned = 0;
+  try {
+    rateLimitWindowsPruned = await pruneRateLimitWindows();
+  } catch (error) {
+    // Rate-limit cleanup is housekeeping: a failure must not stop campaign
+    // delivery. The error is already reported to Sentry by the pruner.
+    console.error("Rate-limit window pruning failed:", error);
+  }
+
   try {
     const result = await emailService.processDueCampaigns();
-    return NextResponse.json(result, {
-      headers: { "cache-control": "no-store" },
-    });
+    return NextResponse.json(
+      { ...result, rateLimitWindowsPruned },
+      { headers: { "cache-control": "no-store" } },
+    );
   } catch (error) {
     if (error instanceof EmailServiceError) {
       return NextResponse.json(
