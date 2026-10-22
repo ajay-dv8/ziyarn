@@ -64,6 +64,19 @@ const contentSecurityPolicy = [
   `connect-src ${connectSources.join(" ")}`,
 ].join("; ");
 
+// Never HSTS on preview URLs: pinning a preview host in one browser would
+// poison every later preview. HSTS over plain HTTP is ignored, so running
+// `next start` locally is unaffected.
+const hstsHeaders =
+  isProductionBuild && !isVercelPreview
+    ? [
+        {
+          key: "Strict-Transport-Security",
+          value: "max-age=63072000; includeSubDomains; preload",
+        },
+      ]
+    : [];
+
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -81,17 +94,35 @@ const securityHeaders = [
         },
       ]
     : []),
-  // Never HSTS on preview URLs: pinning a preview host in one browser would
-  // poison every later preview. HSTS over plain HTTP is ignored, so running
-  // `next start` locally is unaffected.
-  ...(isProductionBuild && !isVercelPreview
+  ...hstsHeaders,
+];
+
+// /embed/* is the one surface customers are allowed to frame. It must not carry
+// X-Frame-Options, and its CSP has to allow any ancestor. It is deliberately
+// excluded from the global rule with a negative lookahead: two matching header
+// rules would combine, and frame-ancestors 'none' would win.
+//
+// When CSP-Report-Only is promoted to enforcement, rename the header here too.
+const embedSecurityHeaders = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  // The iframe URL carries the domain secret; don't leak the host URL onward.
+  { key: "Referrer-Policy", value: "no-referrer" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=()",
+  },
+  ...(isProductionBuild
     ? [
         {
-          key: "Strict-Transport-Security",
-          value: "max-age=63072000; includeSubDomains; preload",
+          key: "Content-Security-Policy-Report-Only",
+          value: contentSecurityPolicy.replace(
+            "frame-ancestors 'none'",
+            "frame-ancestors *",
+          ),
         },
       ]
     : []),
+  ...hstsHeaders,
 ];
 
 /** @type {import('next').NextConfig} */
@@ -102,7 +133,16 @@ const nextConfig = {
   },
   serverExternalPackages: ["@napi-rs/canvas"],
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/embed/:path+", headers: embedSecurityHeaders },
+      {
+        // Exclude only the real embed subtree (`/embed/<slug>`), not every path
+        // that happens to start with "embed". Everything else — including the
+        // /embed 404 — keeps the strict headers.
+        source: "/:path((?!embed/).*)",
+        headers: securityHeaders,
+      },
+    ];
   },
 };
 
