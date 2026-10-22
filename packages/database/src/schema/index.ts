@@ -4,6 +4,7 @@ export * from "@repo/database/schema/billing";
 export * from "@repo/database/schema/domains";
 export * from "@repo/database/schema/portal";
 export * from "@repo/database/schema/products";
+export * from "@repo/database/schema/rate-limit";
 export * from "@repo/database/schema/settings";
 export * from "@repo/database/schema/workspaces";
 
