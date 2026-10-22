@@ -2,13 +2,15 @@
  * Widget variant registry — the single source of truth for which widgets exist.
  *
  * Mirrors the PLAN_LIMITS pattern in services/api/src/plans/server.ts: one list,
- * read by the dashboard picker, the embed snippet generator, the public config
- * endpoint and the widget's own runtime fallback. Never declare a variant name
- * anywhere else.
+ * read by the dashboard picker, the embed snippet generator and the public
+ * config endpoint. Every variant also has a matching entry in the widget
+ * runtime's own VARIANTS map. Never declare a variant name in feature code.
  *
- * Adding a widget is ONE row here plus its sources under apps/web/widget/ and an
- * id in VARIANTS in apps/web/scripts/build-widget.mjs — no database migration,
- * because the column is plain text precisely so this list can grow.
+ * Adding a widget is ONE row here. It also needs sources under apps/web/widget/
+ * and an id in VARIANTS in apps/web/scripts/build-widget.mjs. Modern Sleek is
+ * delivered by that same script, which mounts its iframe from
+ * apps/web/app/embed/[slug] — no database migration, because the column is
+ * plain text precisely so this list can grow.
  */
 export const WIDGET_VARIANTS = [
   {
@@ -20,6 +22,12 @@ export const WIDGET_VARIANTS = [
     id: "glow",
     label: "Glow",
     description: "Aurora panel with a thinking orb while it answers",
+  },
+  {
+    id: "sleek",
+    label: "Modern Sleek",
+    description:
+      "Centered glass card with live tool activity, opened in a full-screen iframe",
   },
 ] as const;
 
