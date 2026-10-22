@@ -262,6 +262,39 @@ scheduler deletes closed windows every ten minutes.
 Admin sessions are sliding: activity within the last 30 minutes renews the
 cookie, and five minutes is the minimum renewal interval.
 
+## Security headers
+
+Both apps set baseline headers from `next.config.js`:
+
+- `X-Content-Type-Options: nosniff`, `Referrer-Policy:
+  strict-origin-when-cross-origin`, `X-Frame-Options: DENY`, and
+  `Permissions-Policy: camera=(), microphone=(), geolocation=()` are enforced
+  on every response. `X-Powered-By` is disabled.
+- `Strict-Transport-Security` is sent only on production deployments. Vercel
+  previews are intentionally excluded so a browser can never pin a preview URL.
+- `Content-Security-Policy-Report-Only` is sent by production builds only
+  (development is exempt so HMR stays quiet). It allows the sources the app
+  actually uses: Next.js/next-themes inline script and style, `https:` OAuth
+  avatars, Sentry ingest origins derived from the DSN, and Paystack Inline
+  (`api.paystack.co` for fetch, `checkout.paystack.com` for the checkout
+  iframe). The Better Auth origin is derived from env when it differs from the
+  app origin.
+
+Check a deployment:
+
+```bash
+curl -sI https://ziyarn.vercel.app/ | grep -iE \
+  'content-security|strict-transport|x-frame|x-content-type|referrer-policy|permissions-policy'
+```
+
+Report-only violations currently surface in the browser console (there is no
+collector yet). After a clean window, switch both configs from
+`Content-Security-Policy-Report-Only` to `Content-Security-Policy`.
+`frame-ancestors 'none'` joins the already-enforced `X-Frame-Options: DENY` at
+that point. Tightening `script-src`/`style-src` to nonces needs a nonce in
+`apps/web/proxy.ts` and dynamic rendering, so do it only after the enforced
+policy has been stable.
+
 ## Free-tier guardrails
 
 - **Neon:** keep the rate-limit table pruned; watch storage and compute.

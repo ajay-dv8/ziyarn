@@ -11,7 +11,8 @@
 - **2026-10-21:** P0.5 code landed: branded verification and reset emails, `/forgot-password`, `/reset-password`, `/verify-email`, a dashboard verification banner, explicit auth rate limits, trusted origins, secure cookies, and admin session/lockout limits.
 - **2026-10-22:** P0.5 production checks confirmed: email verification works, the unverified-email banner renders on the dashboard and triggered the verification, and password reset works through SMTP with the public link host. Remaining manual: confirm the admin sign-in lockout and the 30-minute idle timeout.
 - **2026-10-22:** P0.6 code landed: shared chat counters in Neon, atomic upserts, a local in-memory fast path, fail-open Sentry reporting, cron pruning, and tests for the 11th message, concurrent instances, window reset, and store failure. The `rate_limit_windows` table is applied to Neon; production deployment is pending.
-- Still open from P0: Paystack verification, backups, and security headers.
+- **2026-10-22:** P0.9 code landed: baseline security headers on both apps (nosniff, referrer policy, permissions policy, `X-Frame-Options: DENY`, production-only HSTS, `X-Powered-By` removed) plus a `Content-Security-Policy-Report-Only` policy that allows the known sources (inline Next.js/next-themes script and style, OAuth avatars, Sentry ingest, Paystack Inline). Local verification: headers on every main route, zero report-only violations in headless Chrome across 14 public flows, and the widget still loads and passes its E2E while served with the new headers. The production report-only window is next.
+- Still open from P0: Paystack verification (P0.7), the Sentry auth token and alert rules (P0.2), and the P0.9 production report-only window before CSP switches to enforcing.
 
 ---
 
@@ -44,7 +45,7 @@
 | No CSAT | No rating column, widget prompt, or dashboard aggregate | No way to measure answer quality |
 | No data export/delete | No CSV/JSON export, no account deletion | Weak trust story and no portability |
 | No booking reminders | Booking settings exist; no reminder job | Avoidable no-shows |
-| No security headers or CSP | `next.config.js` has no `headers()` | Missing HSTS, clickjacking, MIME, referrer protections |
+| No security headers or CSP | `next.config.js` has no `headers()` | **Fixed 2026-10-22**: baseline headers are enforced and a report-only CSP ships in production builds |
 | Docs may have drifted | The app gained workspaces, Paystack, databases, orders, and widget variants after the docs pass | Users follow instructions that no longer match the product |
 | Repo first impression is wrong | `README.md` is still the Turborepo starter | New contributors cannot onboard without reading the whole tree |
 
@@ -257,6 +258,8 @@ Effort key: **S** ≤ 1 day, **M** 2–4 days, **L** 1–2 weeks.
 - Test `/`, `/docs`, `/pricing`, `/dashboard`, `/portal/pay`, and the widget preview with the report-only policy. Fix or explicitly allow the sources Next/Fumadocs need (inline styles/scripts are the usual friction).
 - Apply the same headers to `apps/admin/next.config.js`.
 - Move to enforcing CSP after a clean report-only window.
+
+**Progress (2026-10-22).** Both apps return baseline headers from `next.config.js`: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY`, and `Permissions-Policy: camera=(), microphone=(), geolocation=()`. `poweredByHeader` is off. HSTS ships only where HTTPS is guaranteed (`NODE_ENV=production` outside Vercel previews), so a preview URL can never be pinned in a browser. A `Content-Security-Policy-Report-Only` header ships in every production build (development is exempt to keep HMR quiet) and allows the sources the app actually uses: Next.js/next-themes inline script and style, `https:` OAuth avatars, Sentry ingest origins derived from the DSN, and Paystack Inline (`api.paystack.co` fetch, `checkout.paystack.com` iframe); the Better Auth origin is derived from env. Verified against a local `next start` of both apps: headers present on `/`, `/docs`, `/docs/getting-started`, `/docs/widget`, `/pricing`, `/features`, `/sign-in`, `/sign-up`, `/forgot-password`, `/portal/pay`, `/dashboard`, `/api/health`, and `/widget.js`; headless Chrome reported zero report-only violations across 14 public flows in both apps; the widget still registers on a test page that loads the script from the app, and the widget E2E passes 19/19. Remaining: let the policy ride report-only in production, then rename the header to `Content-Security-Policy` (and upgrade to nonces through `proxy.ts` once stable).
 
 **Done when.** Headers are present in production; no CSP violations on the main flows; the widget still loads on a test page.
 
