@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 import { eq } from "drizzle-orm";
 
@@ -90,6 +90,32 @@ export function formatPlanPrice(plan: CheckoutPlan): string {
     maximumFractionDigits: 0,
   }).format(major);
   return `${formatted}/mo`;
+}
+
+/**
+ * Verifies the `x-paystack-signature` header.
+ *
+ * Paystack signs the raw request body with the merchant's secret key
+ * (HMAC-SHA512). This is deliberately not configurable through a second
+ * secret: a separate `PAYSTACK_WEBHOOK_SECRET` once meant every genuine
+ * delivery was rejected in production while nothing looked broken.
+ *
+ * Returns false for a missing, malformed, or mismatched signature.
+ */
+export function verifyPaystackSignature(
+  rawBody: string,
+  signature: string,
+  secretKey: string,
+): boolean {
+  if (!signature) {
+    return false;
+  }
+  const expected = createHmac("sha512", secretKey).update(rawBody).digest();
+  const received = Buffer.from(signature, "hex");
+  if (received.length !== expected.length) {
+    return false;
+  }
+  return timingSafeEqual(received, expected);
 }
 
 type PaystackResponse<T> = {
@@ -533,7 +559,7 @@ export function createPaystackService(deps: {
           "This subscription cannot be cancelled automatically",
         );
       }
-      await paystackFetch<PaystackResponse<unknown>>("/subscription", "POST", {
+      await paystackFetch<PaystackResponse<unknown>>("/subscription/disable", "POST", {
         code: current.customerSubscriptionCode,
         token,
       });
@@ -547,20 +573,17 @@ export function createPaystackService(deps: {
     /**
      * Handles Paystack webhook events (charge.success,
      * subscription.create, subscription.disable). The signature is an
-     * HMAC-SHA512 of the raw body with PAYSTACK_WEBHOOK_SECRET.
+     * HMAC-SHA512 of the raw body with PAYSTACK_SECRET_KEY.
      */
     async handleWebhook(
       rawBody: string,
       signature: string,
     ): Promise<{ handled: boolean }> {
-      const webhookSecret = process.env.PAYSTACK_WEBHOOK_SECRET;
-      if (!webhookSecret) {
+      const secretKey = process.env.PAYSTACK_SECRET_KEY;
+      if (!secretKey) {
         throw paystackNotConfiguredError();
       }
-      const expected = createHmac("sha512", webhookSecret)
-        .update(rawBody)
-        .digest("hex");
-      if (expected !== signature) {
+      if (!verifyPaystackSignature(rawBody, signature, secretKey)) {
         throw new PaystackServiceError(
           400,
           "PAYSTACK_SIGNATURE_INVALID",
