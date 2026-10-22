@@ -12,6 +12,7 @@ import {
 describe("resolveWidgetVariant", () => {
   it("keeps a known variant", () => {
     expect(resolveWidgetVariant("glow")).toBe("glow")
+    expect(resolveWidgetVariant("sleek")).toBe("sleek")
     expect(resolveWidgetVariant("classic")).toBe("classic")
   })
 
@@ -34,6 +35,7 @@ describe("isWidgetVariant", () => {
   it("accepts only registered ids", () => {
     expect(isWidgetVariant("classic")).toBe(true)
     expect(isWidgetVariant("glow")).toBe(true)
+    expect(isWidgetVariant("sleek")).toBe(true)
     expect(isWidgetVariant("Glow")).toBe(false)
     expect(isWidgetVariant("hologram")).toBe(false)
   })
@@ -55,6 +57,7 @@ describe("the registry", () => {
 describe("widgetVariantLabel", () => {
   it("names a known variant", () => {
     expect(widgetVariantLabel("glow")).toBe("Glow")
+    expect(widgetVariantLabel("sleek")).toBe("Modern Sleek")
   })
 
   it("names the fallback for an unknown variant", () => {
