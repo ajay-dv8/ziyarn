@@ -18,16 +18,19 @@
  *   data-api      API base URL override   (default: origin of this script)
  *   data-variant  widget style            (default "classic" — see VARIANTS)
  *
- * Works in browsers and WebViews (no iframe). Styling is fully encapsulated in
- * the shadow root, so host page CSS cannot leak in or out.
+ * Classic and Glow render inside the shadow root, so host page CSS cannot leak
+ * in or out. Modern Sleek's script mounts the same launcher and loads its chat
+ * surface from /embed/<slug> in a full-screen iframe.
  *
  * Architecture:
  *   1. Registers <zy-widget> via customElements.define()
  *   2. connectedCallback() reads data-* attributes and builds the shadow root
  *      from the resolved variant's CSS + markup
- *   3. Visitor messages are POSTed to /api/chat as SSE streams, rendered
+ *   3. Classic/Glow wire the panel in that shadow root; Modern Sleek shows its
+ *      iframe overlay and listens for the chat's `ziyarn:close` message
+ *   4. Visitor messages are POSTed to /api/chat as SSE streams, rendered
  *      token by token via renderMd()
- *   4. After the AI responds, a delta loop long-polls for owner (human) replies
+ *   5. After the AI responds, a delta loop long-polls for owner (human) replies
  *      via GET /api/chat?since=X&stream=1
  *
  * Layout of the generated file:
@@ -129,11 +132,16 @@
    * @param {{
    *   css: string,
    *   markup: function(object): string,
+   *   iframe?: boolean,
    *   onThinking?: function(HTMLElement, object): {
    *     done: function(): Promise<void>|void,
    *     destroy?: function(): void
    *   }
    * }} variant
+   *
+   * `iframe: true` marks a variant whose chat surface is a separate page
+   * (Modern Sleek). The engine mounts its launcher/frame and skips the panel
+   * wiring, so the variant's markup must not rely on the panel classes.
    *
    * `onThinking` is optional. Without it the engine renders the bouncing typing
    * dots. With it, the variant owns the placeholder bubble from the moment a
@@ -1362,6 +1370,34 @@ var VARIANT_CSS = {
   .zy-glow-orb-glow { inset: 10px; }
 }
 `,
+  "sleek": `
+/* Modern Sleek — the chat itself lives in /embed/<slug>; the script only owns
+   the launcher and the full-screen frame. Scoped under data-variant so these
+   rules cannot reach Classic or Glow. */
+.zy-wrap[data-variant="sleek"] .zy-sleek-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  background: #1b1a1f;
+}
+
+.zy-wrap[data-variant="sleek"] .zy-sleek-overlay[hidden] {
+  display: none;
+}
+
+.zy-wrap[data-variant="sleek"] .zy-sleek-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #1b1a1f;
+}
+
+/* The frame covers the viewport, so the launcher would only sit on top of it. */
+.zy-wrap[data-variant="sleek"][data-open="true"] .zy-launcher {
+  display: none;
+}
+`,
 };
 
 /* variant: classic */
@@ -1498,6 +1534,45 @@ var VARIANT_CSS = {
   });
 
 
+/* variant: sleek */
+  // Modern Sleek is the React surface at /embed/<slug>. The script owns only
+  // the launcher and the full-screen frame, so a customer embeds it with the
+  // same <zy-widget> tag as Classic and Glow.
+  var SLEEK_ICONS = {
+    chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>',
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  };
+
+  registerWidget("sleek", {
+    // Stylesheet shipped by build-widget.mjs as VARIANT_CSS.sleek.
+    css: VARIANT_CSS.sleek,
+    // Tells the engine to skip the panel wiring and mount the iframe instead.
+    iframe: true,
+
+    /**
+     * @param {{title: string, subtitle: string, color: string, position: string}} config
+     */
+    markup: function (config) {
+      return (
+        '<div class="zy-wrap" data-position="' +
+        config.position +
+        '" data-variant="sleek" data-open="false">' +
+        '<button type="button" class="zy-launcher" aria-label="Open chat" aria-expanded="false">' +
+        '<span class="zy-open">' +
+        SLEEK_ICONS.chat +
+        '</span><span class="zy-close">' +
+        SLEEK_ICONS.close +
+        "</span>" +
+        "</button>" +
+        '<div class="zy-sleek-overlay" hidden>' +
+        '<iframe class="zy-sleek-frame" title="Chat with us" allow="clipboard-write" referrerpolicy="no-referrer"></iframe>' +
+        "</div>" +
+        "</div>"
+      );
+    },
+  });
+
+
 /* engine — /api/chat, SSE streaming, delta long-poll, composer */
   class ZyWidget extends HTMLElement {
     constructor() {
@@ -1590,6 +1665,14 @@ var VARIANT_CSS = {
       // Avoids repeated querySelector calls during streaming/interaction.
       this._root = root;
       this._wrap = wrap;
+
+      // Modern Sleek's chat lives on a separate page. It needs only the
+      // launcher and the frame, so hand off before wiring the panel.
+      if (variant.iframe) {
+        this._mountSleek();
+        return;
+      }
+
       this._panel = root.querySelector(".zy-panel");
       this._launcher = root.querySelector(".zy-launcher");
       this._messages = root.querySelector(".zy-messages");
@@ -1684,6 +1767,77 @@ var VARIANT_CSS = {
         });
 
       this._loadHistory();
+    }
+
+    // -------------------------------------------------------------------------
+    // _mountSleek — launcher + full-screen iframe for Modern Sleek
+    // -------------------------------------------------------------------------
+    // The chat surface is the React page at /embed/<slug>. Keeping it in an
+    // iframe gives it a private document for layout and styles, while the
+    // customer still uses the same <zy-widget> tag as the other variants.
+    _mountSleek() {
+      var self = this;
+      this._sleekLauncher = this._root.querySelector(".zy-launcher");
+      this._sleekOverlay = this._root.querySelector(".zy-sleek-overlay");
+      this._sleekFrame = this._root.querySelector(".zy-sleek-frame");
+
+      var embedUrl;
+      try {
+        // The iframe page is served beside this script, not by data-api:
+        // data-api points at the chat API, while /embed is an app route.
+        embedUrl = new URL(
+          "/embed/" + encodeURIComponent(this._slug),
+          DEFAULT_API_BASE
+        );
+      } catch (_) {
+        console.error("[zy-widget] could not build the Modern Sleek URL");
+        return;
+      }
+      embedUrl.searchParams.set("secret", this._secret);
+      this._sleekFrame.src = embedUrl.toString();
+      this._sleekFrame.title = this._title || "Chat with us";
+
+      this._sleekLauncher.addEventListener("click", function () {
+        self._setSleekOpen(true);
+      });
+
+      // The iframe asks the host to close itself. event.source is the frame's
+      // own window proxy, so another frame on the page cannot trigger this.
+      this._sleekMessageHandler = function (event) {
+        if (
+          event.source === self._sleekFrame.contentWindow &&
+          event.data &&
+          event.data.type === "ziyarn:close"
+        ) {
+          self._setSleekOpen(false);
+        }
+      };
+      window.addEventListener("message", this._sleekMessageHandler);
+
+      // Escape is handled inside the iframe too; this covers the case where
+      // focus is still on the host page when the frame opens.
+      this._sleekKeyHandler = function (event) {
+        if (event.key === "Escape" && self._open) {
+          self._setSleekOpen(false);
+        }
+      };
+      document.addEventListener("keydown", this._sleekKeyHandler);
+    }
+
+    _setSleekOpen(open) {
+      this._open = open;
+      this._wrap.setAttribute("data-open", String(open));
+      this._sleekOverlay.hidden = !open;
+      this._sleekLauncher.setAttribute(
+        "aria-label",
+        open ? "Close chat" : "Open chat"
+      );
+      this._sleekLauncher.setAttribute("aria-expanded", String(open));
+      if (open) {
+        this._sleekFrame.focus();
+      } else {
+        this._sleekLauncher.focus();
+      }
     }
 
     // -------------------------------------------------------------------------
@@ -1909,6 +2063,14 @@ var VARIANT_CSS = {
     // running on a detached node — a permanent per-tab CPU cost on the
     // customer's site.
     disconnectedCallback() {
+      if (this._sleekMessageHandler) {
+        window.removeEventListener("message", this._sleekMessageHandler);
+        this._sleekMessageHandler = null;
+      }
+      if (this._sleekKeyHandler) {
+        document.removeEventListener("keydown", this._sleekKeyHandler);
+        this._sleekKeyHandler = null;
+      }
       this._abortThinking();
     }
 
