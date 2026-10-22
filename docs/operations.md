@@ -105,8 +105,8 @@ sets `CHROME_BIN` for `apps/web/scripts/widget-e2e.mjs`.
 ## Scheduler
 
 `GET /api/campaigns/process-scheduled` sends every campaign whose scheduled
-time has arrived. `.github/workflows/cron.yml` calls it every 10 minutes and on
-manual dispatch.
+time has arrived and prunes expired chat rate-limit windows.
+`.github/workflows/cron.yml` calls it every 10 minutes and on manual dispatch.
 
 ### Configure
 
@@ -138,7 +138,11 @@ is timing-safe.
   results.
 - On failure, puts the campaign back to `scheduled` with a retry time 15 minutes
   out. A persistent failure does not leave it stuck in `sending`.
-- Returns `{ "sent": number, "failed": number, "skipped": number }`.
+- Deletes `rate_limit_windows` rows older than the current 60-second window, so
+  the shared chat counter stays small.
+- Returns
+  `{ "sent": number, "failed": number, "skipped": number, "rateLimitWindowsPruned": number }`.
+  A pruning failure is logged but does not stop campaign delivery.
 
 Manual sends use the same claim, so a double click cannot send twice.
 This is at-most-once for overlapping runs. A process crash after some recipients
@@ -213,12 +217,21 @@ Use a mailbox you control, then check the full path after a deployment:
 | Verification resend | 3 / 15 min per IP |
 | Admin email sign-in | 5 attempts / 15 min per IP |
 | Admin idle session | 30 min without activity |
+| Public chat | 10 messages / 60 sec per visitor per domain |
 
 Auth limits use Better Auth's in-memory store, so each serverless instance has
-its own counter. They are a credential-stuffing speed bump, not a shared quota.
-P0.6 covers moving the public chat limit to Postgres; revisit auth if abuse
-spans instances. Admin sessions are sliding: activity within the last 30 minutes
-renews the cookie, and five minutes is the minimum renewal interval.
+its own counter. They are a credential-stuffing speed bump, not a shared quota;
+revisit auth if abuse spans instances.
+
+Public chat limits are shared through the `rate_limit_windows` Postgres table.
+An in-memory limiter still checks bursts first, then one atomic upsert in Neon
+increments the shared count. The count therefore survives deploys and spans
+serverless instances. If the database check fails, chat fails open and Sentry
+receives a warning; per-domain daily caps and plan limits still apply. The
+scheduler deletes closed windows every ten minutes.
+
+Admin sessions are sliding: activity within the last 30 minutes renews the
+cookie, and five minutes is the minimum renewal interval.
 
 ## Free-tier guardrails
 
