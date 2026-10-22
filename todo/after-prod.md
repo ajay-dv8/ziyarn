@@ -54,7 +54,7 @@ collector yet. Reference: `docs/operations.md` → “Security headers”.
 
 ## P0.7 — Paystack (deploy + dashboard follow-ups)
 
-**Status:** the webhook fix (2026-10-22) is local only, not deployed. Before it,
+**Status:** the webhook fix was deployed 2026-10-22 (`0209515`). Before it,
 production answered every Paystack delivery with `501 PAYSTACK_NOT_CONFIGURED`
 because it verified signatures with a separate `PAYSTACK_WEBHOOK_SECRET` that
 Paystack never signs with. Deliveries dropped during that window were not
@@ -62,26 +62,27 @@ applied and are not replayed.
 
 ### Checklist
 
-- [ ] **Deploy the fix**, then re-probe production:
-
-      BODY='{"event":"ziyarn.probe","data":{"reference":"probe","status":"success"}}'
-      SIG=$(printf '%s' "$BODY" | openssl dgst -sha512 -hmac "$PAYSTACK_SECRET_KEY" | awk '{print $2}')
-      curl -sS -X POST "$APP_URL/api/billing/paystack/webhook" \
-        -H "content-type: application/json" -H "x-paystack-signature: $SIG" -d "$BODY"
-
-      Expect `{"handled":false}`; a tampered body must answer `400`.
-- [ ] **Set the webhook URL** in the Paystack dashboard → Settings → API Keys &
-      Webhooks, for **both** test and live modes:
-      `https://ziyarn.vercel.app/api/billing/paystack/webhook`.
-      Without this, Paystack never calls the endpoint at all.
-- [ ] **Hosted checkout smoke** (human): dashboard → upgrade → Paystack popup
-      with test card 4084 0840 8408 4081, CVV 408, PIN 0000, OTP 123456.
-      This doubles as the P0.9 CSP check for the popup iframe.
-- [ ] **Reconcile button smoke** (human): start a checkout, close it after
-      paying, press “restore/reconcile”, confirm the plan appears.
+- [x] **Deploy the fix and probe production** (2026-10-22): a valid
+      secret-key signature answers `200 {"handled":false}`; a tampered body and
+      a missing signature answer `400 PAYSTACK_SIGNATURE_INVALID`.
+- [x] **Set the test-mode webhook URL** in the Paystack dashboard
+      (`https://ziyarn.vercel.app/api/billing/paystack/webhook`). A real
+      test-mode charge (`xrcce8t2wveeixd`, metadata `{"probe":true}`) was then
+      sent to exercise delivery without writing data — confirm the 200 in the
+      dashboard webhook log if it has not been checked yet.
+- [ ] **Set the live-mode webhook URL** in the live dashboard before switching
+      keys (test and live modes are separate).
+- [x] **Hosted checkout smoke** (2026-10-22): upgrading through the Paystack
+      popup with a test card set the account to `pro`/`active` and applied
+      `pro` to both of its domains. This also doubles as the P0.9 CSP check for
+      the popup iframe.
+- [ ] **Reconcile button smoke**: start a checkout, close it after paying, press
+      “restore/reconcile”, confirm the plan appears. (Covered against a branch
+      by the live harness; not yet exercised in production.)
 - [ ] **Before live keys:** re-run `services/api/src/paystack/live.test.ts`
-      against a disposable Neon branch, and confirm the live dashboard prices
-      match the advertised ones (watch for `priceDrifted` warnings).
+      against a disposable Neon branch, confirm live dashboard prices match the
+      advertised ones (watch for `priceDrifted` warnings), and clear the
+      test-mode subscription left on the production account.
 
 ---
 
