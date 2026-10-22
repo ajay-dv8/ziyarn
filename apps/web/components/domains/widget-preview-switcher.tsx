@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@repo/ui/components/card";
 
+import { ChatWidget } from "@/components/widget/chat-widget";
 import { ZyWidget } from "@/components/widget/zy-widget";
 
 /**
@@ -24,9 +25,11 @@ import { ZyWidget } from "@/components/widget/zy-widget";
  *     who believes they changed the widget when they did not is worse off than
  *     one with no preview at all.
  *
- * Each switch mounts a real <zy-widget>. The engine guards double-init per
- * element, and the localStorage keys are namespaced per domain slug, so two
- * variants side by side stay isolated.
+ * Classic and Glow mount a real <zy-widget>. Modern Sleek previews its React
+ * surface inline; on a customer site the same <zy-widget> script mounts that
+ * surface in a full-screen iframe. Both talk to the same /api/chat, and the
+ * localStorage keys are namespaced per domain slug, so the variants stay
+ * isolated.
  */
 export function WidgetPreviewSwitcher({
   slug,
@@ -89,14 +92,23 @@ export function WidgetPreviewSwitcher({
           </p>
         ) : null}
 
-        <ZyWidget
-          key={`${previewing}-${slug}`}
-          slug={slug}
-          secret={secret}
-          title={domainName}
-          subtitle="Preview agent"
-          variant={previewing}
-        />
+        {previewing === "sleek" ? (
+          <ChatWidget
+            key={`sleek-${slug}`}
+            mode="preview"
+            slug={slug}
+            secret={secret}
+          />
+        ) : (
+          <ZyWidget
+            key={`${previewing}-${slug}`}
+            slug={slug}
+            secret={secret}
+            title={domainName}
+            subtitle="Preview agent"
+            variant={previewing}
+          />
+        )}
       </CardContent>
     </Card>
   );
