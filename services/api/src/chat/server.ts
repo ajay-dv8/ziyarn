@@ -675,7 +675,7 @@ export async function handleChatPost(
     aiService: AiService;
     portalService: PortalService;
     knowledgeService: KnowledgeService;
-    chatRateLimiter: { check: (key: string) => boolean };
+    chatRateLimiter: { check: (key: string) => boolean | Promise<boolean> };
     logger: Logger;
   },
 ) {
@@ -704,8 +704,12 @@ export async function handleChatPost(
       );
     }
 
-    const rateKey = `msg:${body.visitorId}`;
-    if (!chatRateLimiter.check(rateKey)) {
+    // visitorId is required by sendMessageSchema, so this key is stable for a
+    // visitor across conversations on the same domain. If that ever becomes
+    // optional, fall back to a salted IP hash here rather than dropping the
+    // limit.
+    const rateKey = `chat:${domain.id}:${body.visitorId}`;
+    if (!(await chatRateLimiter.check(rateKey))) {
       return jsonError(
         429,
         "RATE_LIMITED",
