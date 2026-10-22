@@ -18,16 +18,19 @@
  *   data-api      API base URL override   (default: origin of this script)
  *   data-variant  widget style            (default "classic" — see VARIANTS)
  *
- * Works in browsers and WebViews (no iframe). Styling is fully encapsulated in
- * the shadow root, so host page CSS cannot leak in or out.
+ * Classic and Glow render inside the shadow root, so host page CSS cannot leak
+ * in or out. Modern Sleek's script mounts the same launcher and loads its chat
+ * surface from /embed/<slug> in a full-screen iframe.
  *
  * Architecture:
  *   1. Registers <zy-widget> via customElements.define()
  *   2. connectedCallback() reads data-* attributes and builds the shadow root
  *      from the resolved variant's CSS + markup
- *   3. Visitor messages are POSTed to /api/chat as SSE streams, rendered
+ *   3. Classic/Glow wire the panel in that shadow root; Modern Sleek shows its
+ *      iframe overlay and listens for the chat's `ziyarn:close` message
+ *   4. Visitor messages are POSTed to /api/chat as SSE streams, rendered
  *      token by token via renderMd()
- *   4. After the AI responds, a delta loop long-polls for owner (human) replies
+ *   5. After the AI responds, a delta loop long-polls for owner (human) replies
  *      via GET /api/chat?since=X&stream=1
  *
  * Layout of the generated file:
