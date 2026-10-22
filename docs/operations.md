@@ -262,6 +262,60 @@ scheduler deletes closed windows every ten minutes.
 Admin sessions are sliding: activity within the last 30 minutes renews the
 cookie, and five minutes is the minimum renewal interval.
 
+## Paystack webhooks
+
+Paystack signs every delivery with an HMAC-SHA512 of the raw request body,
+using the **secret key** (there is no separate dashboard webhook secret).
+`POST /api/billing/paystack/webhook` verifies that signature, then applies
+`charge.success`, `subscription.create`, and `subscription.disable` events.
+A valid delivery answers `200`; a bad signature answers
+`400 PAYSTACK_SIGNATURE_INVALID`; a missing `PAYSTACK_SECRET_KEY` answers
+`501 PAYSTACK_NOT_CONFIGURED`. Paystack does not send an event id, so the
+handlers are written to be idempotent: replaying an event re-applies the same
+state instead of double-applying it.
+
+### Configure
+
+1. In the Paystack dashboard (Settings → API Keys & Webhooks), set the webhook
+   URL to `https://<your-app>/api/billing/paystack/webhook`. Test mode and live
+   mode have separate dashboards — set it in both before switching keys.
+2. Set `PAYSTACK_SECRET_KEY` in the deployment. That one value authorizes API
+   calls and verifies webhooks. `PAYSTACK_WEBHOOK_SECRET` no longer exists.
+3. Paystack retries failed deliveries for up to 72 hours. If the endpoint was
+   misconfigured (`501`), those retries were dropped — use the dashboard's
+   **restore/reconcile** button for an owner whose plan is missing; the route
+   re-scans recent successful transactions for the owner's metadata.
+
+### Verify signature handling
+
+A validly signed event the app does not handle answers `200 {"handled":false}`,
+which makes a safe probe:
+
+```bash
+BODY='{"event":"ziyarn.probe","data":{"reference":"probe","status":"success"}}'
+SIG=$(printf '%s' "$BODY" | openssl dgst -sha512 -hmac "$PAYSTACK_SECRET_KEY" | awk '{print $2}')
+curl -sS -X POST "$APP_URL/api/billing/paystack/webhook" \
+  -H "content-type: application/json" -H "x-paystack-signature: $SIG" \
+  -d "$BODY"
+```
+
+Expect `{"handled":false}`. Re-send a modified body with the old signature;
+expect `400`.
+
+### Test-mode matrix
+
+`services/api/src/paystack/live.test.ts` is opt-in and drives the real Paystack
+test API against a disposable Neon branch (initialize, unpaid verify, card
+charge, webhook, replay, tamper, upgrade, downgrade, reconcile, cancel,
+declined card):
+
+```bash
+PAYSTACK_LIVE_TEST=1 DATABASE_URL="$(cat /path/to/branch-url)" \
+  pnpm --filter @repo/api exec vitest run src/paystack/live.test.ts --testTimeout=120000
+```
+
+Never point it at production — it writes subscription rows and domain plans.
+
 ## Security headers
 
 Both apps set baseline headers from `next.config.js`:
