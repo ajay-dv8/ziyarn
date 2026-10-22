@@ -5,7 +5,7 @@ import { aiService, chatService, logger } from "@/services/chat-service";
 import { authService } from "@/services/auth-service";
 import { knowledgeService } from "@/services/knowledge-service";
 import { portalService } from "@/services/portal-service";
-import { chatRateLimiter } from "@/lib/rate-limit";
+import { chatRateLimiter } from "@/lib/rate-limit-db";
 
 export const runtime = "nodejs";
 
