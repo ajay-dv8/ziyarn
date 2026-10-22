@@ -5,7 +5,7 @@ description: Add the Ziyarn chat widget to any website or framework.
 
 # Widget Integration
 
-The Ziyarn widget is a vanilla JavaScript web component that runs in a Shadow DOM for complete style isolation. It has zero dependencies and works on any website.
+Ziyarn ships three widget looks, all installed with one script tag and one `<zy-widget>` element. Classic and Glow are a vanilla JavaScript web component that runs in a Shadow DOM for complete style isolation — zero dependencies, works on any website. Modern Sleek loads its full-screen glass chat in a Ziyarn iframe, so it can use a richer React surface without touching the host page's styles.
 
 ## Basic Installation
 
@@ -30,10 +30,10 @@ right slug and secret.
 | `data-secret` | string | — | Embed secret for authentication (required) |
 | `data-title` | string | `Chat with us` | Widget header title |
 | `data-subtitle` | string | `We usually reply in minutes` | Widget header subtitle |
-| `data-color` | string | `#10b981` | Accent color for the launcher, header and visitor messages (CSS hex value) |
+| `data-color` | string | `#10b981` | Accent color for the launcher, header and visitor messages (CSS hex value). Modern Sleek uses it for the launcher only. |
 | `data-position` | string | `bottom-right` | Widget position: `bottom-right` or `bottom-left` |
-| `data-variant` | string | `classic` | Widget style: `classic` or `glow` |
-| `data-api` | string | origin of the script | Backend API URL override — only needed when the widget is served from a different host than the API |
+| `data-variant` | string | `classic` | Widget style: `classic`, `glow`, or `sleek`. |
+| `data-api` | string | origin of the script | Backend API URL override for Classic and Glow — only needed when the widget is served from a different host than the API. Modern Sleek always uses the Ziyarn origin. |
 
 `data-slug` is the **slug** shown on the domain page (for example `acme-support`),
 not the domain id. There is no `data-greeting` attribute: the welcome message is
@@ -45,21 +45,56 @@ The `data-color` attribute expects a CSS hex value (`#10b981`), NOT Tailwind cla
 
 ## Widget Variants
 
-Ziyarn ships two looks for the widget:
+Ziyarn ships three looks for the widget:
 
-| Variant | What it looks like |
-|---------|-------------------|
-| `classic` | A floating chat bubble in the corner of the page |
-| `glow` | An aurora panel with a thinking orb while the agent answers |
+| Variant | Delivery | What it looks like |
+|---------|----------|-------------------|
+| `classic` | Script | A floating chat bubble in the corner of the page |
+| `glow` | Script | An aurora panel with a thinking orb while the agent answers |
+| `sleek` | Script + iframe | A centered glass card with live tool activity, over a dimmed page |
 
-Pick one per domain in **Dashboard → Domains → Settings → Widget**, or set
-`data-variant` on the embed element. An unknown value falls back to `classic`,
-so an embed snippet written before variants existed keeps working.
+Pick one per domain in **Dashboard → Domains → Settings → Widget**. All three
+accept `data-variant` on the embed element; an unknown value falls back to
+`classic`, so an embed snippet written before variants existed keeps working.
+Modern Sleek uses the same `<zy-widget>` tag as the other variants; its script
+adds a launcher and opens the chat in a full-screen iframe.
 
 The variant is a plan feature: the **Free plan includes the classic widget
-only**. If a domain's plan does not include its current widget — after a
-downgrade, for example — the widget falls back to Classic rather than serving
-something the account no longer includes.
+only**. For script-rendered widgets, a domain whose plan no longer includes its
+current widget — after a downgrade, for example — falls back to Classic rather
+than serving something the account no longer includes. Modern Sleek is
+iframe-backed, so if its plan no longer includes it, the iframe shows an
+unavailable message instead of silently switching designs.
+
+### Modern Sleek
+
+Modern Sleek is a full-screen glass chat over a dimmed page. It uses the same
+install as Classic and Glow:
+
+```html
+<script defer src="https://ziyarn.vercel.app/widget.js"></script>
+<zy-widget
+  data-slug="YOUR_DOMAIN_SLUG"
+  data-secret="YOUR_EMBED_SECRET"
+  data-variant="sleek"
+></zy-widget>
+```
+
+The script renders a launcher bubble. Clicking it opens the chat in a
+full-screen iframe served by Ziyarn; the chat's close button posts a message
+back to the script, which hides the frame again. The iframe stays loaded after
+closing, so reopening it keeps the conversation on screen.
+
+Notes:
+
+- Do not add a separate `<iframe>` or click handler; `widget.js` creates both.
+- `data-color` and `data-position` style the launcher. The chat surface has a
+  fixed palette and layout.
+- `data-api` does not change the iframe's API: the iframe is served by, and
+  talks to, the same Ziyarn origin as `widget.js`.
+- If your site sets a CSP, allow `frame-src https://ziyarn.vercel.app` in
+  addition to the script and connect sources below.
+- The iframe URL carries the domain secret, exactly like the script's API calls.
 
 ## Platform Guides
 
@@ -280,7 +315,7 @@ Add to your theme's `theme.liquid` before `</body>`:
 
 ## Middleware / CSP Configuration
 
-If your site uses Content Security Policy headers, you need to allow the widget domain.
+If your site uses Content Security Policy headers, you need to allow the widget domain. Classic and Glow need `script-src` and `connect-src`; Modern Sleek also needs `frame-src` for the iframe origin.
 
 ### Next.js Middleware
 
@@ -293,7 +328,7 @@ export function middleware(request) {
   
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
+    "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; frame-src https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
   );
   
   return response;
@@ -303,13 +338,13 @@ export function middleware(request) {
 ### Nginx
 
 ```nginx
-add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';";
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; frame-src https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';";
 ```
 
 ### Apache
 
 ```apache
-Header set Content-Security-Policy "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
+Header set Content-Security-Policy "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; frame-src https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
 ```
 
 ### Cloudflare Workers
@@ -319,7 +354,7 @@ addEventListener("fetch", (event) => {
   const response = await fetch(event.request);
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
+    "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; frame-src https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
   );
   return response;
 });
@@ -327,7 +362,7 @@ addEventListener("fetch", (event) => {
 
 ## TypeScript Support
 
-The widget is a vanilla JS web component. For TypeScript support, add this to your project:
+All three variants use the same vanilla JS web component. For TypeScript support, add this to your project.
 
 ```typescript
 // ziyarn-widget.d.ts
@@ -338,7 +373,7 @@ declare namespace JSX {
       "data-secret"?: string;
       "data-color"?: string;
       "data-position"?: "bottom-right" | "bottom-left";
-      "data-variant"?: "classic" | "glow";
+      "data-variant"?: "classic" | "glow" | "sleek";
       "data-title"?: string;
       "data-subtitle"?: string;
       "data-api"?: string;
@@ -361,7 +396,7 @@ declare global {
         "data-secret"?: string;
         "data-color"?: string;
         "data-position"?: "bottom-right" | "bottom-left";
-        "data-variant"?: "classic" | "glow";
+        "data-variant"?: "classic" | "glow" | "sleek";
         "data-title"?: string;
         "data-subtitle"?: string;
         "data-api"?: string;
@@ -380,6 +415,15 @@ export {};
 1. Check that the script is loaded (open DevTools → Network tab)
 2. Verify `data-slug` and `data-secret` are correct
 3. Ensure no CSP headers are blocking the script
+
+### Modern Sleek launcher does not open the chat
+
+1. Check that the element has `data-variant="sleek"` and that `widget.js` loaded
+2. Check the browser console for a frame-ancestors or X-Frame-Options error
+3. If your site sets a CSP, add `frame-src https://ziyarn.vercel.app`
+4. Check the Network tab for a request to `/embed/YOUR_DOMAIN_SLUG`
+5. If the frame opens but says the style is unavailable, confirm the domain's
+   plan and saved widget style include Modern Sleek
 
 ### Widget appears but doesn't respond
 
