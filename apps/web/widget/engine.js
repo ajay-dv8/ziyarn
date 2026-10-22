@@ -89,6 +89,14 @@
       // Avoids repeated querySelector calls during streaming/interaction.
       this._root = root;
       this._wrap = wrap;
+
+      // Modern Sleek's chat lives on a separate page. It needs only the
+      // launcher and the frame, so hand off before wiring the panel.
+      if (variant.iframe) {
+        this._mountSleek();
+        return;
+      }
+
       this._panel = root.querySelector(".zy-panel");
       this._launcher = root.querySelector(".zy-launcher");
       this._messages = root.querySelector(".zy-messages");
@@ -183,6 +191,77 @@
         });
 
       this._loadHistory();
+    }
+
+    // -------------------------------------------------------------------------
+    // _mountSleek — launcher + full-screen iframe for Modern Sleek
+    // -------------------------------------------------------------------------
+    // The chat surface is the React page at /embed/<slug>. Keeping it in an
+    // iframe gives it a private document for layout and styles, while the
+    // customer still uses the same <zy-widget> tag as the other variants.
+    _mountSleek() {
+      var self = this;
+      this._sleekLauncher = this._root.querySelector(".zy-launcher");
+      this._sleekOverlay = this._root.querySelector(".zy-sleek-overlay");
+      this._sleekFrame = this._root.querySelector(".zy-sleek-frame");
+
+      var embedUrl;
+      try {
+        // The iframe page is served beside this script, not by data-api:
+        // data-api points at the chat API, while /embed is an app route.
+        embedUrl = new URL(
+          "/embed/" + encodeURIComponent(this._slug),
+          DEFAULT_API_BASE
+        );
+      } catch (_) {
+        console.error("[zy-widget] could not build the Modern Sleek URL");
+        return;
+      }
+      embedUrl.searchParams.set("secret", this._secret);
+      this._sleekFrame.src = embedUrl.toString();
+      this._sleekFrame.title = this._title || "Chat with us";
+
+      this._sleekLauncher.addEventListener("click", function () {
+        self._setSleekOpen(true);
+      });
+
+      // The iframe asks the host to close itself. event.source is the frame's
+      // own window proxy, so another frame on the page cannot trigger this.
+      this._sleekMessageHandler = function (event) {
+        if (
+          event.source === self._sleekFrame.contentWindow &&
+          event.data &&
+          event.data.type === "ziyarn:close"
+        ) {
+          self._setSleekOpen(false);
+        }
+      };
+      window.addEventListener("message", this._sleekMessageHandler);
+
+      // Escape is handled inside the iframe too; this covers the case where
+      // focus is still on the host page when the frame opens.
+      this._sleekKeyHandler = function (event) {
+        if (event.key === "Escape" && self._open) {
+          self._setSleekOpen(false);
+        }
+      };
+      document.addEventListener("keydown", this._sleekKeyHandler);
+    }
+
+    _setSleekOpen(open) {
+      this._open = open;
+      this._wrap.setAttribute("data-open", String(open));
+      this._sleekOverlay.hidden = !open;
+      this._sleekLauncher.setAttribute(
+        "aria-label",
+        open ? "Close chat" : "Open chat"
+      );
+      this._sleekLauncher.setAttribute("aria-expanded", String(open));
+      if (open) {
+        this._sleekFrame.focus();
+      } else {
+        this._sleekLauncher.focus();
+      }
     }
 
     // -------------------------------------------------------------------------
@@ -408,6 +487,14 @@
     // running on a detached node — a permanent per-tab CPU cost on the
     // customer's site.
     disconnectedCallback() {
+      if (this._sleekMessageHandler) {
+        window.removeEventListener("message", this._sleekMessageHandler);
+        this._sleekMessageHandler = null;
+      }
+      if (this._sleekKeyHandler) {
+        document.removeEventListener("keydown", this._sleekKeyHandler);
+        this._sleekKeyHandler = null;
+      }
       this._abortThinking();
     }
 
