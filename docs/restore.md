@@ -180,7 +180,7 @@ Never point the application at an unverified branch or restore over
 
 | Date | Backup | Target | Result | Notes |
 |---|---|---|---|---|
-| 2026-10-22 | Fresh dump, 223,671 bytes, validated with `pg_restore --list` | `restore-drill-2026-10-22` (`br-rapid-lake-agawz51l`) | Passed | All 38 public table counts match production; core counts: agents 5, campaigns 2, conversations 5, domains 5, leads 0, messages 46, payments 2, subscriptions 2, `user` 16, `users` 0. Use the direct (non-pooler) host for admin commands. Delete the drill branch after review. |
+| 2026-10-22 | Fresh dump, 223,671 bytes, validated with `pg_restore --list` | `restore-drill-2026-10-22` (`br-rapid-lake-agawz51l`) | Passed | All 38 public table counts match production; core counts: agents 5, campaigns 2, conversations 5, domains 5, leads 0, messages 46, payments 2, subscriptions 2, `user` 16, `users` 0. Use the direct (non-pooler) host for admin commands. Drill branch deleted after review. |
 
 ### Verified drill (2026-10-22)
 
@@ -194,7 +194,7 @@ Never point the application at an unverified branch or restore over
 - Caveat: the branch's pooled connection string intermittently returned
   `relation "agents" does not exist` after compute resume. The direct host
   worked consistently.
-- Cleanup: the local dump was removed after verification; delete the
-  `restore-drill-2026-10-22` branch after review. The weekly workflow has not
-  run yet because the GitHub `DATABASE_URL` secret still needs to be added;
-  once configured, its artifacts will remain available for 14 days.
+- Cleanup: the local dump was removed after verification and the
+  `restore-drill-2026-10-22` branch was deleted. The first manual run of the
+  weekly workflow succeeded on 2026-10-22; its artifacts remain available for
+  14 days.
