@@ -69,11 +69,16 @@
    * @param {{
    *   css: string,
    *   markup: function(object): string,
+   *   iframe?: boolean,
    *   onThinking?: function(HTMLElement, object): {
    *     done: function(): Promise<void>|void,
    *     destroy?: function(): void
    *   }
    * }} variant
+   *
+   * `iframe: true` marks a variant whose chat surface is a separate page
+   * (Modern Sleek). The engine mounts its launcher/frame and skips the panel
+   * wiring, so the variant's markup must not rely on the panel classes.
    *
    * `onThinking` is optional. Without it the engine renders the bouncing typing
    * dots. With it, the variant owns the placeholder bubble from the moment a
