@@ -10,7 +10,8 @@
 - **2026-10-21:** P0.1 code landed and is running in production: atomic campaign claims, 15-minute retry backoff, timing-safe cron authentication, and `.github/workflows/cron.yml`. The cron workflow has completed successful runs; the `campaign_recipients.lead_id` foreign-key mismatch found during the first live run was fixed and deployed.
 - **2026-10-21:** P0.5 code landed: branded verification and reset emails, `/forgot-password`, `/reset-password`, `/verify-email`, a dashboard verification banner, explicit auth rate limits, trusted origins, secure cookies, and admin session/lockout limits.
 - **2026-10-22:** P0.5 production checks confirmed: email verification works, the unverified-email banner renders on the dashboard and triggered the verification, and password reset works through SMTP with the public link host. Remaining manual: confirm the admin sign-in lockout and the 30-minute idle timeout.
-- Still open from P0: shared rate limiting, Paystack verification, backups, and security headers.
+- **2026-10-22:** P0.6 code landed: shared chat counters in Neon, atomic upserts, a local in-memory fast path, fail-open Sentry reporting, cron pruning, and tests for the 11th message, concurrent instances, window reset, and store failure. The `rate_limit_windows` table is applied to Neon; production deployment is pending.
+- Still open from P0: Paystack verification, backups, and security headers.
 
 ---
 
@@ -202,6 +203,8 @@ Effort key: **S** ≤ 1 day, **M** 2–4 days, **L** 1–2 weeks.
 - Add tests for the 11th request, concurrent increments, and window reset.
 
 **Done when.** Two server instances share one limit; the 11th message in a minute returns 429; old rows are pruned; an outage degrades gracefully.
+
+**Progress (2026-10-22).** Implemented. `rate_limit_windows` stores one row per key and 60-second window; Drizzle increments it with a single atomic upsert, so concurrent instances see the same total. `SharedRateLimiter` keeps the in-memory sliding window as a fast first layer, then checks the shared counter. Store errors are reported to Sentry and fail open; per-domain daily caps still apply. The existing scheduler route prunes closed windows on every tick and reports `rateLimitWindowsPruned`. Tests cover the 11th message, two instances sharing one limit, window reset, pruning, and fail-open behavior. The table is applied to Neon; remaining: deploy and run one production smoke test.
 
 **Effort:** M. **Cost:** 0 (Neon free tier).
 
