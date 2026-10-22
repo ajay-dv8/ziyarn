@@ -43,3 +43,7 @@ yarn-error.log*
 
 # Local tool config
 .opencode/
+
+# Database backups (never commit dumps)
+backups/
+*.dump
