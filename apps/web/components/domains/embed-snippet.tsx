@@ -12,6 +12,13 @@ import {
 } from "@repo/ui/components/card";
 import { Check, Copy, Terminal } from "lucide-react";
 
+/**
+ * The install snippet for a domain.
+ *
+ * Every variant uses the same `<script>` + `<zy-widget>` tag. Classic and Glow
+ * render inside the element's shadow root; Modern Sleek's script opens its
+ * full-screen iframe overlay, so the customer still pastes one snippet.
+ */
 export function EmbedSnippet({
   widgetUrl,
   slug,
@@ -24,6 +31,14 @@ export function EmbedSnippet({
   variant?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const isSleek = variant === "sleek";
+  const embedOrigin = (() => {
+    try {
+      return new URL(widgetUrl).origin;
+    } catch {
+      return "https://ziyarn.vercel.app";
+    }
+  })();
 
   const snippet = [
     `<script defer src="${widgetUrl}"></script>`,
@@ -52,13 +67,14 @@ export function EmbedSnippet({
       <CardHeader>
         <CardTitle>Embed the widget</CardTitle>
         <CardDescription>
-          Paste this snippet into any page on your website. Works in browsers
-          and mobile apps — no iframe required.
+          {isSleek
+            ? "Paste this before the closing </body> tag. The script opens Modern Sleek as a full-screen iframe overlay."
+            : "Paste this snippet into any page on your website. Works in browsers and mobile apps — no iframe required."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="relative rounded-lg border bg-muted/40">
-          <pre className="overflow-x-auto p-3 pr-12 font-mono text-xs leading-relaxed">
+          <pre className="max-h-80 overflow-auto p-3 pr-12 font-mono text-xs leading-relaxed">
             <code>{snippet}</code>
           </pre>
           <Button
@@ -74,7 +90,9 @@ export function EmbedSnippet({
         </div>
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Terminal size={12} />
-          Customize colors with data-color, position with data-position.
+          {isSleek
+            ? `Modern Sleek uses the same embed as Classic and Glow. If your site sets a CSP, allow frame-src ${embedOrigin}.`
+            : "Customize colors with data-color, position with data-position."}
         </p>
       </CardContent>
     </Card>
