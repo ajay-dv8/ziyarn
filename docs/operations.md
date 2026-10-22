@@ -105,6 +105,9 @@ Setup:
 3. Run **Database backup** once with **Run workflow** and confirm a
    `neon-backup-<run-id>` artifact appears.
 
+The first manual run (2026-10-22) completed successfully and uploaded an
+artifact; the weekly schedule now runs automatically.
+
 Neon's free plan keeps a **6-hour** point-in-time window
 (`history_retention_seconds: 21600`). Use PITR for mistakes caught quickly and
 the weekly artifact for anything older. The full restore procedure, the
