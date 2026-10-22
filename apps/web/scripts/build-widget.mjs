@@ -34,8 +34,10 @@ const outFile = join(appRoot, "public", "widget.js");
  * To add one: drop its .css and .js into widget/variants/ and add its id here
  * (plus a row in services/api/src/domains/widget-variants.ts). Both files are
  * required — a half-added variant fails the build loudly rather than shipping.
+ * A variant may render in the shadow root (classic/glow) or, like sleek, set
+ * `iframe: true` and let the engine mount a full-screen frame from its markup.
  */
-const VARIANTS = ["classic", "glow"];
+const VARIANTS = ["classic", "glow", "sleek"];
 
 const BANNER = (name) => `/* ${name} */`;
 
