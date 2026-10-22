@@ -373,10 +373,12 @@ export function createDomainsService(deps: {
         slug: domain.slug,
         widgetUrl: `${baseUrl}/widget.js`,
         secret: domain.embedSecret,
-        // Emitted into the embed snippet as data-variant. Normalised so a row
-        // holding a retired variant id still produces a working snippet, and
-        // clamped to the domain's plan so a downgraded account never serves a
-        // widget it no longer includes.
+        // Emitted into the embed snippet as data-variant. Every variant is
+        // delivered by widget.js; Modern Sleek's script mounts the iframe that
+        // hosts its React surface. Normalised so a row holding a retired
+        // variant id still produces a working snippet, and clamped to the
+        // domain's plan so a downgraded account never serves a widget it no
+        // longer includes.
         variant: clampWidgetVariantForPlan(
           planSchema.parse(domain.plan),
           domain.widgetVariant,
