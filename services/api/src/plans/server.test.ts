@@ -142,23 +142,28 @@ describe("widget allowance", () => {
   it("gives the free plan the classic widget only", () => {
     expect(planAllowsWidgetVariant("free", "classic")).toBe(true)
     expect(planAllowsWidgetVariant("free", "glow")).toBe(false)
+    expect(planAllowsWidgetVariant("free", "sleek")).toBe(false)
   })
 
   it("gives paid plans every widget", () => {
     expect(planAllowsWidgetVariant("standard", "glow")).toBe(true)
     expect(planAllowsWidgetVariant("pro", "glow")).toBe(true)
     expect(planAllowsWidgetVariant("ultimate", "glow")).toBe(true)
+    expect(planAllowsWidgetVariant("standard", "sleek")).toBe(true)
+    expect(planAllowsWidgetVariant("pro", "sleek")).toBe(true)
   })
 
   it("keeps a widget the plan allows", () => {
     expect(clampWidgetVariantForPlan("standard", "glow")).toBe("glow")
+    expect(clampWidgetVariantForPlan("standard", "sleek")).toBe("sleek")
     expect(clampWidgetVariantForPlan("free", "classic")).toBe("classic")
   })
 
   it("falls back to the first widget the plan allows", () => {
-    // A domain that stored "glow" before the free plan excluded it, or after
-    // a downgrade, must serve something the account still includes.
+    // A domain that stored "glow" or "sleek" before the free plan excluded
+    // it, or after a downgrade, must serve something the account still includes.
     expect(clampWidgetVariantForPlan("free", "glow")).toBe("classic")
+    expect(clampWidgetVariantForPlan("free", "sleek")).toBe("classic")
   })
 
   it("falls back for a widget that does not exist", () => {
