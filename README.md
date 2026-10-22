@@ -68,7 +68,8 @@ there; the important groups are:
   `TRUSTED_ORIGINS` for preview deployments)
 - **AI:** `GEMINI_API_KEY` and/or `OPENROUTER_API_KEY`
 - **Email:** `SMTP_*` (verification, password reset, campaigns, escalations)
-- **Paystack:** `PAYSTACK_SECRET_KEY`, `PAYSTACK_WEBHOOK_SECRET`, price/plan codes
+- **Paystack:** `PAYSTACK_SECRET_KEY` (also verifies webhook signatures),
+  price/plan codes
 - **Sentry:** `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`
 - **Scheduler:** `CRON_SECRET`
 
