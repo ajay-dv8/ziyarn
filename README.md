@@ -127,6 +127,8 @@ without a backup.
 - Sentry wiring is in `sentry.server.config.ts`, `sentry.edge.config.ts`, and
   `instrumentation-client.ts`. Shared PII scrubbing is in
   `lib/sentry-shared.ts`.
+- Database backups, the Neon 6-hour point-in-time window, and the restore drill
+  are documented in [`docs/restore.md`](docs/restore.md).
 - See [`docs/operations.md`](docs/operations.md) for the source-map token,
   alert rules, uptime monitor, and CI secrets.
 
@@ -148,6 +150,13 @@ endpoint claims each campaign with a conditional status update, so overlapping
 runs skip a campaign another run already owns. Failed sends are retried after
 15 minutes, and each run processes at most ten campaigns.
 
+`.github/workflows/backup.yml` creates a compressed Neon dump every Monday at
+03:00 UTC (and on manual dispatch) and uploads it as a private artifact with
+14-day retention. Set the repository secret `DATABASE_URL` to the production
+connection string; the workflow fails clearly if it is missing. The scripts,
+verification queries, and the restore drill live in
+[`docs/restore.md`](docs/restore.md).
+
 ## Deployment
 
 The web app is a standard Next.js app and can run on Vercel or any Node host.
@@ -167,8 +176,10 @@ Deployment checklist:
 4. Add `SENTRY_AUTH_TOKEN` to the build environment so source maps upload.
 5. Set the GitHub `APP_URL` variable and the `CRON_SECRET` secret, then run the
    uptime and cron workflows once.
-6. Configure the Paystack webhook URL and verify it in test mode first.
-7. Check your host's plan terms. Vercel Hobby is for non-commercial use; if you
+6. Set the GitHub `DATABASE_URL` secret and run the **Database backup** workflow
+   once; confirm the artifact appears. See [`docs/restore.md`](docs/restore.md).
+7. Configure the Paystack webhook URL and verify it in test mode first.
+8. Check your host's plan terms. Vercel Hobby is for non-commercial use; if you
    charge customers, use a plan or host that permits commercial traffic.
 
 ## Planning docs
