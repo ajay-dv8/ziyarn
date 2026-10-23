@@ -4,6 +4,7 @@ import type { WidgetVariantId } from "@repo/api/domains/widget-variants";
 
 import { BusinessTypeEditor } from "@/components/domains/business-type-editor";
 import { CopySecretField } from "@/components/domains/copy-secret-field";
+import { DomainLogoEditor } from "@/components/domains/domain-logo-editor";
 import { RenameDomainForm } from "@/components/domains/rename-domain-form";
 import { WidgetVariantPicker } from "@/components/domains/widget-variant-picker";
 
@@ -25,6 +26,7 @@ export function DomainSettingsPanel({
   domainId,
   domainName,
   slug,
+  logoUrl,
   plan,
   businessType,
   widgetVariant,
@@ -33,6 +35,7 @@ export function DomainSettingsPanel({
   domainId: string;
   domainName: string;
   slug: string;
+  logoUrl: string | null;
   plan: keyof typeof PLAN_DISPLAY_NAMES;
   businessType: BusinessType | null;
   widgetVariant: WidgetVariantId;
@@ -40,6 +43,22 @@ export function DomainSettingsPanel({
 }) {
   return (
     <div className="space-y-6">
+      <div className="rounded-lg border p-4">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Logo
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Shown on this domain&apos;s dashboard card and in its chat widget.
+        </p>
+        <div className="mt-3">
+          <DomainLogoEditor
+            domainId={domainId}
+            domainName={domainName}
+            currentLogoUrl={logoUrl}
+          />
+        </div>
+      </div>
+
       <div className="rounded-lg border p-4">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Name
