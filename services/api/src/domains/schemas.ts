@@ -49,7 +49,15 @@ export const domainIdSchema = z.object({
   id: z.string().uuid("Invalid domain id"),
 });
 
-export const domainLogoUrlSchema = z.url().max(500);
+export const domainLogoUrlSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .refine(
+    (value) =>
+      /^https?:\/\/\S+$/i.test(value) || /^\/api\/logos\/\S+$/.test(value),
+    "Logo must be an http(s) URL or a local upload path",
+  );
 
 export const createDomainSchema = z.object({
   name: domainNameSchema,
