@@ -163,6 +163,11 @@ const server = createServer(async (req, res) => {
   res.writeHead(200, { "content-type": "application/json" });
   res.end(
     JSON.stringify({
+      domain: {
+        slug: "e2e",
+        logoUrl:
+          "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Crect width='30' height='30' fill='%2310b981'/%3E%3C/svg%3E",
+      },
       agent: { name: "E2E Agent", description: "E2E description from server" },
       placeholders: ["E2E_PLACEHOLDER_PROMPT"],
       businessType: "retail",
@@ -362,6 +367,31 @@ async function runVariant(variant) {
     `${variant}: agent config applied`,
     title === "E2E Agent",
     `title was ${JSON.stringify(title)}`,
+  );
+
+  const logo = JSON.parse(
+    await page.evaluate(
+      shadow(`
+        logo: (() => {
+          const element = root.querySelector('.zy-header-logo');
+          if (!element) return null;
+          const box = element.getBoundingClientRect();
+          return {
+            hidden: element.hidden,
+            src: element.getAttribute('src'),
+            width: Math.round(box.width),
+            height: Math.round(box.height),
+          };
+        })(),
+      `),
+    ),
+  ).logo;
+  check(
+    `${variant}: domain logo shown`,
+    Boolean(logo) && logo.hidden === false && logo.width > 0 && logo.height > 0,
+    logo
+      ? `${logo.width}×${logo.height} ${String(logo.src).slice(0, 32)}`
+      : "missing",
   );
 
   const hint = JSON.parse(
