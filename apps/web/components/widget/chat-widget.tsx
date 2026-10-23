@@ -641,9 +641,11 @@ function AssistantMessage({
               {message.error}
             </p>
           ) : null}
-          <p className="mt-1 text-[9.5px] font-medium tracking-wide text-[#9c99a5]">
-            {message.role === "owner" ? "Team" : "Powered by AI"}
-          </p>
+          {message.role === "owner" ? (
+            <p className="mt-1 text-[9.5px] font-medium tracking-wide text-[#9c99a5]">
+              Team
+            </p>
+          ) : null}
         </div>
       </div>
       {message.tool ? (
