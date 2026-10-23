@@ -128,6 +128,7 @@ export function ChatWidget({
   );
   const [placeholder, setPlaceholder] = useState("Ask anything...");
   const [agentName, setAgentName] = useState<string | null>(null);
+  const [domainLogoUrl, setDomainLogoUrl] = useState<string | null>(null);
   const [escalated, setEscalated] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -190,6 +191,7 @@ export function ChatWidget({
         if (cancelled) return;
 
         if (config.agent?.name) setAgentName(config.agent.name);
+        setDomainLogoUrl(config.domain?.logoUrl ?? null);
         const configuredPlaceholder = config.placeholders?.find((value) =>
           value.trim(),
         );
@@ -430,6 +432,7 @@ export function ChatWidget({
                     key={message.id}
                     message={message}
                     running={message.id === activeId}
+                    logoUrl={domainLogoUrl}
                   />
                 ),
               )}
@@ -442,7 +445,9 @@ export function ChatWidget({
           </div>
         ) : (
           <div className="relative flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
-            {status === "loading" ? <AssistantAvatar running /> : null}
+            {status === "loading" ? (
+              <AssistantAvatar running logoUrl={domainLogoUrl} />
+            ) : null}
             <p className="text-[13px] leading-[1.55] text-[#4c4954]">
               {statusMessage}
             </p>
@@ -611,14 +616,16 @@ function toolDetail(args?: Record<string, unknown>): string | undefined {
 function AssistantMessage({
   message,
   running,
+  logoUrl,
 }: {
   message: ChatMessage;
   running: boolean;
+  logoUrl?: string | null;
 }) {
   return (
     <div className="space-y-2.5">
       <div className="flex items-start gap-3">
-        <AssistantAvatar running={running} />
+        <AssistantAvatar running={running} logoUrl={logoUrl} />
         <div className="min-w-0 pt-0.5">
           {message.text ? (
             <p className="text-[13px] leading-[1.55] text-[#1a1920]">
@@ -661,7 +668,48 @@ function UserMessage({ text }: { text: string }) {
   );
 }
 
-function AssistantAvatar({ running }: { running: boolean }) {
+function AssistantAvatar({
+  running,
+  logoUrl,
+}: {
+  running: boolean;
+  logoUrl?: string | null;
+}) {
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+  const showLogo = Boolean(logoUrl) && failedLogoUrl !== logoUrl;
+
+  if (showLogo && logoUrl) {
+    return (
+      <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-white ring-1 ring-black/10">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={logoUrl}
+          alt=""
+          className="size-full object-contain"
+          onError={() => setFailedLogoUrl(logoUrl)}
+        />
+        {running ? (
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 40 40"
+            className="absolute inset-0 size-full animate-spin [animation-duration:1.6s]"
+          >
+            <circle
+              cx="20"
+              cy="20"
+              r="16.5"
+              fill="none"
+              stroke="#17161b"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeDasharray="22 40"
+            />
+          </svg>
+        ) : null}
+      </span>
+    );
+  }
+
   if (running) {
     return (
       <span className="relative grid size-8 shrink-0 place-items-center rounded-full bg-[#3fcf6e] text-[#0c5a2d] ring-1 ring-black/5">
