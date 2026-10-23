@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { APP_ROUTES } from "@/constants/routes";
+import { DomainLogo } from "@/components/domains/domain-logo";
 import { chatService } from "@/services/chat-service";
 import { domainsService } from "@/services/domains-service";
 
@@ -157,9 +158,11 @@ export default async function DashboardPage() {
                       className="group flex items-center justify-between gap-4 rounded-lg px-2 py-3 -mx-2 transition-colors hover:bg-accent/50"
                     >
                       <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
-                          <Globe size={16} className="text-muted-foreground" />
-                        </div>
+                        <DomainLogo
+                          name={domain.name}
+                          logoUrl={domain.logoUrl}
+                          size="sm"
+                        />
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">
                             {domain.name}
