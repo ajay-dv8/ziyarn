@@ -8,6 +8,7 @@ export type AgentToolName =
   | "escalate";
 
 export interface AgentConfig {
+  domain?: { slug?: string | null; logoUrl?: string | null } | null;
   agent?: { name?: string | null; description?: string | null } | null;
   placeholders?: string[] | null;
   businessType?: string | null;
