@@ -13,9 +13,7 @@ import {
   Mic,
   Minimize2,
   Plus,
-  SlidersHorizontal,
   Smile,
-  Sparkles,
   Sprout,
   Terminal,
   User,
@@ -510,9 +508,6 @@ export function ChatWidget({
         <ComposerIcon label="Voice input">
           <Mic className="size-4" strokeWidth={2} />
         </ComposerIcon>
-        <ComposerIcon label="Prompt suggestions">
-          <Sparkles className="size-4" strokeWidth={2} />
-        </ComposerIcon>
 
         <button
           type="button"
@@ -532,10 +527,6 @@ export function ChatWidget({
             <ArrowUp className="size-4" strokeWidth={2.2} />
           )}
         </button>
-
-        <ComposerIcon label="Composer settings">
-          <SlidersHorizontal className="size-4" strokeWidth={2} />
-        </ComposerIcon>
       </div>
     </div>
   );
