@@ -19,6 +19,7 @@
         '" data-variant="classic">' +
         '<div class="zy-panel">' +
         '<div class="zy-header">' +
+        '<img class="zy-header-logo" alt="" hidden />' +
         '<div class="zy-header-title"></div>' +
         '<div class="zy-header-sub"></div>' +
         '<div class="zy-header-status" data-visible="false"></div>' +
