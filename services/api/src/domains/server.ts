@@ -337,6 +337,7 @@ export function createDomainsService(deps: {
         .set({
           ...(body.name !== undefined ? { name: body.name } : {}),
           ...(body.slug !== undefined ? { slug: body.slug } : {}),
+          ...(body.logoUrl !== undefined ? { logoUrl: body.logoUrl } : {}),
           ...(body.businessType !== undefined
             ? { businessType: body.businessType }
             : {}),
