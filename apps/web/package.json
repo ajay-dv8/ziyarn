@@ -19,11 +19,12 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.9.1",
     "@better-auth/drizzle-adapter": "^1.6.25",
+    "@opentelemetry/api": "^1.9.1",
     "@repo/ai": "workspace:*",
     "@repo/api": "workspace:*",
     "@repo/database": "workspace:*",
+    "@repo/media": "workspace:*",
     "@repo/money": "workspace:*",
     "@repo/routes": "workspace:*",
     "@repo/ui": "workspace:*",
