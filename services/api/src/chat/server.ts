@@ -892,7 +892,7 @@ export async function handleChatConfig(
     const businessTypeConfig = getBusinessTypeConfig(domain.businessType);
     return Response.json(
       {
-        domain: { slug: domain.slug },
+        domain: { slug: domain.slug, logoUrl: domain.logoUrl },
         agent: agent
           ? {
               name: agent.name,
