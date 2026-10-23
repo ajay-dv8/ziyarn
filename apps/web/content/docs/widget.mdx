@@ -92,8 +92,8 @@ Notes:
   fixed palette and layout.
 - `data-api` does not change the iframe's API: the iframe is served by, and
   talks to, the same Ziyarn origin as `widget.js`.
-- If your site sets a CSP, allow `frame-src https://ziyarn.vercel.app` in
-  addition to the script and connect sources below.
+- If your site sets a CSP, allow `frame-src 'self' https://ziyarn.vercel.app`
+  in addition to the script and connect sources below.
 - The iframe URL carries the domain secret, exactly like the script's API calls.
 
 ## Platform Guides
@@ -125,71 +125,137 @@ The simplest installation. Add the code before `</body>`:
 
 ### React / Next.js
 
-In React, use `"use client"` and add the widget via `useEffect` or a script tag:
+For a React or Next.js app, render the same `<zy-widget>` element and load
+`widget.js` with `next/script`. The widget owns its Shadow DOM; React only
+renders the custom element. Mount it once — normally in the root layout — so
+client-side navigation does not create duplicate widgets.
+
+This is the pattern used by the Urban Plus Next.js storefront.
 
 ```tsx
+// components/ziyarn-widget.tsx
 "use client";
 
-import { useEffect } from "react";
+import Script from "next/script";
 
-export function ChatWidget() {
-  useEffect(() => {
-    // Widget auto-initializes from the HTML elements
-  }, []);
+type ZiyarnVariant = "classic" | "glow" | "sleek";
 
+export function ZiyarnWidget({
+  slug,
+  secret,
+  variant = "classic",
+  title = "Chat with us",
+  subtitle = "We usually reply in minutes",
+  color = "#10b981",
+  position = "bottom-right",
+}: {
+  slug: string;
+  secret: string;
+  variant?: ZiyarnVariant;
+  title?: string;
+  subtitle?: string;
+  color?: string;
+  position?: "bottom-right" | "bottom-left";
+}) {
   return (
     <>
-      <script defer src="https://ziyarn.vercel.app/widget.js" />
+      <Script
+        src="https://ziyarn.vercel.app/widget.js"
+        strategy="afterInteractive"
+      />
       <zy-widget
-        data-slug="my-domain"
-        data-secret="secret_abc123"
+        data-slug={slug}
+        data-secret={secret}
+        data-variant={variant}
+        data-title={title}
+        data-subtitle={subtitle}
+        data-color={color}
+        data-position={position}
       />
     </>
   );
 }
 ```
 
-Add to your root layout:
+Mount it once in `app/layout.tsx`:
 
 ```tsx
-import { ChatWidget } from "@/components/chat-widget";
+// app/layout.tsx
+import { ZiyarnWidget } from "@/components/ziyarn-widget";
 
-export default function RootLayout({ children }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html>
+    <html lang="en">
       <body>
         {children}
-        <ChatWidget />
+        <ZiyarnWidget
+          slug="urban-plus-2"
+          secret={process.env.ZIYARN_EMBED_SECRET!}
+          variant="sleek"
+        />
       </body>
     </html>
   );
 }
 ```
 
-### Next.js with Script Component
+The secret is read on the server and passed as a prop, so it does not need a
+`NEXT_PUBLIC_` prefix. It is still present in the rendered HTML — that is how
+the widget authenticates the domain — but it only authorizes widget traffic.
 
-Use Next.js `Script` component for optimal loading:
+`data-api` is optional and defaults to the origin of `widget.js`. Only set it
+when the chat API is on a different host.
 
-```tsx
-"use client";
+#### TypeScript
 
-import Script from "next/script";
+React needs to know about the custom element. Add this declaration to the app:
 
-export function ChatWidget() {
-  return (
-    <>
-      <Script
-        src="https://ziyarn.vercel.app/widget.js"
-        strategy="lazyOnload"
-      />
-      <zy-widget
-        data-slug="my-domain"
-        data-secret="secret_abc123"
-      />
-    </>
-  );
+```ts
+// zy-widget.d.ts
+import type { JSX } from "react";
+
+declare module "react" {
+  namespace JSX {
+    interface IntrinsicElements {
+      "zy-widget": JSX.IntrinsicElements["div"] & {
+        "data-slug"?: string;
+        "data-secret"?: string;
+        "data-variant"?: "classic" | "glow" | "sleek";
+        "data-title"?: string;
+        "data-subtitle"?: string;
+        "data-color"?: string;
+        "data-position"?: "bottom-right" | "bottom-left";
+        "data-api"?: string;
+      };
+    }
+  }
 }
 ```
+
+#### Common pitfalls
+
+:::warning
+Use the **domain slug** from **Dashboard → Domains**, not the business name.
+For example, `urban-plus-2`, not `Urban+`. The slug is used in the Modern
+Sleek iframe URL.
+
+Modern Sleek is iframe-backed. If your Next.js app sets a CSP, add
+`frame-src https://ziyarn.vercel.app` (or
+`frame-src 'self' https://ziyarn.vercel.app`) or the launcher will open a
+blank frame. See **Middleware / CSP Configuration** below.
+:::
+
+`data-variant` is read from the element at runtime. The dashboard's saved
+widget style only controls the snippet it generates — changing it later does
+not rewrite code that is already installed. Keep the `variant` prop in sync
+with the style you want, or copy the generated snippet again.
+
+Do not render a raw `<script>` tag inside React. Use `next/script` so the
+script loads once and survives client-side navigation.
 
 ### Vue / Nuxt
 
@@ -328,7 +394,7 @@ export function middleware(request) {
   
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; frame-src https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
+    "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; frame-src 'self' https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
   );
   
   return response;
@@ -338,13 +404,13 @@ export function middleware(request) {
 ### Nginx
 
 ```nginx
-add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; frame-src https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';";
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; frame-src 'self' https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';";
 ```
 
 ### Apache
 
 ```apache
-Header set Content-Security-Policy "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; frame-src https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
+Header set Content-Security-Policy "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; frame-src 'self' https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
 ```
 
 ### Cloudflare Workers
@@ -354,7 +420,7 @@ addEventListener("fetch", (event) => {
   const response = await fetch(event.request);
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; frame-src https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
+    "default-src 'self'; script-src 'self' https://ziyarn.vercel.app; connect-src 'self' https://ziyarn.vercel.app; frame-src 'self' https://ziyarn.vercel.app; style-src 'self' 'unsafe-inline';"
   );
   return response;
 });
@@ -362,7 +428,9 @@ addEventListener("fetch", (event) => {
 
 ## TypeScript Support
 
-All three variants use the same vanilla JS web component. For TypeScript support, add this to your project.
+All three variants use the same vanilla JS web component. For React / Next.js,
+use the module augmentation in the React / Next.js guide above. The
+declarations below cover non-React TypeScript setups.
 
 ```typescript
 // ziyarn-widget.d.ts
@@ -419,10 +487,11 @@ export {};
 ### Modern Sleek launcher does not open the chat
 
 1. Check that the element has `data-variant="sleek"` and that `widget.js` loaded
-2. Check the browser console for a frame-ancestors or X-Frame-Options error
-3. If your site sets a CSP, add `frame-src https://ziyarn.vercel.app`
-4. Check the Network tab for a request to `/embed/YOUR_DOMAIN_SLUG`
-5. If the frame opens but says the style is unavailable, confirm the domain's
+2. Confirm `data-slug` is the domain slug (for example `urban-plus-2`), not the business name
+3. Check the browser console for a frame-ancestors or X-Frame-Options error
+4. If your site sets a CSP, add `frame-src 'self' https://ziyarn.vercel.app`
+5. Check the Network tab for a request to `/embed/YOUR_DOMAIN_SLUG`
+6. If the frame opens but says the style is unavailable, confirm the domain's
    plan and saved widget style include Modern Sleek
 
 ### Widget appears but doesn't respond
