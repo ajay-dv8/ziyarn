@@ -43,6 +43,7 @@ import {
 import { ZiyarnLogo } from "@/assets/logo/ziyarn-logo";
 import { APP_ROUTES } from "@/constants/routes";
 import { CreateDomainButton } from "@/components/domains/create-domain-button";
+import { DomainLogo } from "@/components/domains/domain-logo";
 import { useUnreadCount } from "@/hooks/use-unread-count";
 import {
   getBusinessTypeConfig,
@@ -73,7 +74,12 @@ export function AppSidebar({
   plan: string;
   domainCount: number;
   maxDomains: number;
-  domains: { id: string; name: string; businessType: BusinessType | null }[];
+  domains: {
+    id: string;
+    name: string;
+    logoUrl: string | null;
+    businessType: BusinessType | null;
+  }[];
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -148,6 +154,11 @@ export function AppSidebar({
                           />
                         }
                       >
+                        <DomainLogo
+                          name={domain.name}
+                          logoUrl={domain.logoUrl}
+                          size="xs"
+                        />
                         <span>{domain.name}</span>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
