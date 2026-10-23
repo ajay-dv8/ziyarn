@@ -5,6 +5,8 @@ import path from "node:path";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { isCloudinaryConfigured, uploadCloudinaryImage } from "@repo/media/server";
+
 import { API_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 
@@ -54,7 +56,19 @@ export async function POST(request: Request) {
     }
 
     const data = Buffer.from(await file.arrayBuffer());
-    const key = `${session.user.id}/${randomUUID()}.${extension}`;
+    const uploadId = randomUUID();
+    const key = `${session.user.id}/${uploadId}.${extension}`;
+
+    if (isCloudinaryConfigured()) {
+      const result = await uploadCloudinaryImage({
+        data,
+        mimeType: file.type,
+        fileName: `logo.${extension}`,
+        folder: `ziyarn/logos/${session.user.id}`,
+        publicId: uploadId,
+      });
+      return NextResponse.json({ url: result.secureUrl });
+    }
 
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const { put } = await import("@vercel/blob");
