@@ -16,12 +16,15 @@ function originOf(value) {
   }
 }
 
-// See apps/web/next.config.js for the full rationale. The admin app has no
-// third-party browser sources: better-auth talks to this app's own /api/auth,
-// and all data goes through its own server code.
+// See apps/web/next.config.js for the full rationale. Better-auth talks to this
+// app's own /api/auth and all data goes through its own server code, except for
+// the Cloudinary Upload Widget: it loads/frames upload-widget.cloudinary.com and
+// uploads to api.cloudinary.com.
 const connectSources = [
   "'self'",
   originOf(process.env.NEXT_PUBLIC_ADMIN_BETTER_AUTH_URL),
+  "https://api.cloudinary.com",
+  "https://upload-widget.cloudinary.com",
 ].filter(Boolean);
 
 const contentSecurityPolicy = [
@@ -30,12 +33,13 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' https://upload-widget.cloudinary.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
+  "frame-src 'self' https://upload-widget.cloudinary.com",
   `connect-src ${connectSources.join(" ")}`,
 ].join("; ");
 
@@ -74,6 +78,9 @@ const nextConfig = {
   poweredByHeader: false,
   turbopack: {
     root: path.join(__dirname, "..", ".."),
+  },
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "res.cloudinary.com" }],
   },
   serverExternalPackages: ["@neondatabase/serverless"],
   async headers() {
