@@ -14,6 +14,7 @@ import {
 
 import { CreateDomainButton } from "@/components/domains/create-domain-button";
 import { DomainCardMenu } from "@/components/domains/domain-card-menu";
+import { DomainLogo } from "@/components/domains/domain-logo";
 import { DomainSettingsPanel } from "@/components/domains/domain-settings-panel";
 import { DomainTabs } from "@/components/domains/domain-tabs";
 import { EmbedSnippet } from "@/components/domains/embed-snippet";
@@ -68,6 +69,7 @@ export default async function DomainsPage({
             domainId={domain.id}
             domainName={domain.name}
             slug={domain.slug}
+            logoUrl={domain.logoUrl}
             plan={domain.plan}
             businessType={domain.businessType}
             widgetVariant={domain.widgetVariant}
@@ -80,13 +82,16 @@ export default async function DomainsPage({
     return (
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="truncate text-2xl font-semibold tracking-tight">
-              {domain.name}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {PLAN_DISPLAY_NAMES[domain.plan]} plan · {domain.slug}
-            </p>
+          <div className="flex min-w-0 items-center gap-3">
+            <DomainLogo name={domain.name} logoUrl={domain.logoUrl} size="md" />
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-semibold tracking-tight">
+                {domain.name}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {PLAN_DISPLAY_NAMES[domain.plan]} plan · {domain.slug}
+              </p>
+            </div>
           </div>
 
           <DomainCardMenu
@@ -158,20 +163,27 @@ export default async function DomainsPage({
         {domains.map((domain, index) => (
           <Card key={domain.id}>
             <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-              <div className="min-w-0 space-y-1.5">
-                {/* The way into a domain's tabs. Without this the list is a
-                    dead end: the only route in would be the sidebar. */}
-                <CardTitle className="truncate">
-                  <Link
-                    href={`${APP_ROUTES.DASHBOARD_DOMAINS}?domainId=${domain.id}`}
-                    className="hover:underline underline-offset-4"
-                  >
-                    {domain.name}
-                  </Link>
-                </CardTitle>
-                <CardDescription>
-                  {PLAN_DISPLAY_NAMES[domain.plan]} plan · {domain.slug}
-                </CardDescription>
+              <div className="flex min-w-0 items-start gap-3">
+                <DomainLogo
+                  name={domain.name}
+                  logoUrl={domain.logoUrl}
+                  size="md"
+                />
+                <div className="min-w-0 space-y-1.5">
+                  {/* The way into a domain's tabs. Without this the list is a
+                      dead end: the only route in would be the sidebar. */}
+                  <CardTitle className="truncate">
+                    <Link
+                      href={`${APP_ROUTES.DASHBOARD_DOMAINS}?domainId=${domain.id}`}
+                      className="hover:underline underline-offset-4"
+                    >
+                      {domain.name}
+                    </Link>
+                  </CardTitle>
+                  <CardDescription>
+                    {PLAN_DISPLAY_NAMES[domain.plan]} plan · {domain.slug}
+                  </CardDescription>
+                </div>
               </div>
 
               <DomainCardMenu
