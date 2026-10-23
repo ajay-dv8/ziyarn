@@ -185,6 +185,9 @@
           if (data && data.placeholders) {
             self._setPlaceholders(data.placeholders);
           }
+          if (data && data.domain && data.domain.logoUrl) {
+            self._setHeaderLogo(data.domain.logoUrl);
+          }
         })
         .catch(function () {
           /* keep attribute defaults — API might be unreachable */
@@ -355,6 +358,19 @@
     _syncExpanded() {
       var expanded = this._streaming || Boolean(this._input.value);
       this._composer.setAttribute("data-expanded", String(expanded));
+    }
+
+    // -------------------------------------------------------------------------
+    // _setHeaderLogo — show the domain's uploaded logo above the agent name.
+    // -------------------------------------------------------------------------
+    _setHeaderLogo(logoUrl) {
+      var logo = this._root.querySelector(".zy-header-logo");
+      if (!logo || typeof logoUrl !== "string") return;
+      logo.addEventListener("error", function () {
+        logo.hidden = true;
+      });
+      logo.src = logoUrl;
+      logo.hidden = false;
     }
 
     // -------------------------------------------------------------------------
