@@ -39,12 +39,16 @@ const sentryOrigins = [
 // - inline scripts/styles: Next.js bootstrap + next-themes + JSON-LD
 // - https: images: OAuth avatars (Google, LinkedIn) via <AvatarImage>
 // - Paystack Inline: fetches api.paystack.co and frames checkout.paystack.com
+// - Cloudinary Upload Widget: loads upload-widget.cloudinary.com and frames it;
+//   uploads go to api.cloudinary.com. Images are served from res.cloudinary.com.
 // Keep in sync with apps/admin/next.config.js.
 const connectSources = [
   "'self'",
   originOf(process.env.NEXT_PUBLIC_BETTER_AUTH_URL),
   "https://api.paystack.co",
   "https://checkout.paystack.com",
+  "https://api.cloudinary.com",
+  "https://upload-widget.cloudinary.com",
   ...sentryOrigins,
 ].filter(Boolean);
 
@@ -54,13 +58,13 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' https://upload-widget.cloudinary.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
-  "frame-src 'self' https://checkout.paystack.com",
+  "frame-src 'self' https://checkout.paystack.com https://upload-widget.cloudinary.com",
   `connect-src ${connectSources.join(" ")}`,
 ].join("; ");
 
@@ -130,6 +134,9 @@ const nextConfig = {
   poweredByHeader: false,
   turbopack: {
     root: path.join(__dirname, "..", ".."),
+  },
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "res.cloudinary.com" }],
   },
   serverExternalPackages: ["@napi-rs/canvas"],
   async headers() {
