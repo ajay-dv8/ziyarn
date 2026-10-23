@@ -27,6 +27,10 @@ export const APP_ROUTES = {
   VERIFY_EMAIL: "/verify-email",
   ACCEPT_INVITE: "/accept-invite",
   ONBOARDING: "/onboarding",
+  /** Design preview with seeded demo data; no domain secret required. */
+  WIDGET_PREVIEW: "/widget-preview",
+  /** The framed Modern Sleek surface. The slug is the dynamic segment. */
+  EMBED: "/embed/[slug]",
   /** One-click unsubscribe from a campaign email. The token goes in the query. */
   UNSUBSCRIBE: "/unsubscribe",
   DASHBOARD: "/dashboard",
