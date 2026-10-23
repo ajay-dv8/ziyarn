@@ -62,6 +62,7 @@ export default async function DashboardLayout({
         domains={domains.map((domain) => ({
           id: domain.id,
           name: domain.name,
+          logoUrl: domain.logoUrl,
           businessType: domain.businessType,
         }))}
       />
