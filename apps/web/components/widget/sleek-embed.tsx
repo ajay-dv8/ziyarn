@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { ChatWidget } from "@/components/widget/chat-widget";
-import { WidgetBackdrop } from "@/components/widget/widget-backdrop";
 
 /**
  * The framed surface. `/embed/[slug]` renders this page; the widget script
  * shows the iframe only after its launcher is clicked, and hides it again when
  * the chat posts `ziyarn:close`.
+ *
+ * The page paints no background of its own: the script's overlay is the frosted
+ * glass over the host page, and the iframe must stay transparent for that page
+ * to show through — hence the body override below.
  *
  * The close button is deliberately absent when the page is opened directly:
  * there is no host page to return to.
@@ -34,16 +37,20 @@ export function SleekEmbed({ slug, secret }: { slug: string; secret: string }) {
   }, []);
 
   return (
-    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#1b1a1f] px-4 py-8">
-      <WidgetBackdrop />
-      <ChatWidget
-        className="relative z-10"
-        mode="embed"
-        slug={slug}
-        secret={secret}
-        enforcePlan={enforcePlan}
-        onClose={embedded ? close : undefined}
-      />
-    </main>
+    <>
+      {/* Core globals paint <body> opaque (bg-background); an opaque iframe
+          document would hide the host page the glass overlay frosts. */}
+      <style>{"html,body{background:transparent}"}</style>
+      <main className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-8">
+        <ChatWidget
+          className="relative z-10"
+          mode="embed"
+          slug={slug}
+          secret={secret}
+          enforcePlan={enforcePlan}
+          onClose={embedded ? close : undefined}
+        />
+      </main>
+    </>
   );
 }
