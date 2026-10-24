@@ -6,6 +6,7 @@ import { BusinessTypeEditor } from "@/components/domains/business-type-editor";
 import { CopySecretField } from "@/components/domains/copy-secret-field";
 import { DomainLogoEditor } from "@/components/domains/domain-logo-editor";
 import { RenameDomainForm } from "@/components/domains/rename-domain-form";
+import { SlugEditor } from "@/components/domains/slug-editor";
 import { WidgetVariantPicker } from "@/components/domains/widget-variant-picker";
 
 /**
@@ -16,11 +17,10 @@ import { WidgetVariantPicker } from "@/components/domains/widget-variant-picker"
  * the embed secret, which you may need to rotate or copy at any time.
  *
  * Ordered by what you are likely to want to change: the editable fields first,
- * top to bottom, then the read-only facts about the domain underneath. Slug and
- * plan are shown but not editable — the slug is baked into every live embed
- * snippet and the plan is the billing system, so changing either has
- * consequences well outside this screen. They are visible so nobody goes
- * looking for them.
+ * top to bottom, then the read-only facts about the domain underneath. Plan is
+ * read-only because it is the billing system; the slug is editable because
+ * owners occasionally need to correct it, with a note about refreshing the
+ * snippet on their site.
  */
 export function DomainSettingsPanel({
   domainId,
@@ -108,11 +108,17 @@ export function DomainSettingsPanel({
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Slug
           </p>
-          <p className="mt-1 font-mono text-sm break-all">{slug}</p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Used in the embed snippet. Changing it would break every live
-            install.
+          <p className="mt-1 text-xs text-muted-foreground">
+            Used in the embed snippet and the sleek iframe URL. Live installs
+            keep working, but update the snippet on your site after changing it.
           </p>
+          <div className="mt-3">
+            <SlugEditor
+              domainId={domainId}
+              currentSlug={slug}
+              id={`domain-settings-slug-${domainId}`}
+            />
+          </div>
         </div>
         <div className="rounded-lg border p-4">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
