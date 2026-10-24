@@ -9,9 +9,9 @@ import { ChatWidget } from "@/components/widget/chat-widget";
  * shows the iframe only after its launcher is clicked, and hides it again when
  * the chat posts `ziyarn:close`.
  *
- * The page paints no background of its own: the script's overlay is the frosted
- * glass over the host page, and the iframe must stay transparent for that page
- * to show through — hence the body override below.
+ * The page paints no background of its own: the script's overlay is a plain
+ * transparent layer, and the iframe must stay transparent for the host page to
+ * show through — hence the body override below.
  *
  * The close button is deliberately absent when the page is opened directly:
  * there is no host page to return to.

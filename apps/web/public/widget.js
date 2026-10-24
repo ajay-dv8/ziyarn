@@ -1389,13 +1389,11 @@ var VARIANT_CSS = {
   position: fixed;
   inset: 0;
   z-index: 2;
-  /* Frosted glass over the host page, not an opaque scrim: the page stays
-     visible, blurred. The blur has to live here because backdrop-filter does
-     not cross an iframe boundary — the framed page could never frost the host
-     page from inside. */
+  /* Fully transparent: the host page stays visible and crisp behind the
+     floating chat card. Blur is deliberately off — frosting a dark host page
+     read as a solid black slab over the site, so the card simply floats on
+     the page as-is. */
   background: transparent;
-  backdrop-filter: blur(28px) saturate(160%);
-  -webkit-backdrop-filter: blur(28px) saturate(160%);
 }
 
 .zy-wrap[data-variant="sleek"] .zy-sleek-overlay[hidden] {
@@ -1407,8 +1405,8 @@ var VARIANT_CSS = {
   width: 100%;
   height: 100%;
   border: 0;
-  /* Transparent — the glass tint above sits behind the frame, so an opaque
-     frame would hide the blurred host page the whole design depends on. */
+  /* Transparent — the overlay behind the frame is transparent too, so an
+     opaque frame would cover the host page the whole design depends on. */
   background: transparent;
 }
 

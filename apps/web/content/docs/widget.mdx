@@ -51,7 +51,7 @@ Ziyarn ships three looks for the widget:
 |---------|----------|-------------------|
 | `classic` | Script | A floating chat bubble in the corner of the page |
 | `glow` | Script | An aurora panel with a thinking orb while the agent answers |
-| `sleek` | Script + iframe | A centered glass card with live tool activity, over a dimmed page |
+| `sleek` | Script + iframe | A centered glass card with live tool activity, floating over the page |
 
 Pick one per domain in **Dashboard → Domains → Settings → Widget**. All three
 accept `data-variant` on the embed element; an unknown value falls back to
@@ -68,7 +68,8 @@ unavailable message instead of silently switching designs.
 
 ### Modern Sleek
 
-Modern Sleek is a full-screen glass chat over a dimmed page. It uses the same
+Modern Sleek is a full-screen chat whose glass card floats over the page — the
+host page stays visible and unchanged behind it. It uses the same
 install as Classic and Glow:
 
 ```html
