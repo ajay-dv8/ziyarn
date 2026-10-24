@@ -192,25 +192,47 @@ export async function createConvexDriver(
 
     async sampleRows(tableName, limit) {
       const docs = await sampleDocuments(tableName, limit);
-      return docs.map((doc) => {
-        const copy = { ...doc };
-        delete copy._creationTime;
-        return copy;
-      });
+      return docs.map((doc) => resolveStorageIds(doc, base));
     },
 
     async queryRows(tableName, opts) {
       const docs = await sampleDocuments(tableName, opts.limit + opts.offset);
       const sliced = docs.slice(opts.offset, opts.offset + opts.limit);
-      return sliced.map((doc) => {
-        const copy = { ...doc };
-        delete copy._creationTime;
-        return copy;
-      });
+      return sliced.map((doc) => resolveStorageIds(doc, base));
     },
 
     async close() {},
   };
+}
+
+/**
+ * Convex stores file references as opaque ID strings (e.g. "kg25vya...").
+ * When a string field looks like a Convex storage ID (no slash, no protocol,
+ * non-UUID pattern used by Convex's internal IDs), convert it to the public
+ * storage URL so product image sync can pick it up.
+ *
+ * Heuristic: a Convex storage ID is an alphanumeric string of 20–32 chars
+ * that does NOT start with "http". Real HTTP URLs are passed through as-is.
+ */
+function resolveStorageIds(
+  doc: Record<string, unknown>,
+  convexBaseUrl: string,
+): Record<string, unknown> {
+  const copy: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(doc)) {
+    if (key === "_creationTime") continue;
+    if (
+      typeof value === "string" &&
+      !value.startsWith("http") &&
+      /^[a-zA-Z0-9_-]{16,40}$/.test(value) &&
+      /image|url|photo|thumb|pic/i.test(key)
+    ) {
+      copy[key] = `${convexBaseUrl}/api/storage/${value}`;
+    } else {
+      copy[key] = value;
+    }
+  }
+  return copy;
 }
 
 function jsonTypeOf(value: unknown): string {
