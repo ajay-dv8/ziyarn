@@ -127,7 +127,7 @@ const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: "sell_product",
       description:
-        "Sell an item already in the business's product catalog once the visitor agrees to buy it. The catalog (names + prices) is listed in the system prompt; never invent a product that is not there. Call create_payment instead for custom/one-off amounts not in the catalog.",
+        "Sell an item already in the business's product catalog once the visitor agrees to buy it. The catalog (names + prices) is listed in the system prompt; never invent a product that is not there. Call create_payment instead for custom/one-off amounts not in the catalog. Use it when the visitor asks for recommendations or wants to see a recommended product: the widget renders the call as a product card with the product image, name, and price.",
       parameters: toolParameters(
         {
           product: {
