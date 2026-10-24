@@ -27,8 +27,10 @@ import {
   TooltipTrigger,
 } from "@repo/ui/components/tooltip";
 import { cn } from "@repo/ui/lib/utils";
+import { formatMoney } from "@repo/money";
 import {
   createSession,
+  type AgentProduct,
   type HistoryResponse,
   type OwnerReply,
   type Session,
@@ -50,6 +52,7 @@ export type ChatWidgetMode = "demo" | "preview" | "embed";
 type ToolActivity = {
   name: string;
   detail?: string;
+  product?: AgentProduct | null;
 };
 
 type ChatMessage = {
@@ -104,6 +107,7 @@ export function ChatWidget({
   const [agentName, setAgentName] = useState<string | null>(null);
   const [domainLogoUrl, setDomainLogoUrl] = useState<string | null>(null);
   const [escalated, setEscalated] = useState(false);
+  const [products, setProducts] = useState<AgentProduct[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
@@ -170,6 +174,7 @@ export function ChatWidget({
           value.trim(),
         );
         if (configuredPlaceholder) setPlaceholder(configuredPlaceholder);
+        setProducts(config.products ?? []);
 
         if (enforcePlan && config.widgetVariant !== "sleek") {
           setStatus("unavailable");
@@ -299,7 +304,14 @@ export function ChatWidget({
       onTool: (name, args) =>
         patchMessage(replyId, (message) => ({
           ...message,
-          tool: { name: toolLabel(name), detail: toolDetail(args) },
+          tool: {
+            name: toolLabel(name),
+            detail: toolDetail(args),
+            product:
+              name === "sell_product"
+                ? findProductByName(String(args?.product ?? ""), products)
+                : null,
+          },
         })),
       onEscalate: () => setEscalated(true),
       onDone: () => {},
@@ -575,6 +587,19 @@ function toolLabel(name: string): string {
   );
 }
 
+function findProductByName(
+  productName: string,
+  catalog: AgentProduct[],
+): AgentProduct | null {
+  const normalized = productName.trim().toLowerCase();
+  if (!normalized) return null;
+  return (
+    catalog.find(
+      (candidate) => candidate.name.trim().toLowerCase() === normalized,
+    ) ?? null
+  );
+}
+
 function toolDetail(args?: Record<string, unknown>): string | undefined {
   if (!args) return undefined;
 
@@ -633,7 +658,11 @@ function AssistantMessage({
           ) : null}
         </div>
       </div>
-      {message.tool ? (
+      {message.tool?.product ? (
+        <div className="ml-11">
+          <ProductCard product={message.tool.product} />
+        </div>
+      ) : message.tool ? (
         <div className="ml-11">
           <ToolCard tool={message.tool} running={running} />
         </div>
@@ -728,6 +757,38 @@ function AssistantAvatar({
     >
       <Sprout className="mt-1 size-3.5 text-[#7fdc96]" strokeWidth={2.4} />
     </span>
+  );
+}
+
+function ProductCard({ product }: { product: AgentProduct }) {
+  const price = formatMoney({
+    amountMinor: product.priceCents,
+    currency: product.currency,
+  });
+
+  return (
+    <div className="overflow-hidden rounded-[12px] border border-[#e6e2ee] bg-white/95 shadow-[0_2px_10px_rgba(20,18,30,0.06)]">
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        {product.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            className="size-11 shrink-0 rounded-[8px] object-cover"
+          />
+        ) : (
+          <span className="grid size-11 shrink-0 place-items-center rounded-[8px] bg-[#17161b] text-[14px] font-semibold text-white">
+            {product.name.trim().charAt(0).toUpperCase()}
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate text-[12.5px] font-semibold text-[#232128]">
+            {product.name}
+          </p>
+          <p className="text-[12px] font-medium text-[#494652]">{price}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
