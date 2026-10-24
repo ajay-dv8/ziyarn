@@ -52,7 +52,7 @@ export function SleekEmbed({ slug, secret }: { slug: string; secret: string }) {
       <style>
         {"html,body{background:transparent}:root{color-scheme:light !important}"}
       </style>
-      <main className="relative flex flex-col min-h-dvh items-end justify-center overflow-hidden px-4 py-8">
+      <main className="relative flex flex-col min-h-dvh items-baseline justify-center overflow-hidden px-4 py-8">
         <ChatWidget
           className="relative z-10"
           mode="embed"
