@@ -20,6 +20,12 @@ import {
   X,
 } from "lucide-react";
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@repo/ui/components/tooltip";
 import { cn } from "@repo/ui/lib/utils";
 import {
   createSession,
@@ -35,7 +41,7 @@ import {
  * the Shadow DOM variants. This component is only the view: it is mounted by
  * the dashboard preview and by /embed/[slug], the page customers frame.
  *
- * `mode="demo"` keeps the seeded conversation used by /widget-preview, so the
+ * `mode="demo"` renders the local-only preview used by /widget-preview, so the
  * design can still be reviewed without a domain secret.
  */
 
@@ -44,8 +50,6 @@ export type ChatWidgetMode = "demo" | "preview" | "embed";
 type ToolActivity = {
   name: string;
   detail?: string;
-  /** The reference conversation's Python card, only used by the demo. */
-  demo?: boolean;
 };
 
 type ChatMessage = {
@@ -59,32 +63,6 @@ type ChatMessage = {
 type Status = "loading" | "ready" | "error" | "unavailable";
 
 const GREETING = "Hello! How can I help you today?";
-
-const DEMO_TOOL_CODE =
-  '{"code_str":"import pandas as pd\\n# Load the workbook sheet\\ndf = pd.read_excel(\'sales.xlsx\')"}';
-
-const DEMO_MESSAGES: ChatMessage[] = [
-  {
-    id: "greeting",
-    role: "assistant",
-    text: "Hello! How can I help you analyze your data today?",
-  },
-  {
-    id: "question",
-    role: "user",
-    text: "Show me revenue trends for the last quarter",
-  },
-  {
-    id: "working",
-    role: "assistant",
-    text: "Okay, let me cook...",
-    tool: {
-      name: "Python Analysis",
-      detail: DEMO_TOOL_CODE,
-      demo: true,
-    },
-  },
-];
 
 export type ChatWidgetProps = {
   className?: string;
@@ -114,14 +92,10 @@ export function ChatWidget({
   const isDemo = mode === "demo";
   const isPreview = mode === "preview";
 
-  const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    isDemo ? DEMO_MESSAGES : [],
-  );
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
-  const [streaming, setStreaming] = useState(isDemo);
-  const [activeId, setActiveId] = useState<string | null>(
-    isDemo ? "working" : null,
-  );
+  const [streaming, setStreaming] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>(isDemo ? "ready" : "loading");
   const [statusMessage, setStatusMessage] = useState(
     "Connecting to the agent…",
@@ -409,11 +383,38 @@ export function ChatWidget({
           </button>
         ) : null}
 
+        {!isPreview ? (
+          <TooltipProvider delay={300}>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((value) => !value)}
+                    aria-label={expanded ? "Exit Full Screen" : "Full Screen"}
+                    className="absolute top-3 left-3 z-20 grid size-8 place-items-center rounded-full bg-white/75 text-[#494652] shadow-[0_6px_18px_-6px_rgba(23,22,27,0.3)] backdrop-blur transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17161b]/20"
+                  >
+                    {expanded ? (
+                      <Minimize2 className="size-4" strokeWidth={2} />
+                    ) : (
+                      <Maximize2 className="size-4" strokeWidth={2} />
+                    )}
+                  </button>
+                }
+              />
+              <TooltipContent side="right">
+                {expanded ? "Exit Full Screen" : "Full Screen"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : null}
+
         {status === "ready" ? (
           <div
             ref={scrollRef}
             className={cn(
-              "relative flex-1 overflow-y-auto overscroll-contain px-5 pt-5 sm:px-6 sm:pt-6",
+              "relative flex-1 overflow-y-auto overscroll-contain px-5 sm:px-6",
+              isPreview ? "pt-5 sm:pt-6" : "pt-14",
               onClose && "pr-12 sm:pr-14",
               isPreview ? "pb-5" : "pb-16",
             )}
@@ -422,7 +423,7 @@ export function ChatWidget({
               role="log"
               aria-live="polite"
               aria-label="Conversation"
-              className="space-y-[18px]"
+              className="space-y-4.5"
             >
               {messages.map((message) =>
                 message.role === "user" ? (
@@ -462,22 +463,6 @@ export function ChatWidget({
             ) : null}
           </div>
         )}
-
-        {!isPreview ? (
-          <button
-            type="button"
-            onClick={() => setExpanded((value) => !value)}
-            aria-label={expanded ? "Exit full screen" : "Open full screen"}
-            className="absolute right-4 bottom-4 inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[11px] font-medium text-[#494652] shadow-[0_10px_24px_-8px_rgba(23,22,27,0.16)] transition hover:shadow-[0_12px_28px_-8px_rgba(23,22,27,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17161b]/20"
-          >
-            {expanded ? (
-              <Minimize2 className="size-3.5" strokeWidth={2.2} />
-            ) : (
-              <Maximize2 className="size-3.5" strokeWidth={2.2} />
-            )}
-            {expanded ? "Exit Full Screen" : "Full Screen"}
-          </button>
-        ) : null}
       </div>
 
       <div
@@ -526,7 +511,7 @@ export function ChatWidget({
           {streaming ? (
             <span
               aria-hidden="true"
-              className="block size-2.5 rounded-[2px] bg-white"
+              className="block size-2.5 rounded-xs bg-white"
             />
           ) : (
             <ArrowUp className="size-4" strokeWidth={2.2} />
@@ -812,38 +797,11 @@ function ToolCard({
 
       {open && tool.detail ? (
         <div className="px-2 pb-2">
-          {tool.demo ? (
-            <DemoToolCode />
-          ) : (
-            <pre className="max-h-32 overflow-auto rounded-[6px] bg-[#0a0a0d] px-3 py-2.5 font-mono text-[10.5px] leading-[1.6] whitespace-pre-wrap break-words text-white/90">
-              {tool.detail}
-            </pre>
-          )}
+          <pre className="max-h-32 overflow-auto rounded-[6px] bg-[#0a0a0d] px-3 py-2.5 font-mono text-[10.5px] leading-[1.6] whitespace-pre-wrap break-words text-white/90">
+            {tool.detail}
+          </pre>
         </div>
       ) : null}
-    </div>
-  );
-}
-
-/** The seeded reference card, kept for /widget-preview. */
-function DemoToolCode() {
-  return (
-    <div className="overflow-hidden rounded-[6px] bg-[#0a0a0d] px-3 py-2.5 font-mono text-[10.5px] leading-[1.6] text-white/90">
-      <code className="block overflow-hidden whitespace-nowrap">
-        <span className="text-white/40">{"{\""}</span>
-        <span className="text-[#9be6a1]">code_str</span>
-        <span className="text-white/40">{"\":\""}</span>
-        <span className="text-[#f3f0f6]">import pandas as pd</span>
-        <span className="text-[#9a93a8]">
-          {"\\n# Load the workbook sheet\\n"}
-        </span>
-        <span className="text-[#f3f0f6]">df = pd.</span>
-        <span className="text-[#b18cff]">read_excel</span>
-        <span className="text-[#f3f0f6]">(</span>
-        <span className="text-[#d9a6ff]">{"'sales.xlsx'"}</span>
-        <span className="text-[#f3f0f6]">)</span>
-        <span className="text-white/40">{"\"}"}</span>
-      </code>
     </div>
   );
 }
