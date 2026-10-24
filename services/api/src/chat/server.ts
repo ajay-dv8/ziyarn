@@ -924,6 +924,19 @@ export async function handleChatConfig(
           planSchema.parse(domain.plan),
           domain.widgetVariant,
         ),
+        /**
+         * Active product catalog for the widget's recommendation cards.
+         * Public to anyone holding the embed secret — pricing is already sent
+         * to the model, so exposing it to the shell is no extra signal.
+         */
+        products: (await chatService.getProductCatalog(domain.id)).map(
+          (product) => ({
+            name: product.name,
+            priceCents: product.priceCents,
+            currency: product.currency,
+            imageUrl: null,
+          }),
+        ),
       },
       { headers: CORS_HEADERS },
     );
