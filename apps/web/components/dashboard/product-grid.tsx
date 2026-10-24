@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 
 import { EditProductSheet, type EditableProduct } from "./edit-product-sheet";
+import { ProductThumbnail } from "./product-thumbnail";
 import { cn } from "@repo/ui/lib/utils";
 
 import type { Product } from "./products-list";
@@ -167,6 +168,7 @@ export function ProductGrid({
                     onCheckedChange={() => toggleOne(product.id)}
                     aria-label={`Select ${product.name}`}
                   />
+                  <ProductThumbnail imageUrl={product.imageUrl} name={product.name} className="size-12" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="text-base">{product.name}</CardTitle>
