@@ -600,6 +600,7 @@ export function createChatService(deps: { db: Database }) {
           name: products.name,
           priceCents: products.priceCents,
           currency: products.currency,
+          imageUrl: products.imageUrl,
         })
         .from(products)
         .where(
@@ -661,7 +662,7 @@ type AiService = {
     tools?: AgentToolName[];
     executeTool: (name: AgentToolName, args: Record<string, unknown>) => Promise<string>;
     signal?: AbortSignal;
-  }) => AsyncIterable<{ type: string; delta?: string; name?: AgentToolName }>;
+  }) => AsyncIterable<{ type: string; delta?: string; name?: AgentToolName; args?: Record<string, unknown> }>;
 };
 
 type Logger = { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void };
@@ -934,7 +935,7 @@ export async function handleChatConfig(
             name: product.name,
             priceCents: product.priceCents,
             currency: product.currency,
-            imageUrl: null,
+            imageUrl: product.imageUrl,
           }),
         ),
       },
