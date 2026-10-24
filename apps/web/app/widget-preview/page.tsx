@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { ChatWidget } from "@/components/widget/chat-widget";
-import { WidgetBackdrop } from "@/components/widget/widget-backdrop";
+// import { WidgetBackdrop } from "@/components/widget/widget-backdrop";
 
 export const metadata: Metadata = {
   title: "Chat widget preview",
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 export default function WidgetPreviewPage() {
   return (
     <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#1b1a1f] px-4 py-8">
-      <WidgetBackdrop />
+      {/* <WidgetBackdrop /> */}
       <ChatWidget className="relative z-10" />
     </main>
   );
