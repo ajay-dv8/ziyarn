@@ -61,6 +61,7 @@ export function SleekEmbed({ slug, secret }: { slug: string; secret: string }) {
           enforcePlan={enforcePlan}
           onClose={embedded ? close : undefined}
         />
+        <p className="text-xs">Powered by Ziyarn</p>
       </main>
     </>
   );
