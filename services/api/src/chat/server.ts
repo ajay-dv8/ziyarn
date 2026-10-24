@@ -89,7 +89,7 @@ export function systemPromptFor(
   const catalogLine = catalog.length > 0
     ? `Product catalog (sell ONLY from this list, using sell_product; never invent prices):\n${catalog
         .map((product) => `- ${product.name} — ${formatDecimal({ amountMinor: product.priceCents, currency: product.currency })} ${currencyCode({ amountMinor: product.priceCents, currency: product.currency })}`)
-        .join("\n")}\nWhen the visitor asks for product recommendations, wants to see what the recommended products look like, or asks to view options before buying, call sell_product with the chosen catalog product name. That call renders a product card in the widget showing the product image, name, and price.`
+        .join("\n")}\nWhen the visitor asks for product recommendations, wants to see what the recommended products look like, or asks to view options before buying, call sell_product with the chosen catalog product name. That call renders a product card in the widget showing the product image, name, and price. For a recommendation or budget-based bundle, call sell_product for each recommended product instead of answering with prose only.`
     : "There are no products in the catalog yet. Direct purchase interest to create_payment for a custom amount, or offer to escalate.";
   const filterLine = filterQuestions.length > 0
     ? `Before capturing an email, name or offering to sell, ask these filter questions one at a time (do not dump them all at once):\n${filterQuestions.map((question) => `- ${question}`).join("\n")}\nWhen the visitor has answered, call capture_email and include the answers in its answers argument.`
