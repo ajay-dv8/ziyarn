@@ -1389,7 +1389,13 @@ var VARIANT_CSS = {
   position: fixed;
   inset: 0;
   z-index: 2;
-  background: #1b1a1f;
+  /* Frosted glass over the host page, not an opaque scrim: the page stays
+     visible, blurred. The blur has to live here because backdrop-filter does
+     not cross an iframe boundary — the framed page could never frost the host
+     page from inside. */
+  background: rgba(18, 16, 24, 0.32);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
 }
 
 .zy-wrap[data-variant="sleek"] .zy-sleek-overlay[hidden] {
@@ -1401,7 +1407,9 @@ var VARIANT_CSS = {
   width: 100%;
   height: 100%;
   border: 0;
-  background: #1b1a1f;
+  /* Transparent — the glass tint above sits behind the frame, so an opaque
+     frame would hide the blurred host page the whole design depends on. */
+  background: transparent;
 }
 
 /* The frame covers the viewport, so the launcher would only sit on top of it. */
