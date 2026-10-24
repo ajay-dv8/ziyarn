@@ -60,6 +60,7 @@ type ChatMessage = {
   role: "assistant" | "user" | "owner";
   text: string;
   tool?: ToolActivity;
+  products?: AgentProduct[];
   error?: string;
 };
 
@@ -301,18 +302,28 @@ export function ChatWidget({
           ...message,
           text: message.text + delta,
         })),
-      onTool: (name, args) =>
-        patchMessage(replyId, (message) => ({
-          ...message,
-          tool: {
-            name: toolLabel(name),
-            detail: toolDetail(args),
-            product:
-              name === "sell_product"
-                ? findProductByName(String(args?.product ?? ""), products)
-                : null,
-          },
-        })),
+      onTool: (name, args) => {
+        const product =
+          name === "sell_product"
+            ? findProductByName(String(args?.product ?? ""), products)
+            : null;
+        patchMessage(replyId, (message) => {
+          if (product) {
+            return {
+              ...message,
+              products: [...(message.products ?? []), product],
+            };
+          }
+          return {
+            ...message,
+            tool: {
+              name: toolLabel(name),
+              detail: toolDetail(args),
+              product: null,
+            },
+          };
+        });
+      },
       onEscalate: () => setEscalated(true),
       onDone: () => {},
       onError: (errorMessage) =>
@@ -328,6 +339,7 @@ export function ChatWidget({
       if (
         message.text.trim() ||
         message.tool ||
+        message.products?.length ||
         message.error
       ) {
         return message;
@@ -658,9 +670,11 @@ function AssistantMessage({
           ) : null}
         </div>
       </div>
-      {message.tool?.product ? (
-        <div className="ml-11">
-          <ProductCard product={message.tool.product} />
+      {message.products?.length ? (
+        <div className="ml-11 space-y-2">
+          {message.products.map((product, index) => (
+            <ProductCard key={`${product.name}-${index}`} product={product} />
+          ))}
         </div>
       ) : message.tool ? (
         <div className="ml-11">
