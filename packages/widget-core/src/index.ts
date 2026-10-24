@@ -11,6 +11,7 @@ export { createTransport } from "@repo/widget-core/transport";
 export type { Transport, TransportConfig } from "@repo/widget-core/transport";
 export type {
   AgentConfig,
+  AgentProduct,
   AgentToolName,
   DeltaEvent,
   HistoryMessage,
