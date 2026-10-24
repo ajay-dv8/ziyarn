@@ -384,18 +384,18 @@ export function ChatWidget({
           expanded
             ? "h-[min(88dvh,760px)] w-[min(94vw,860px)]"
             : isPreview
-              ? "h-[420px] w-full max-w-[520px]"
+              ? "h-105 w-full max-w-130"
               : "h-[min(68dvh,450px)] w-[min(92vw,520px)]",
         )}
       >
         {/* Soft lavender bloom behind the conversation, like the reference. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute top-[34%] -left-24 size-80 rounded-full bg-[#c9b4f8]/50 blur-[72px]"
+          className="pointer-events-none absolute top-[34%] -left-24 size-80 rounded-full bg-transparent blur-[72px]"
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-16 bottom-6 size-44 rounded-full bg-[#e8ddff]/35 blur-[60px]"
+          className="pointer-events-none absolute -right-16 bottom-6 size-44 rounded-full bg-transparent blur-[60px]"
         />
 
         {onClose ? (
