@@ -137,6 +137,7 @@ const server = createServer(async (req, res) => {
     const body = await readBody(req);
     const conversationId = `e2e-conv-${body.visitorId ?? "anonymous"}`;
     sse(res, [
+      { type: "tool", name: "sell_product", args: { product: "E2E Jersey" } },
       { type: "text", delta: "STREAMED_" },
       { type: "text", delta: "REPLY_" },
       { type: "text", delta: "FROM_SERVER" },
@@ -173,6 +174,7 @@ const server = createServer(async (req, res) => {
       businessType: "retail",
       knowledgeSearch: true,
       widgetVariant: "classic",
+      products: [{ name: "E2E Jersey", priceCents: 12000, currency: "ghs", imageUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' fill='%2310b981'/%3E%3C/svg%3E" }],
     }),
   );
 });
@@ -451,6 +453,8 @@ async function runVariant(variant) {
     messages.includes("STREAMED_REPLY_FROM_SERVER"),
     messages.replace(/\s+/g, " ").slice(0, 80),
   );
+  const productCard = JSON.parse(await page.evaluate(shadow(`product: (() => { const card = root.querySelector('.zy-product-card'); const image = root.querySelector('.zy-product-image'); return card ? { text: card.textContent, image: image ? image.getAttribute('src') : null } : null; })()`))).product;
+  check(`${variant}: product card with image rendered`, Boolean(productCard) && productCard.text.includes("E2E Jersey") && Boolean(productCard.image), JSON.stringify(productCard));
 
   // The owner reply arrives on the delta stream for an escalated conversation.
   const ownerReplySeen = await (async () => {

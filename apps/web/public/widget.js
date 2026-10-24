@@ -927,6 +927,11 @@ var BASE_CSS = `
 .zy-msg-user { background: var(--_zy-color); color: #fff; border-bottom-right-radius: 5px; align-self: flex-end; }
 /* Error messages — centered, red background */
 .zy-msg-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; align-self: center; font-size: 13px; }
+.zy-product-card { width: min(100%, 290px); display: flex; gap: 10px; align-items: center; align-self: flex-start; overflow: hidden; border: 1px solid var(--_zy-border); border-radius: 12px; background: #fff; padding: 8px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08); animation: zy-in 0.16s ease; }
+.zy-product-image { width: 64px; height: 64px; flex: 0 0 64px; border-radius: 8px; object-fit: cover; background: #eef2f7; }
+.zy-product-details { min-width: 0; }
+.zy-product-name { font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
+.zy-product-price { margin-top: 2px; color: var(--_zy-muted); font-size: 12.5px; font-weight: 600; }
 /* Typing indicator — bouncing dots while waiting for AI response */
 .zy-msg-typing { padding: 9px 13px; }
 .zy-typing-dots { display: inline-flex; align-items: center; gap: 12%; }
@@ -1711,6 +1716,7 @@ var VARIANT_CSS = {
         "How can I help you today?",
         "What are your opening hours?",
       ];
+      this._products = [];
       this._placeholderIndex = 0;
       this._placeholderTimer = null;
       this._renderPlaceholder();
@@ -1783,6 +1789,7 @@ var VARIANT_CSS = {
           if (data && data.placeholders) {
             self._setPlaceholders(data.placeholders);
           }
+          self._products = data && Array.isArray(data.products) ? data.products : [];
           if (data && data.domain && data.domain.logoUrl) {
             self._setHeaderLogo(data.domain.logoUrl);
           }
@@ -2241,9 +2248,11 @@ var VARIANT_CSS = {
             self._reply += delta;
             self._renderReply(typing);
           },
-          onTool: function () {
-            // The tool card arrives with the redesign; the event is already
-            // flowing, so nothing to do here yet.
+          onTool: function (name, args) {
+            if (name !== "sell_product") return;
+            var productName = args && typeof args.product === "string" ? args.product : "";
+            var product = self._findProduct(productName);
+            if (product) self._appendProductCard(product);
           },
           onEscalate: function () {
             self._abortThinking();
@@ -2305,6 +2314,44 @@ var VARIANT_CSS = {
         return;
       }
       typingNode.innerHTML = renderMd(this._reply);
+      this._scrollToBottom();
+    }
+
+    _findProduct(name) {
+      var normalizedName = String(name || "").trim().toLowerCase();
+      for (var index = 0; index < this._products.length; index += 1) {
+        var product = this._products[index];
+        if (String(product.name || "").trim().toLowerCase() === normalizedName) return product;
+      }
+      return null;
+    }
+
+    _appendProductCard(product) {
+      var card = document.createElement("article");
+      card.className = "zy-product-card";
+      if (product.imageUrl) {
+        var image = document.createElement("img");
+        image.className = "zy-product-image";
+        image.src = product.imageUrl;
+        image.alt = product.name || "Product";
+        card.appendChild(image);
+      }
+      var details = document.createElement("div");
+      details.className = "zy-product-details";
+      var title = document.createElement("p");
+      title.className = "zy-product-name";
+      title.textContent = product.name || "Product";
+      var price = document.createElement("p");
+      price.className = "zy-product-price";
+      try {
+        price.textContent = new Intl.NumberFormat(undefined, { style: "currency", currency: String(product.currency || "GHS").toUpperCase() }).format((Number(product.priceCents) || 0) / 100);
+      } catch (_) {
+        price.textContent = ((Number(product.priceCents) || 0) / 100).toFixed(2) + " " + String(product.currency || "GHS").toUpperCase();
+      }
+      details.appendChild(title);
+      details.appendChild(price);
+      card.appendChild(details);
+      this._messages.appendChild(card);
       this._scrollToBottom();
     }
 

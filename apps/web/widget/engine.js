@@ -113,6 +113,7 @@
         "How can I help you today?",
         "What are your opening hours?",
       ];
+      this._products = [];
       this._placeholderIndex = 0;
       this._placeholderTimer = null;
       this._renderPlaceholder();
@@ -185,6 +186,7 @@
           if (data && data.placeholders) {
             self._setPlaceholders(data.placeholders);
           }
+          self._products = data && Array.isArray(data.products) ? data.products : [];
           if (data && data.domain && data.domain.logoUrl) {
             self._setHeaderLogo(data.domain.logoUrl);
           }
@@ -643,9 +645,11 @@
             self._reply += delta;
             self._renderReply(typing);
           },
-          onTool: function () {
-            // The tool card arrives with the redesign; the event is already
-            // flowing, so nothing to do here yet.
+          onTool: function (name, args) {
+            if (name !== "sell_product") return;
+            var productName = args && typeof args.product === "string" ? args.product : "";
+            var product = self._findProduct(productName);
+            if (product) self._appendProductCard(product);
           },
           onEscalate: function () {
             self._abortThinking();
@@ -707,6 +711,44 @@
         return;
       }
       typingNode.innerHTML = renderMd(this._reply);
+      this._scrollToBottom();
+    }
+
+    _findProduct(name) {
+      var normalizedName = String(name || "").trim().toLowerCase();
+      for (var index = 0; index < this._products.length; index += 1) {
+        var product = this._products[index];
+        if (String(product.name || "").trim().toLowerCase() === normalizedName) return product;
+      }
+      return null;
+    }
+
+    _appendProductCard(product) {
+      var card = document.createElement("article");
+      card.className = "zy-product-card";
+      if (product.imageUrl) {
+        var image = document.createElement("img");
+        image.className = "zy-product-image";
+        image.src = product.imageUrl;
+        image.alt = product.name || "Product";
+        card.appendChild(image);
+      }
+      var details = document.createElement("div");
+      details.className = "zy-product-details";
+      var title = document.createElement("p");
+      title.className = "zy-product-name";
+      title.textContent = product.name || "Product";
+      var price = document.createElement("p");
+      price.className = "zy-product-price";
+      try {
+        price.textContent = new Intl.NumberFormat(undefined, { style: "currency", currency: String(product.currency || "GHS").toUpperCase() }).format((Number(product.priceCents) || 0) / 100);
+      } catch (_) {
+        price.textContent = ((Number(product.priceCents) || 0) / 100).toFixed(2) + " " + String(product.currency || "GHS").toUpperCase();
+      }
+      details.appendChild(title);
+      details.appendChild(price);
+      card.appendChild(details);
+      this._messages.appendChild(card);
       this._scrollToBottom();
     }
 
