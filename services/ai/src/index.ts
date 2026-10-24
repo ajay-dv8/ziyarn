@@ -33,7 +33,7 @@ export type ToolExecutor = (
 
 export type AiStreamEvent =
   | { type: "text"; delta: string }
-  | { type: "tool"; name: AgentToolName }
+  | { type: "tool"; name: AgentToolName; args: Record<string, unknown> }
   | { type: "escalate" };
 
 const toolParameters = (properties: Record<string, unknown>, required: string[]) => ({
@@ -293,7 +293,7 @@ async function* streamWith(
         tool_call_id: call.id,
         content: result,
       } as OpenAI.Chat.Completions.ChatCompletionMessageParam);
-      yield { type: "tool", name };
+      yield { type: "tool", name, args };
       if (name === "escalate") {
         yield { type: "escalate" };
       }
