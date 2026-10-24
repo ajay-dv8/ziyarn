@@ -7,6 +7,13 @@ export type AgentToolName =
   | "sell_product"
   | "escalate";
 
+export interface AgentProduct {
+  name: string;
+  priceCents: number;
+  currency: string;
+  imageUrl?: string | null;
+}
+
 export interface AgentConfig {
   domain?: { slug?: string | null; logoUrl?: string | null } | null;
   agent?: { name?: string | null; description?: string | null } | null;
@@ -14,6 +21,8 @@ export interface AgentConfig {
   businessType?: string | null;
   knowledgeSearch?: boolean;
   widgetVariant?: string;
+  /** Active product catalog, used to render recommendation cards in chat. */
+  products?: AgentProduct[] | null;
 }
 
 /** One message as the history endpoint returns it. */
