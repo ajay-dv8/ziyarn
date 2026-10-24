@@ -726,28 +726,82 @@
     _appendProductCard(product) {
       var card = document.createElement("article");
       card.className = "zy-product-card";
+
+      /* ---- Image hero ---- */
+      var imageWrap = document.createElement("div");
+      imageWrap.className = "zy-product-image-wrap";
       if (product.imageUrl) {
         var image = document.createElement("img");
         image.className = "zy-product-image";
         image.src = product.imageUrl;
         image.alt = product.name || "Product";
-        card.appendChild(image);
+        imageWrap.appendChild(image);
+      } else {
+        /* Placeholder when no image is available */
+        var placeholder = document.createElement("div");
+        placeholder.className = "zy-product-image-placeholder";
+        imageWrap.appendChild(placeholder);
       }
-      var details = document.createElement("div");
-      details.className = "zy-product-details";
+      /* Subtle gradient overlay at the bottom of the image */
+      var overlay = document.createElement("div");
+      overlay.className = "zy-product-image-overlay";
+      imageWrap.appendChild(overlay);
+      card.appendChild(imageWrap);
+
+      /* ---- Card body ---- */
+      var body = document.createElement("div");
+      body.className = "zy-product-body";
+
       var title = document.createElement("p");
       title.className = "zy-product-name";
       title.textContent = product.name || "Product";
-      var price = document.createElement("p");
+      body.appendChild(title);
+
+      if (product.description) {
+        var desc = document.createElement("p");
+        desc.className = "zy-product-desc";
+        desc.textContent = product.description;
+        body.appendChild(desc);
+      }
+
+      /* ---- Footer: price + CTA ---- */
+      var footer = document.createElement("div");
+      footer.className = "zy-product-footer";
+
+      var priceWrap = document.createElement("div");
+      priceWrap.className = "zy-product-price-wrap";
+      var priceLabel = document.createElement("span");
+      priceLabel.className = "zy-product-price-label";
+      priceLabel.textContent = "Price";
+      var price = document.createElement("span");
       price.className = "zy-product-price";
       try {
         price.textContent = new Intl.NumberFormat(undefined, { style: "currency", currency: String(product.currency || "GHS").toUpperCase() }).format((Number(product.priceCents) || 0) / 100);
       } catch (_) {
         price.textContent = ((Number(product.priceCents) || 0) / 100).toFixed(2) + " " + String(product.currency || "GHS").toUpperCase();
       }
-      details.appendChild(title);
-      details.appendChild(price);
-      card.appendChild(details);
+      priceWrap.appendChild(priceLabel);
+      priceWrap.appendChild(price);
+      footer.appendChild(priceWrap);
+
+      var cta = document.createElement("button");
+      cta.className = "zy-product-cta";
+      cta.textContent = "Order now";
+      cta.type = "button";
+      var self = this;
+      cta.addEventListener("click", function () {
+        var composer = self._input;
+        if (composer) {
+          composer.value = "I want to order " + (product.name || "this product");
+          composer.dispatchEvent(new Event("input"));
+          composer.focus();
+        }
+      });
+      footer.appendChild(cta);
+
+      body.appendChild(footer);
+      card.appendChild(body);
+
       this._messages.appendChild(card);
       this._scrollToBottom();
     }
