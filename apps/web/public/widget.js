@@ -1393,7 +1393,7 @@ var VARIANT_CSS = {
      visible, blurred. The blur has to live here because backdrop-filter does
      not cross an iframe boundary — the framed page could never frost the host
      page from inside. */
-  background: rgba(18, 16, 24, 0.32);
+  background: rgba(18, 16, 24, 0.10);
   backdrop-filter: blur(28px) saturate(160%);
   -webkit-backdrop-filter: blur(28px) saturate(160%);
 }
