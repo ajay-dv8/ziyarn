@@ -2,6 +2,7 @@ export type MappedProduct = {
   externalKey: string;
   name: string;
   description: string | null;
+  imageUrl: string | null;
   priceCents: number;
   active: boolean;
   availability: string | null;
@@ -12,6 +13,7 @@ export type ProductColumnMapping = {
   price: string;
   cents: boolean;
   description: string | null;
+  image: string | null;
   stock: string | null;
   key: string | null;
 };
@@ -48,6 +50,8 @@ export function mapProductColumns(
     columns.find((column) =>
       /stock|qty|quantity|available|inventory/i.test(column.name),
     )?.name ?? null;
+  const image =
+    columns.find((column) => /^(image|image_?url|photo|photo_?url|thumbnail|picture)$/i.test(column.name))?.name ?? null;
   const key =
     columns.find((column) =>
       /^(_?id|uuid|sku|code|product_?code|product_?key)$/i.test(column.name),
@@ -58,6 +62,7 @@ export function mapProductColumns(
     price: priceCol.name,
     cents: /_?cents?$/i.test(priceCol.name),
     description,
+    image,
     stock,
     key,
   };
@@ -103,6 +108,11 @@ export function mapProductRow(params: {
     typeof rawDescription === "string" && rawDescription.trim()
       ? rawDescription.trim().slice(0, 500)
       : null;
+  const rawImageUrl = mapping.image ? row[mapping.image] : null;
+  const imageUrl =
+    typeof rawImageUrl === "string" && /^https?:\/\//i.test(rawImageUrl.trim())
+      ? rawImageUrl.trim().slice(0, 2_000)
+      : null;
 
   let active = true;
   let availability: string | null = null;
@@ -131,6 +141,7 @@ export function mapProductRow(params: {
     externalKey,
     name: name.slice(0, 200),
     description,
+    imageUrl,
     priceCents,
     active,
     availability,
