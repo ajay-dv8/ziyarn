@@ -86,6 +86,7 @@ async function upsertSyncedProducts(
         externalKey: row.externalKey,
         name: row.name,
         description: row.description,
+        imageUrl: row.imageUrl,
         priceCents: row.priceCents,
         currency: input.currency,
         active: row.active,
@@ -97,6 +98,7 @@ async function upsertSyncedProducts(
       set: {
         name: sql`excluded.name`,
         description: sql`excluded.description`,
+        imageUrl: sql`excluded.image_url`,
         priceCents: sql`excluded.price_cents`,
         currency: sql`excluded.currency`,
         active: sql`excluded.active`,
