@@ -48,6 +48,7 @@ type Product = {
   id: string;
   name: string;
   description: string | null;
+  imageUrl?: string | null;
   priceCents: number;
   currency: string;
   active: boolean;
