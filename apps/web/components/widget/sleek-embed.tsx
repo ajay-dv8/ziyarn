@@ -13,6 +13,13 @@ import { ChatWidget } from "@/components/widget/chat-widget";
  * frosted glass veil, and the iframe must stay transparent for the frosted
  * host page to show through — hence the body override below.
  *
+ * The root layout's next-themes provider resolves the owner's OS theme and
+ * adds class="dark" to every page it wraps, including this one. `.dark` sets
+ * `color-scheme: dark`, and a transparent iframe document under a dark color
+ * scheme gets the UA's OPAQUE dark canvas — the whole frame renders as a
+ * solid black slab instead of showing the host page. Forcing light here pins
+ * the iframe canvas to transparency on any device theme.
+ *
  * The close button is deliberately absent when the page is opened directly:
  * there is no host page to return to.
  */
@@ -39,8 +46,12 @@ export function SleekEmbed({ slug, secret }: { slug: string; secret: string }) {
   return (
     <>
       {/* Core globals paint <body> opaque (bg-background); an opaque iframe
-          document would hide the host page the glass overlay frosts. */}
-      <style>{"html,body{background:transparent}"}</style>
+          document would hide the host page the glass veil frosts. The
+          color-scheme pin defeats the canvas rule that .dark (set by
+          next-themes on dark-OS devices) would otherwise impose. */}
+      <style>
+        {"html,body{background:transparent}:root{color-scheme:light !important}"}
+      </style>
       <main className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-8">
         <ChatWidget
           className="relative z-10"
