@@ -21,6 +21,16 @@ A domain represents one website or property. Each domain gets its own AI agent, 
 
 Each domain has:
 
+### Slug
+
+The domain's URL-friendly identifier, editable in **Dashboard → Domains →
+[Domain] → Settings → Slug**. It appears in the embed snippet and in the sleek
+iframe URL.
+
+Changing it does not disconnect widgets that are already installed — the chat
+API authenticates with the embed secret — but update `data-slug` in your
+snippet so new installs and the sleek iframe use the new value.
+
 ### Embed Secret
 
 A secret key that authorizes the widget. Found in **Dashboard → Domains → [Domain] → Settings → Embed secret**, with a copy button next to it.
