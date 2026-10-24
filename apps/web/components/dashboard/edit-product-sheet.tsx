@@ -21,6 +21,7 @@ export type EditableProduct = {
   id: string;
   name: string;
   description: string | null;
+  imageUrl?: string | null;
   priceCents: number;
   currency: string;
   active: boolean;
@@ -42,6 +43,7 @@ export function EditProductSheet({
   const [form, setForm] = useState(() => ({
     name: product?.name ?? "",
     description: product?.description ?? "",
+    imageUrl: product?.imageUrl ?? "",
     price: product
       ? formatDecimal({ amountMinor: product.priceCents, currency: product.currency })
       : "0",
@@ -65,6 +67,7 @@ export function EditProductSheet({
         body: JSON.stringify({
           name: form.name.trim(),
           description: form.description.trim() || null,
+          imageUrl: form.imageUrl.trim() || null,
           priceCents: Math.round(price * 100),
           currency: form.currency,
         }),
@@ -112,6 +115,10 @@ export function EditProductSheet({
                 setForm({ ...form, description: event.target.value })
               }
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-product-image-url">Image URL</Label>
+            <Input id="edit-product-image-url" type="url" placeholder="https://…" value={form.imageUrl} onChange={(event) => setForm({ ...form, imageUrl: event.target.value })} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-product-price">Price</Label>

@@ -26,6 +26,7 @@ export const products = pgTable(
     externalKey: text("external_key"),
     name: text("name").notNull(),
     description: text("description"),
+    imageUrl: text("image_url"),
     priceCents: integer("price_cents").notNull(),
     currency: text("currency", {
       enum: ["ghs", "usd", "eur", "gbp"],
