@@ -34,13 +34,13 @@ import {
   Loader2,
   MoreHorizontal,
   Pencil,
-  Package,
   Pause,
   Play,
   Trash2,
 } from "lucide-react";
 
 import { EditProductSheet, type EditableProduct } from "./edit-product-sheet";
+import { ProductThumbnail } from "./product-thumbnail";
 
 import { API_ROUTES } from "@/constants/routes";
 
@@ -235,9 +235,7 @@ export function ProductTable({
                     />
                   </TableCell>
                   <TableCell>
-                    <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
-                      <Package className="h-4 w-4 text-muted-foreground" />
-                    </div>
+                    <ProductThumbnail imageUrl={product.imageUrl} name={product.name} className="size-9" />
                   </TableCell>
                   <TableCell>
                     <span className="font-medium">{product.name}</span>
