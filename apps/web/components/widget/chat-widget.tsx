@@ -38,6 +38,8 @@ import {
   type Session,
 } from "@repo/widget-core";
 
+import { WidgetMarkdown } from "@/components/widget/widget-markdown";
+
 /**
  * Modern Sleek — the third widget surface.
  *
@@ -679,9 +681,13 @@ function AssistantMessage({
         <AssistantAvatar running={running} logoUrl={logoUrl} />
         <div className="min-w-0 pt-0.5">
           {message.text ? (
-            <p className="text-[13px] leading-[1.55] text-[#1a1920]">
-              {message.text}
-            </p>
+            message.role === "assistant" ? (
+              <WidgetMarkdown text={message.text} />
+            ) : (
+              <p className="text-[13px] leading-[1.55] whitespace-pre-line text-[#1a1920]">
+                {message.text}
+              </p>
+            )
           ) : running ? (
             <p className="text-[13px] leading-[1.55] text-[#8f8b97] italic">
               Working…
