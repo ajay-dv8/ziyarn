@@ -693,7 +693,10 @@ function AssistantMessage({
               Working…
             </p>
           ) : null}
-          {message.error ? (
+          {/* A card already answers the turn: a provider error (429, timeout)
+              must not sit above it. Errors only show when nothing else
+              rendered, and the API has already made the text customer-safe. */}
+          {message.error && !message.products?.length ? (
             <p className="mt-1 text-[11px] leading-[1.45] text-[#b3261e]">
               {message.error}
             </p>
