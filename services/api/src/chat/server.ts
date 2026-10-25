@@ -668,6 +668,23 @@ type AiService = {
 
 type Logger = { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void };
 
+/**
+ * The model SDK surfaces raw provider text ("429 status code (no body)",
+ * "Connection error."). Customers must never see that: the original error is
+ * logged by the caller, and this returns a calm, actionable sentence instead.
+ */
+export function customerFacingAiErrorMessage(error: unknown): string {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    (error as { status?: unknown }).status === 429
+  ) {
+    return "I'm a bit busy right now. Please try again in a moment.";
+  }
+  return "I couldn't finish that reply. Please try again.";
+}
+
 /** POST /api/chat — streams AI response as SSE. */
 export async function handleChatPost(
   chatService: ChatService,
@@ -846,8 +863,7 @@ export async function handleChatPost(
           send({
             type: "error",
             code: "AI_ERROR",
-            message:
-              error instanceof Error ? error.message : "AI request failed",
+            message: customerFacingAiErrorMessage(error),
           });
         } finally {
           clearTimeout(abortTimer);
