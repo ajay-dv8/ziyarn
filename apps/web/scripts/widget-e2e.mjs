@@ -136,6 +136,18 @@ const server = createServer(async (req, res) => {
   if (req.method === "POST") {
     const body = await readBody(req);
     const conversationId = `e2e-conv-${body.visitorId ?? "anonymous"}`;
+    // A model failure after a product card: the card must render, the raw
+    // provider message must not.
+    if (
+      typeof body.message === "string" &&
+      body.message.includes("AI_FAILURE_AFTER_PRODUCT")
+    ) {
+      sse(res, [
+        { type: "tool", name: "sell_product", args: { product: "E2E Jersey" } },
+        { type: "error", code: "AI_ERROR", message: "429 status code (no body)" },
+      ]);
+      return;
+    }
     sse(res, [
       { type: "tool", name: "sell_product", args: { product: "E2E Jersey" } },
       { type: "text", delta: "STREAMED_" },
@@ -512,6 +524,44 @@ async function runVariant(variant) {
     return false;
   })();
   check(`${variant}: owner reply appended`, ownerReplySeen);
+
+  // A provider error after a product card must not be shown to the visitor:
+  // the card answers the turn, the raw "429 status code (no body)" must not.
+  await page.evaluate(
+    shadowRun(`
+      const input = root.querySelector('.zy-composer input');
+      input.dispatchEvent(new FocusEvent('focus'));
+      input.value = 'AI_FAILURE_AFTER_PRODUCT';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      root.querySelector('.zy-send').click();
+    `),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  const failure = JSON.parse(
+    await page.evaluate(
+      shadow(`
+        failure: (() => {
+          const messages = root.querySelector('.zy-messages');
+          return {
+            errors: [...root.querySelectorAll('.zy-msg-error')].map(
+              (node) => node.textContent,
+            ),
+            cards: root.querySelectorAll('.zy-product-card').length,
+            rawError: (messages ? messages.textContent : '').includes(
+              '429 status code',
+            ),
+          };
+        })()
+      `),
+    ),
+  ).failure;
+  check(
+    `${variant}: error after product card is suppressed`,
+    failure.errors.length === 0 &&
+      failure.cards >= 2 &&
+      failure.rawError === false,
+    JSON.stringify(failure),
+  );
 
   check(`${variant}: no uncaught errors`, page.errors.length === 0, page.errors[0] ?? "");
 

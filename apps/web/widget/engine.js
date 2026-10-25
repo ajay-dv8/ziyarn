@@ -114,6 +114,9 @@
         "What are your opening hours?",
       ];
       this._products = [];
+      // Whether this turn already rendered a product card. A provider error
+      // (429, timeout) after a card must not be shown above it.
+      this._turnHadProducts = false;
       this._placeholderIndex = 0;
       this._placeholderTimer = null;
       this._renderPlaceholder();
@@ -638,6 +641,7 @@
       this._typingStartedAt = Date.now();
       this._typingMinimumMs = 600;
       this._reply = "";
+      this._turnHadProducts = false;
 
       this._session
         .send(text, {
@@ -649,7 +653,10 @@
             if (name !== "sell_product") return;
             var productName = args && typeof args.product === "string" ? args.product : "";
             var product = self._findProduct(productName);
-            if (product) self._appendProductCard(product);
+            if (product) {
+              self._appendProductCard(product);
+              self._turnHadProducts = true;
+            }
           },
           onEscalate: function () {
             self._abortThinking();
@@ -667,6 +674,18 @@
           onError: function (message) {
             self._abortThinking();
             typing.classList.remove("zy-msg-typing");
+            // A card already answered the visitor's question. Provider errors
+            // (429, timeout) must not sit above the cards — keep any partial
+            // text, otherwise drop the empty bubble entirely.
+            if (self._turnHadProducts) {
+              if (self._reply) {
+                typing.innerHTML = renderMd(self._reply);
+              } else {
+                typing.remove();
+              }
+              self._scrollToBottom();
+              return;
+            }
             typing.classList.add("zy-msg-error");
             typing.textContent = message;
           },
