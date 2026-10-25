@@ -9,10 +9,12 @@ import {
   ChevronUp,
   Clock,
   Copy,
+  Download,
   Maximize2,
   Mic,
   Minimize2,
   Plus,
+  Share2,
   Smile,
   Sprout,
   Terminal,
@@ -109,6 +111,7 @@ export function ChatWidget({
   const [domainLogoUrl, setDomainLogoUrl] = useState<string | null>(null);
   const [escalated, setEscalated] = useState(false);
   const [products, setProducts] = useState<AgentProduct[]>([]);
+  const [viewerProduct, setViewerProduct] = useState<AgentProduct | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
@@ -240,14 +243,29 @@ export function ChatWidget({
   }, [mode, status]);
 
   useEffect(() => {
-    if (!onClose) return undefined;
+    // Escape is layered: it closes the product viewer first and only closes
+    // the whole chat when no viewer is open (embed mode has both).
+    if (!onClose && !viewerProduct) return undefined;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      if (viewerProduct) {
+        setViewerProduct(null);
+        return;
+      }
+      onClose?.();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [onClose, viewerProduct]);
+
+  const openProduct = useCallback((product: AgentProduct) => {
+    setViewerProduct(product);
+  }, []);
+
+  const closeProduct = useCallback(() => {
+    setViewerProduct(null);
+  }, []);
 
   const stop = () => {
     if (isDemo) {
@@ -370,7 +388,7 @@ export function ChatWidget({
     : "w-[min(88vw,410px)]";
 
   return (
-    <div className={cn("flex w-full flex-col items-center", className)}>
+    <div className={cn("relative flex w-full flex-col items-center", className)}>
       <div
         role="region"
         aria-label={agentName ? `Chat with ${agentName}` : "Chat with the assistant"}
@@ -458,6 +476,7 @@ export function ChatWidget({
                     message={message}
                     running={message.id === activeId}
                     logoUrl={domainLogoUrl}
+                    onOpenProduct={openProduct}
                   />
                 ),
               )}
@@ -542,6 +561,14 @@ export function ChatWidget({
           )}
         </button>
       </div>
+
+      {viewerProduct ? (
+        <ProductView
+          product={viewerProduct}
+          mode={mode}
+          onClose={closeProduct}
+        />
+      ) : null}
     </div>
   );
 }
@@ -639,10 +666,12 @@ function AssistantMessage({
   message,
   running,
   logoUrl,
+  onOpenProduct,
 }: {
   message: ChatMessage;
   running: boolean;
   logoUrl?: string | null;
+  onOpenProduct: (product: AgentProduct) => void;
 }) {
   return (
     <div className="space-y-2.5">
@@ -671,9 +700,19 @@ function AssistantMessage({
         </div>
       </div>
       {message.products?.length ? (
-        <div className="ml-11 space-y-2">
+        <div
+          className={cn(
+            "ml-11 flex gap-2.5 overflow-x-auto pb-1",
+            "snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "focus-within:outline-none",
+          )}
+        >
           {message.products.map((product, index) => (
-            <ProductCard key={`${product.name}-${index}`} product={product} />
+            <ProductCard
+              key={`${product.name}-${index}`}
+              product={product}
+              onOpen={onOpenProduct}
+            />
           ))}
         </div>
       ) : message.tool ? (
@@ -774,36 +813,425 @@ function AssistantAvatar({
   );
 }
 
-function ProductCard({ product }: { product: AgentProduct }) {
-  const price = formatMoney({
-    amountMinor: product.priceCents,
-    currency: product.currency,
-  });
+/**
+ * A vertical commerce card: big image on top, name and price below. Tapping
+ * anywhere on the card opens the fullscreen viewer; the share control floats
+ * above the image as a sibling button (never nested inside the tap target).
+ */
+function ProductCard({
+  product,
+  onOpen,
+}: {
+  product: AgentProduct;
+  onOpen: (product: AgentProduct) => void;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = Boolean(product.imageUrl) && !imageFailed;
 
   return (
-    <div className="overflow-hidden rounded-[12px] border border-[#e6e2ee] bg-white/95 shadow-[0_2px_10px_rgba(20,18,30,0.06)]">
-      <div className="flex items-center gap-3 px-3 py-2.5">
-        {product.imageUrl ? (
+    <article
+      className={cn(
+        "group relative w-[min(55vw,13rem)] shrink-0 snap-start snap-always",
+        "overflow-hidden rounded-[14px] border border-[#e6e2ee] bg-white",
+        "shadow-[0_2px_10px_rgba(20,18,30,0.06)]",
+        "transition-[transform,box-shadow] duration-200 ease-out",
+        "hover:-translate-y-0.5 hover:shadow-[0_14px_34px_-16px_rgba(20,18,30,0.34)]",
+        "motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+      )}
+    >
+      <div className="relative aspect-[4/3] overflow-hidden bg-[#f6f4f9]">
+        {showImage && product.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={product.imageUrl}
             alt={product.name}
-            className="size-11 shrink-0 rounded-[8px] object-cover"
+            loading="lazy"
+            className="size-full object-cover"
+            onError={() => setImageFailed(true)}
           />
         ) : (
-          <span className="grid size-11 shrink-0 place-items-center rounded-[8px] bg-[#17161b] text-[14px] font-semibold text-white">
+          <span
+            aria-hidden="true"
+            className="grid size-full place-items-center bg-[radial-gradient(circle_at_32%_28%,#75727d_0%,#26252b_55%,#131217_100%)] text-[42px] font-semibold text-white"
+          >
             {product.name.trim().charAt(0).toUpperCase()}
           </span>
         )}
-        <div className="min-w-0">
-          <p className="truncate text-[12.5px] font-semibold text-[#232128]">
+      </div>
+
+      <div className="px-3 pb-3 pt-2.5">
+        <p className="truncate text-[12.5px] font-semibold text-[#232128]">
+          {product.name}
+        </p>
+        <p className="text-[12px] font-medium text-[#494652]">
+          {formatMoney({
+            amountMinor: product.priceCents,
+            currency: product.currency,
+          })}
+        </p>
+      </div>
+
+      {/*
+       * The tap target is a real button stretched over the whole card; the
+       * share control is its sibling (z-20), so the two never nest.
+       */}
+      <button
+        type="button"
+        onClick={() => onOpen(product)}
+        aria-label={`View ${product.name}`}
+        className="absolute inset-0 z-10 cursor-pointer focus-visible:[outline:2px_solid_rgba(23,22,27,0.3)] focus-visible:[outline-offset:-3px]"
+      />
+      <ShareButton product={product} className="absolute top-2.5 right-2.5 z-20" />
+    </article>
+  );
+}
+
+/**
+ * The fullscreen product viewer. In embed mode the iframe already owns the
+ * whole screen, so `fixed inset-0` is the full-screen customer sees; in the
+ * dashboard preview and widget-preview the same markup is kept
+ * `absolute inset-0` so it stays framed inside the preview surface instead of
+ * hijacking the owner's browser tab.
+ */
+function ProductView({
+  product,
+  mode,
+  onClose,
+}: {
+  product: AgentProduct;
+  mode: ChatWidgetMode;
+  onClose: () => void;
+}) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = Boolean(product.imageUrl) && !imageFailed;
+
+  useEffect(() => {
+    closeRef.current?.focus();
+  }, []);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={product.name}
+      className={cn(
+        mode === "embed" ? "fixed inset-0 z-50" : "absolute inset-0 z-40",
+        "flex flex-col overflow-hidden",
+        "bg-[radial-gradient(120%_110%_at_50%_0%,#efe5ff_0%,#f7f4fb_50%,#f3f1f6_100%)]",
+        "motion-safe:animate-zy-view-in",
+      )}
+    >
+      <button
+        ref={closeRef}
+        type="button"
+        onClick={onClose}
+        aria-label="Close product view"
+        className="absolute top-3 right-3 z-30 grid size-8 place-items-center rounded-full bg-white/75 text-[#494652] shadow-[0_6px_18px_-6px_rgba(23,22,27,0.3)] backdrop-blur transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17161b]/20"
+      >
+        <X className="size-4" strokeWidth={2} />
+      </button>
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+        {/* The hero grows to fill leftover space so a short description never
+            floats above a void; the photo stays contained so the visitor sees
+            the whole product, not a crop of it. */}
+        <div className="flex min-h-[min(44dvh,380px)] w-full flex-1 items-center justify-center border-b border-[#e6e2ee]/70 bg-white">
+          {showImage && product.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              className="max-h-full max-w-full object-contain p-4"
+              onError={() => setImageFailed(true)}
+            />
+          ) : (
+            <span
+              aria-hidden="true"
+              className="grid size-full place-items-center bg-[radial-gradient(circle_at_32%_28%,#75727d_0%,#26252b_55%,#131217_100%)] text-[56px] font-semibold text-white"
+            >
+              {product.name.trim().charAt(0).toUpperCase()}
+            </span>
+          )}
+        </div>
+
+        <div className="px-5 pt-4 pb-2">
+          <h2 className="text-[16px] leading-[1.3] font-semibold text-[#1a1920]">
             {product.name}
+          </h2>
+          <p className="mt-1 text-[14px] font-semibold text-[#232128]">
+            {formatMoney({
+              amountMinor: product.priceCents,
+              currency: product.currency,
+            })}
           </p>
-          <p className="text-[12px] font-medium text-[#494652]">{price}</p>
+          {product.description?.trim() ? (
+            <p className="mt-3 text-[12.5px] leading-[1.6] whitespace-pre-line text-[#494652]">
+              {product.description.trim()}
+            </p>
+          ) : null}
+        </div>
+
+        {/* Pinned over long text while scrolling; sits right beneath the
+            content when the screen fits it. */}
+        <div className="sticky bottom-0 bg-gradient-to-t from-[#f3f1f6] via-[#f3f1f6]/95 to-transparent px-5 pt-4 pb-4">
+          <div className="flex items-center gap-2">
+            <ShareButton product={product} variant="primary" className="flex-1" />
+            {product.imageUrl ? <DownloadButton product={product} /> : null}
+          </div>
         </div>
       </div>
     </div>
   );
+}
+
+/**
+ * Share with feedback: the icon flips to a short check after the share sheet
+ * completes. A silently-stale check would claim more than these steps do, so
+ * only a verified send/copy triggers it.
+ */
+function ShareButton({
+  product,
+  variant = "pill",
+  className,
+}: {
+  product: AgentProduct;
+  /** `pill` is the icon-only launcher on the card; `primary` sits in the bar. */
+  variant?: "pill" | "primary";
+  className?: string;
+}) {
+  const [done, setDone] = useState(false);
+  const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (doneTimer.current) clearTimeout(doneTimer.current);
+    },
+    [],
+  );
+
+  const share = async () => {
+    try {
+      const result = await shareProduct(product);
+      setDone(true);
+      if (doneTimer.current) clearTimeout(doneTimer.current);
+      doneTimer.current = setTimeout(() => setDone(false), 1600);
+      // A visitor sharing without a link yet gets a copied fallback on
+      // desktop; the check still means "something left your hands".
+      void result;
+    } catch {
+      // AbortError = the visitor closed the sheet; clipboard may also be
+      // unavailable. Either way the UI stays quiet.
+    }
+  };
+
+  const label = done ? "Shared" : "Share";
+
+  if (variant === "pill") {
+    return (
+      <button
+        type="button"
+        onClick={() => void share()}
+        aria-label={done ? "Shared" : `Share ${product.name}`}
+        title={done ? "Shared" : "Share"}
+        className={cn(
+          "grid size-8 place-items-center rounded-full border border-white/70 bg-white/85 text-[#494652]",
+          "shadow-[0_6px_18px_-6px_rgba(23,22,27,0.3)] backdrop-blur transition hover:bg-white",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17161b]/20",
+          className,
+        )}
+      >
+        {done ? (
+          <Check className="size-3.5 text-[#3f9b5f]" strokeWidth={2.2} />
+        ) : (
+          <Share2 className="size-3.5" strokeWidth={2} />
+        )}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void share()}
+      className={cn(
+        "flex items-center justify-center gap-1.5 rounded-full bg-[#0d0c11] px-4 py-2.5",
+        "text-[12.5px] font-semibold text-white",
+        "shadow-[0_10px_24px_-10px_rgba(13,12,17,0.55)] transition hover:bg-black",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17161b]/30",
+        className,
+      )}
+    >
+      {done ? (
+        <Check className="size-3.5" strokeWidth={2.4} />
+      ) : (
+        <Share2 className="size-3.5" strokeWidth={2.2} />
+      )}
+      {label}
+    </button>
+  );
+}
+
+function DownloadButton({ product }: { product: AgentProduct }) {
+  const [done, setDone] = useState(false);
+  const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (doneTimer.current) clearTimeout(doneTimer.current);
+    },
+    [],
+  );
+
+  const download = async () => {
+    await downloadProductImage(product);
+    setDone(true);
+    if (doneTimer.current) clearTimeout(doneTimer.current);
+    doneTimer.current = setTimeout(() => setDone(false), 1600);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={() => void download()}
+      aria-label={done ? "Image saved" : "Download product image"}
+      title="Download image"
+      className={cn(
+        "flex items-center justify-center gap-1.5 rounded-full border border-[#e6e2ee] bg-white px-4 py-2.5",
+        "text-[12.5px] font-semibold text-[#232128]",
+        "shadow-[0_4px_10px_rgba(20,18,30,0.06)] transition hover:bg-[#faf8fc]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17161b]/20",
+      )}
+    >
+      {done ? (
+        <Check className="size-3.5 text-[#3f9b5f]" strokeWidth={2.4} />
+      ) : (
+        <Download className="size-3.5" strokeWidth={2.2} />
+      )}
+      {done ? "Saved" : "Image"}
+    </button>
+  );
+}
+
+/**
+ * Shares a product through the native sheet — with the photo attached where
+ * the device supports file sharing — and falls back to the clipboard on
+ * browsers without the Share API (Firefox desktop, and insecure contexts).
+ * A sheet canceled by the visitor rejects with AbortError; callers stay quiet.
+ */
+async function shareProduct(
+  product: AgentProduct,
+): Promise<"shared" | "copied"> {
+  const extensions = navigator as Navigator & {
+    canShare?: (data: ShareData) => boolean;
+  };
+  const text = `${product.name} — ${formatMoney({
+    amountMinor: product.priceCents,
+    currency: product.currency,
+  })}`;
+
+  if (typeof navigator.share === "function") {
+    if (product.imageUrl) {
+      try {
+        const file = await imageFileFromUrl(product.imageUrl, product.name);
+        if (file && extensions.canShare?.({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            text,
+            title: product.name,
+          });
+          return "shared";
+        }
+      } catch (error) {
+        // The visitor closed the sheet — that is a finished action, not a
+        // failure to retry through a different path.
+        if (error instanceof DOMException && error.name === "AbortError") {
+          throw error;
+        }
+        // Anything else (fetch refused, share failed) falls through to the
+        // plain-text share below.
+      }
+    }
+
+    await navigator.share({ text, title: product.name });
+    return "shared";
+  }
+
+  const details = product.description?.trim()
+    ? `${text}\n\n${product.description.trim()}`
+    : text;
+  await navigator.clipboard.writeText(details);
+  return "copied";
+}
+
+/**
+ * Saves the product photo to the visitor's device. Convex storage answers the
+ * widget origin with CORS, so the image usually arrives as a real blob and
+ * downloads cleanly; when it cannot, the raw URL opens in a new tab so the
+ * visitor keeps a path to the image at all.
+ */
+async function downloadProductImage(product: AgentProduct): Promise<boolean> {
+  if (!product.imageUrl) return false;
+
+  try {
+    const response = await fetch(product.imageUrl, {
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${slugifyFilename(product.name)}.${imageFileExtension(
+      blob.type,
+    )}`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 4_000);
+    return true;
+  } catch {
+    // Cross-origin failures, offline devices, blocked downloads — keep a
+    // useful last resort rather than a dead button.
+    window.open(product.imageUrl, "_blank", "noopener,noreferrer");
+    return false;
+  }
+}
+
+async function imageFileFromUrl(
+  url: string,
+  productName: string,
+): Promise<File | null> {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) return null;
+
+    const blob = await response.blob();
+    if (!blob.type.startsWith("image/")) return null;
+    return new File(
+      [blob],
+      `${slugifyFilename(productName)}.${imageFileExtension(blob.type)}`,
+      { type: blob.type },
+    );
+  } catch {
+    return null;
+  }
+}
+
+function imageFileExtension(mimeType: string): string {
+  if (mimeType === "image/png") return "png";
+  if (mimeType === "image/webp") return "webp";
+  if (mimeType === "image/gif") return "gif";
+  return "jpg";
+}
+
+function slugifyFilename(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "ziyarn-product";
 }
 
 function ToolCard({
