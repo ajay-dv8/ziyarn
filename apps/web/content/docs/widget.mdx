@@ -26,7 +26,7 @@ right slug and secret.
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `data-slug` | string | — | Domain slug (required) |
+| `data-slug` | string | — | Client-side domain label (required). Namespaces saved conversations and appears in the Modern Sleek iframe URL. |
 | `data-secret` | string | — | Embed secret for authentication (required) |
 | `data-title` | string | `Chat with us` | Widget header title |
 | `data-subtitle` | string | `We usually reply in minutes` | Widget header subtitle |
@@ -35,9 +35,12 @@ right slug and secret.
 | `data-variant` | string | `classic` | Widget style: `classic`, `glow`, or `sleek`. |
 | `data-api` | string | origin of the script | Backend API URL override for Classic and Glow — only needed when the widget is served from a different host than the API. Modern Sleek always uses the Ziyarn origin. |
 
-`data-slug` is the **slug** shown on the domain page (for example `acme-support`),
-not the domain id. There is no `data-greeting` attribute: the welcome message is
-written by the agent, not by the embed snippet.
+`data-slug` is a client-side label for the domain (for example `acme-support`),
+not the domain id. It namespaces the visitor's saved conversation and appears in
+the Modern Sleek iframe URL. Authentication is by `data-secret`, not the slug,
+so a URL-safe brand string such as `Urban+` also works. There is no
+`data-greeting` attribute: the welcome message is written by the agent, not by
+the embed snippet.
 
 :::warning
 The `data-color` attribute expects a CSS hex value (`#10b981`), NOT Tailwind classes like `bg-blue-500`.
@@ -240,9 +243,10 @@ declare module "react" {
 #### Common pitfalls
 
 :::warning
-Use the **domain slug** from **Dashboard → Domains**, not the business name.
-For example, `urban-plus-2`, not `Urban+`. The slug is used in the Modern
-Sleek iframe URL.
+Use the **domain slug** from **Dashboard → Domains** for consistency. The slug
+only labels the client — it namespaces saved conversations and appears in the
+Modern Sleek iframe URL — while `data-secret` authenticates the domain, so a
+URL-safe brand string such as `Urban+` also works.
 
 Modern Sleek is iframe-backed. If your Next.js app sets a CSP, add
 `frame-src https://ziyarn.vercel.app` (or
@@ -482,13 +486,13 @@ export {};
 ### Widget doesn't appear
 
 1. Check that the script is loaded (open DevTools → Network tab)
-2. Verify `data-slug` and `data-secret` are correct
+2. Verify `data-secret` is the domain's embed secret; `data-slug` only labels the client
 3. Ensure no CSP headers are blocking the script
 
 ### Modern Sleek launcher does not open the chat
 
 1. Check that the element has `data-variant="sleek"` and that `widget.js` loaded
-2. Confirm `data-slug` is the domain slug (for example `urban-plus-2`), not the business name
+2. Confirm `data-slug` is non-empty (it labels the client and namespaces saved conversations); `data-secret` authenticates the domain
 3. Check the browser console for a frame-ancestors or X-Frame-Options error
 4. If your site sets a CSP, add `frame-src 'self' https://ziyarn.vercel.app`
 5. Check the Network tab for a request to `/embed/YOUR_DOMAIN_SLUG`
