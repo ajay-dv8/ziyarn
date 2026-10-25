@@ -601,6 +601,7 @@ export function createChatService(deps: { db: Database }) {
           priceCents: products.priceCents,
           currency: products.currency,
           imageUrl: products.imageUrl,
+          description: products.description,
         })
         .from(products)
         .where(
@@ -936,6 +937,7 @@ export async function handleChatConfig(
             priceCents: product.priceCents,
             currency: product.currency,
             imageUrl: product.imageUrl,
+            description: product.description,
           }),
         ),
       },
