@@ -1,0 +1,34 @@
+import { describe, expect, it } from "vitest";
+
+import { customerFacingAiErrorMessage } from "@repo/api/chat/server";
+
+describe("customerFacingAiErrorMessage", () => {
+  it("replaces a provider 429 with a calm retry message", () => {
+    const providerError = Object.assign(
+      new Error("429 status code (no body)"),
+      { status: 429 },
+    );
+
+    const message = customerFacingAiErrorMessage(providerError);
+
+    expect(message).toBe(
+      "I'm a bit busy right now. Please try again in a moment.",
+    );
+    expect(message).not.toContain("429");
+  });
+
+  it("hides raw provider details for any other failure", () => {
+    const message = customerFacingAiErrorMessage(
+      new Error("Connection error."),
+    );
+
+    expect(message).toBe("I couldn't finish that reply. Please try again.");
+    expect(message).not.toContain("Connection error");
+  });
+
+  it("never echoes the original message, even for non-Error throws", () => {
+    expect(customerFacingAiErrorMessage("boom")).toBe(
+      "I couldn't finish that reply. Please try again.",
+    );
+  });
+});
