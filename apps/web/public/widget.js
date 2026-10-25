@@ -93,29 +93,299 @@
   // ---------------------------------------------------------------------------
   // Lightweight markdown → HTML renderer
   // ---------------------------------------------------------------------------
-  // Converts a small subset of markdown into HTML for agent messages.
-  // Order matters: esc() first (prevents XSS), then apply formatting tags.
+  // Agent replies arrive as light markdown. This is the Shadow DOM twin of
+  // apps/web/lib/widget-markdown.ts (which the React surfaces use) — keep the
+  // two in sync. Supported: paragraphs, hard line breaks, bullet lists,
+  // numbered lists, headings, fenced code, blockquotes, horizontal rules,
+  // **bold**, *italic*, _italic_, `code`, ~~strikethrough~~, markdown links,
+  // bare https:// links, and em/en-dash spacing.
   //
-  // Supported syntax:
-  //   **bold**    → <strong>bold</strong>
-  //   *italic*    → <em>italic</em>
-  //   `code`      → <code>code</code>
-  //   \n          → <br>
-  //   em-dash (—) → " — " (spaced, for readability)
-  //   en-dash (–) → " - " (spaced, for readability)
-  //
-  // NOT supported (intentionally): tables, links, images, headers, lists.
-  // This keeps the renderer fast and safe for untrusted AI output.
+  // Safety: every literal text run passes through esc() before it reaches the
+  // string, and only the tags this file emits are ever produced, so raw HTML
+  // from the model cannot survive into innerHTML. It runs on every streaming
+  // token, so partial syntax ("**bold" without a close) must render literally
+  // instead of throwing or swallowing the rest of the bubble.
   function renderMd(text) {
     if (!text) return "";
-    var s = esc(text);
-    s = s.replace(/\u2014/g, " \u2014 "); // em-dash → spaced
-    s = s.replace(/\u2013/g, " - ");       // en-dash → hyphen
-    s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-    s = s.replace(/\*(.+?)\*/g, "<em>$1</em>");
-    s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
-    s = s.replace(/\n/g, "<br>");
-    return s;
+
+    var source = String(text)
+      .replace(/\r\n?/g, "\n")
+      // Tabs/spaces only: a leading \s* would eat line breaks around a dash
+      // that ends a line.
+      .replace(/[ \t]*\u2014[ \t]*/g, " \u2014 ")
+      .replace(/[ \t]*\u2013[ \t]*/g, " - ");
+
+    var lines = source.split("\n");
+    var html = "";
+    var index = 0;
+
+    while (index < lines.length) {
+      var line = lines[index];
+
+      if (/^\s*$/.test(line)) {
+        index += 1;
+        continue;
+      }
+
+      if (/^\s*```/.test(line)) {
+        index += 1;
+        var codeLines = [];
+        while (index < lines.length && !/^\s*```\s*$/.test(lines[index])) {
+          codeLines.push(lines[index]);
+          index += 1;
+        }
+        if (index < lines.length) index += 1;
+        html +=
+          '<pre class="zy-md-pre"><code>' +
+          esc(codeLines.join("\n")) +
+          "</code></pre>";
+        continue;
+      }
+
+      var heading = line.match(/^\s{0,3}#{1,6}\s+(.*?)\s*$/);
+      if (heading) {
+        html += '<p class="zy-md-h">' + renderMdInline(heading[1]) + "</p>";
+        index += 1;
+        continue;
+      }
+
+      if (/^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+        html += '<hr class="zy-md-hr">';
+        index += 1;
+        continue;
+      }
+
+      if (/^\s{0,6}[-*+]\s+/.test(line)) {
+        var bullets = "";
+        while (index < lines.length) {
+          var bullet = lines[index].match(/^\s{0,6}[-*+]\s+(.*)$/);
+          if (!bullet) break;
+          bullets += "<li>" + renderMdInline(bullet[1].trim()) + "</li>";
+          index += 1;
+        }
+        html += '<ul class="zy-md-list">' + bullets + "</ul>";
+        continue;
+      }
+
+      if (/^\s{0,6}\d{1,3}[.)]\s+/.test(line)) {
+        var firstNumber = line.match(/^\s{0,6}(\d{1,3})[.)]\s+/);
+        var start = firstNumber ? parseInt(firstNumber[1], 10) : 1;
+        var numbers = "";
+        while (index < lines.length) {
+          var numbered = lines[index].match(/^\s{0,6}\d{1,3}[.)]\s+(.*)$/);
+          if (!numbered) break;
+          numbers += "<li>" + renderMdInline(numbered[1].trim()) + "</li>";
+          index += 1;
+        }
+        html +=
+          '<ol class="zy-md-list"' +
+          (start > 1 ? ' start="' + start + '"' : "") +
+          ">" +
+          numbers +
+          "</ol>";
+        continue;
+      }
+
+      if (/^\s{0,3}>\s?/.test(line)) {
+        var quotedLines = [];
+        while (index < lines.length) {
+          var quoted = lines[index].match(/^\s{0,3}>\s?(.*)$/);
+          if (!quoted) break;
+          quotedLines.push(quoted[1]);
+          index += 1;
+        }
+        html +=
+          '<blockquote class="zy-md-quote">' +
+          renderMdInline(quotedLines.join("\n")) +
+          "</blockquote>";
+        continue;
+      }
+
+      var paragraph = [];
+      while (
+        index < lines.length &&
+        !/^\s*$/.test(lines[index]) &&
+        !isMdBlockStart(lines[index])
+      ) {
+        paragraph.push(lines[index]);
+        index += 1;
+      }
+      html += "<p>" + renderMdInline(paragraph.join("\n")) + "</p>";
+    }
+
+    return html;
+  }
+
+  function isMdBlockStart(line) {
+    return (
+      /^\s*```/.test(line) ||
+      /^\s{0,3}#{1,6}\s+/.test(line) ||
+      /^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line) ||
+      /^\s{0,6}[-*+]\s+/.test(line) ||
+      /^\s{0,6}\d{1,3}[.)]\s+/.test(line) ||
+      /^\s{0,3}>\s?/.test(line)
+    );
+  }
+
+  // Inline markdown. Escapes literal runs itself; recursive calls return HTML.
+  function renderMdInline(source) {
+    var html = "";
+    var plain = "";
+    var index = 0;
+
+    function flushPlain() {
+      if (plain) {
+        html += esc(plain);
+        plain = "";
+      }
+    }
+
+    while (index < source.length) {
+      var character = source[index];
+
+      if (character === "\n") {
+        flushPlain();
+        html += "<br>";
+        index += 1;
+        continue;
+      }
+
+      if (character === "`") {
+        var codeClose = source.indexOf("`", index + 1);
+        if (codeClose !== -1) {
+          flushPlain();
+          html += "<code>" + esc(source.slice(index + 1, codeClose)) + "</code>";
+          index = codeClose + 1;
+          continue;
+        }
+      }
+
+      if (source.slice(index, index + 2) === "**") {
+        var strongClose = source.indexOf("**", index + 2);
+        if (strongClose !== -1 && strongClose > index + 2) {
+          flushPlain();
+          html +=
+            "<strong>" + renderMdInline(source.slice(index + 2, strongClose)) + "</strong>";
+          index = strongClose + 2;
+          continue;
+        }
+      }
+
+      if (source.slice(index, index + 2) === "~~") {
+        var delClose = source.indexOf("~~", index + 2);
+        if (delClose !== -1 && delClose > index + 2) {
+          flushPlain();
+          html += "<del>" + renderMdInline(source.slice(index + 2, delClose)) + "</del>";
+          index = delClose + 2;
+          continue;
+        }
+      }
+
+      if (character === "*") {
+        var emClose = source.indexOf("*", index + 1);
+        if (emClose !== -1 && emClose > index + 1) {
+          flushPlain();
+          html += "<em>" + renderMdInline(source.slice(index + 1, emClose)) + "</em>";
+          index = emClose + 1;
+          continue;
+        }
+      }
+
+      // Underscore emphasis only at word boundaries, so identifiers like
+      // product_name survive untouched.
+      if (
+        character === "_" &&
+        (index === 0 || !/[A-Za-z0-9]/.test(source[index - 1]))
+      ) {
+        var underscoreClose = findMdUnderscoreClose(source, index + 1);
+        if (underscoreClose !== -1) {
+          flushPlain();
+          html +=
+            "<em>" + renderMdInline(source.slice(index + 1, underscoreClose)) + "</em>";
+          index = underscoreClose + 1;
+          continue;
+        }
+      }
+
+      if (character === "[") {
+        var link = source.slice(index).match(/^\[([^\]]*)\]\(([^)\s]+)\)/);
+        if (link && isMdSafeUrl(link[2])) {
+          flushPlain();
+          html +=
+            '<a href="' +
+            esc(link[2]) +
+            '" target="_blank" rel="noopener noreferrer">' +
+            renderMdInline(link[1]) +
+            "</a>";
+          index += link[0].length;
+          continue;
+        }
+      }
+
+      // Bare URLs, only at a word boundary so "xhttps://…" stays text.
+      if (
+        (character === "h" || character === "H") &&
+        (index === 0 || /[\s([<]/.test(source[index - 1])) &&
+        /^https?:\/\//i.test(source.slice(index))
+      ) {
+        var urlMatch = source.slice(index).match(/^https?:\/\/[^\s<>"']+/i);
+        if (urlMatch) {
+          var url = trimMdUrl(urlMatch[0]);
+          if (url.length > 8) {
+            flushPlain();
+            html +=
+              '<a href="' +
+              esc(url) +
+              '" target="_blank" rel="noopener noreferrer">' +
+              esc(url) +
+              "</a>";
+            index += url.length;
+            continue;
+          }
+        }
+      }
+
+      plain += character;
+      index += 1;
+    }
+
+    flushPlain();
+    return html;
+  }
+
+  function isMdSafeUrl(url) {
+    return /^(?:https?:\/\/|mailto:)/i.test(url);
+  }
+
+  function findMdUnderscoreClose(source, from) {
+    for (var index = from; index < source.length; index += 1) {
+      if (source[index] !== "_") continue;
+      var previous = source[index - 1] || "";
+      var next = source[index + 1] || "";
+      if (/\s/.test(previous)) continue;
+      if (next && /[A-Za-z0-9]/.test(next)) continue;
+      return index;
+    }
+    return -1;
+  }
+
+  function trimMdUrl(url) {
+    var trimmed = url.replace(/[.,;:!?]+$/, "");
+    while (
+      trimmed.slice(-1) === ")" &&
+      countMdCharacter(trimmed, ")") > countMdCharacter(trimmed, "(")
+    ) {
+      trimmed = trimmed.slice(0, -1);
+    }
+    return trimmed;
+  }
+
+  function countMdCharacter(value, character) {
+    var count = 0;
+    for (var index = 0; index < value.length; index += 1) {
+      if (value[index] === character) count += 1;
+    }
+    return count;
   }
 
   // ---------------------------------------------------------------------------
@@ -927,6 +1197,20 @@ var BASE_CSS = `
 .zy-msg-user { background: var(--_zy-color); color: #fff; border-bottom-right-radius: 5px; align-self: flex-end; }
 /* Error messages — centered, red background */
 .zy-msg-error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; align-self: center; font-size: 13px; }
+/* ---- Markdown inside agent bubbles (renderMd in helpers.js) ----
+   Block elements replaced the old <br>-only rendering; the global reset
+   zeroes margins, so spacing is re-established here. */
+.zy-msg p { margin: 0; }
+.zy-msg > * + * { margin-top: 6px; }
+.zy-msg ul, .zy-msg ol { padding-left: 20px; }
+.zy-msg li + li { margin-top: 3px; }
+.zy-msg a { color: var(--_zy-color); text-decoration: underline; text-underline-offset: 2px; }
+.zy-msg code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; background: rgba(15, 23, 42, 0.06); border-radius: 4px; padding: 1px 4px; }
+.zy-msg pre { background: #f1f5f9; border-radius: 8px; padding: 8px 10px; overflow-x: auto; }
+.zy-msg pre code { background: none; padding: 0; font-size: 12.5px; }
+.zy-msg blockquote { border-left: 3px solid var(--_zy-border); padding-left: 10px; color: var(--_zy-muted); }
+.zy-msg .zy-md-h { font-weight: 650; }
+.zy-msg .zy-md-hr { border: 0; border-top: 1px solid var(--_zy-border); }
 .zy-product-card { width: min(100%, 290px); display: flex; gap: 10px; align-items: center; align-self: flex-start; overflow: hidden; border: 1px solid var(--_zy-border); border-radius: 12px; background: #fff; padding: 8px; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08); animation: zy-in 0.16s ease; }
 .zy-product-image { width: 64px; height: 64px; flex: 0 0 64px; border-radius: 8px; object-fit: cover; background: #eef2f7; }
 .zy-product-details { min-width: 0; }

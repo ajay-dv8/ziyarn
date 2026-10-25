@@ -141,6 +141,14 @@ const server = createServer(async (req, res) => {
       { type: "text", delta: "STREAMED_" },
       { type: "text", delta: "REPLY_" },
       { type: "text", delta: "FROM_SERVER" },
+      // Markdown arrives token by token, exactly like the real agent. The
+      // checks below prove the shadow variants render it instead of showing
+      // literal ** and - markers.
+      {
+        type: "text",
+        delta:
+          "\n\n**Top picks:**\n- **Alpha** jersey\n- Beta jersey\n\n1. First step\n2. Second step",
+      },
       { type: "done", conversationId, serverTime: new Date().toISOString() },
     ]);
     return;
@@ -452,6 +460,44 @@ async function runVariant(variant) {
     `${variant}: streamed reply rendered`,
     messages.includes("STREAMED_REPLY_FROM_SERVER"),
     messages.replace(/\s+/g, " ").slice(0, 80),
+  );
+
+  // Markdown in the streamed reply: lists become real list elements, bold
+  // becomes <strong>, and no literal markers survive in the visible text.
+  const markdown = JSON.parse(
+    await page.evaluate(
+      shadow(`
+        markdown: (() => {
+          const agent = [...root.querySelectorAll('.zy-msg-agent')].find((node) =>
+            node.textContent.includes('STREAMED_REPLY_FROM_SERVER'),
+          );
+          if (!agent) return null;
+          return {
+            bullets: agent.querySelectorAll('ul.zy-md-list li').length,
+            numbered: agent.querySelectorAll('ol.zy-md-list li').length,
+            strong: [...agent.querySelectorAll('strong')].map(
+              (node) => node.textContent,
+            ),
+            literalMarkers:
+              agent.textContent.includes('**') ||
+              agent.textContent.includes('- Alpha'),
+          };
+        })()
+      `),
+    ),
+  ).markdown;
+  check(
+    `${variant}: markdown lists rendered`,
+    Boolean(markdown) && markdown.bullets >= 2 && markdown.numbered >= 2,
+    JSON.stringify(markdown),
+  );
+  check(
+    `${variant}: markdown emphasis rendered without literal markers`,
+    Boolean(markdown) &&
+      markdown.strong.includes("Top picks:") &&
+      markdown.strong.includes("Alpha") &&
+      markdown.literalMarkers === false,
+    JSON.stringify(markdown),
   );
   const productCard = JSON.parse(await page.evaluate(shadow(`product: (() => { const card = root.querySelector('.zy-product-card'); const image = root.querySelector('.zy-product-image'); return card ? { text: card.textContent, image: image ? image.getAttribute('src') : null } : null; })()`))).product;
   check(`${variant}: product card with image rendered`, Boolean(productCard) && productCard.text.includes("E2E Jersey") && Boolean(productCard.image), JSON.stringify(productCard));
