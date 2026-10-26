@@ -134,7 +134,10 @@
   gap: 10px;
   background: #f8fafc;
   overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.zy-messages::-webkit-scrollbar { display: none; }
 /* Individual message bubble styles */
 .zy-msg {
   max-width: 84%;
