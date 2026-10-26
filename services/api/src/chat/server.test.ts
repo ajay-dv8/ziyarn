@@ -31,4 +31,20 @@ describe("customerFacingAiErrorMessage", () => {
       "I couldn't finish that reply. Please try again.",
     );
   });
+
+  it("hides model unavailability and offers the human handoff instead", () => {
+    const providerError = Object.assign(
+      new Error(
+        "404 This model is unavailable for free. The paid version is available now - use this slug instead: openai/gpt-oss-20b",
+      ),
+      { status: 404 },
+    );
+
+    const message = customerFacingAiErrorMessage(providerError);
+
+    expect(message).not.toContain("unavailable for free");
+    expect(message).not.toContain("gpt-oss-20b");
+    expect(message).not.toContain("paid version");
+    expect(message).toContain("human agent");
+  });
 });
