@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
-import { leads, products, domains, users } from "@repo/database/schema";
+import { leads, products } from "@repo/database/schema";
 import type { AgentToolName } from "@repo/ai";
 import { currencyCode, formatDecimal } from "@repo/money";
 import {
@@ -12,11 +12,8 @@ import { checkSlotAvailable } from "@repo/api/portal/availability";
 import { PortalServiceError } from "@repo/api/portal";
 import type { PortalService } from "@repo/api/portal/server";
 import type { KnowledgeService } from "@repo/api/knowledge/server";
-import type { ChatService } from "@repo/api/chat/server";
+import { escalateConversationToHuman, type ChatService } from "@repo/api/chat/server";
 import { upsertCustomers } from "@repo/api/customers/server";
-import { escalationNotificationTemplate } from "@repo/api/email/templates";
-import { sendTransactional } from "@repo/api/email/server";
-import { APP_ROUTES, absoluteUrl } from "@repo/routes";
 
 type ToolExecutorDeps = {
   db: Database;
@@ -233,45 +230,16 @@ export function createToolExecutor(deps: ToolExecutorDeps) {
         );
         return `Payment request created for ${matchedProduct.name} (${formatDecimal({ amountMinor: payment.amountMinor, currency: payment.currency })} ${currencyCode({ amountMinor: payment.amountMinor, currency: payment.currency })})${quantity > 1 ? ` x${quantity}` : ""}. Share this secure payment link with the visitor: ${url}`;
       }
-      case "escalate":
-        await chatService.setConversationStatus(conversationId, "escalated");
-        logger.info({ conversationId }, "conversation_escalated");
-        // Best-effort email notification to domain owner
-        try {
-          const [domainRow] = await db
-            .select({ ownerId: domains.ownerId, domainName: domains.name })
-            .from(domains)
-            .where(eq(domains.id, domain.id))
-            .limit(1);
-          if (domainRow) {
-            const [ownerRow] = await db
-              .select({ email: users.email })
-              .from(users)
-              .where(eq(users.id, domainRow.ownerId))
-              .limit(1);
-            if (ownerRow?.email) {
-              const firstMsg = await chatService.contextMessages(conversationId, 1);
-              const dashboardUrl = `${absoluteUrl(
-                process.env.BETTER_AUTH_URL ?? "",
-                APP_ROUTES.DASHBOARD_CONVERSATIONS,
-              )}?conversationId=${conversationId}`;
-              const template = escalationNotificationTemplate({
-                domainName: domainRow.domainName,
-                dashboardUrl,
-                firstMessage: firstMsg[0]?.content ?? null,
-              });
-              await sendTransactional({
-                to: ownerRow.email,
-                subject: template.subject,
-                text: template.text,
-                html: template.html,
-              });
-            }
-          }
-        } catch (emailError) {
-          logger.error({ err: emailError, conversationId }, "escalation_email_failed");
-        }
+      case "escalate": {
+        await escalateConversationToHuman({
+          db,
+          domain,
+          conversationId,
+          chatService,
+          logger,
+        });
         return "The visitor has been connected to a human agent.";
+      }
       case "answer_knowledge": {
         const query =
           typeof args.query === "string" ? args.query.trim().slice(0, 1000) : "";
