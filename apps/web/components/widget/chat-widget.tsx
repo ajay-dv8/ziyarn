@@ -712,7 +712,7 @@ function AssistantMessage({
         <div
           className={cn(
             "ml-11 flex gap-2.5 overflow-x-auto pb-1",
-            "snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "snap-x snap-mandatory scrollbar-none [&::-webkit-scrollbar]:hidden",
             "focus-within:outline-none",
           )}
         >
@@ -740,7 +740,7 @@ function UserMessage({ text }: { text: string }) {
         {text}
       </div>
       <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#0d0d10] text-white ring-1 ring-black/10">
-        <User className="size-[15px]" strokeWidth={2} />
+        <User className="size-3.75" strokeWidth={2} />
       </span>
     </div>
   );
@@ -770,7 +770,7 @@ function AssistantAvatar({
           <svg
             aria-hidden="true"
             viewBox="0 0 40 40"
-            className="absolute inset-0 size-full animate-spin [animation-duration:1.6s]"
+            className="absolute inset-0 size-full animate-spin animation-duration-[1.6s]"
           >
             <circle
               cx="20"
@@ -795,7 +795,7 @@ function AssistantAvatar({
         <svg
           aria-hidden="true"
           viewBox="0 0 40 40"
-          className="absolute inset-0 size-full animate-spin [animation-duration:1.6s]"
+          className="absolute inset-0 size-full animate-spin animation-duration-[1.6s]"
         >
           <circle
             cx="20"
