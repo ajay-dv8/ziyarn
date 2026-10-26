@@ -36,6 +36,38 @@ export type AiStreamEvent =
   | { type: "tool"; name: AgentToolName; args: Record<string, unknown> }
   | { type: "escalate" };
 
+/**
+ * True when a provider error means the configured chat model cannot serve the
+ * visitor right now — the model is unavailable for the current tier, is missing,
+ * or the quota/token allowance is exhausted. These errors drive the automatic
+ * model fallback and, once every model is spent, the handoff to a human agent.
+ */
+export function isAiModelUnavailableError(error: unknown): boolean {
+  const status =
+    typeof error === "object" && error !== null && "status" in error
+      ? (error as { status?: unknown }).status
+      : undefined;
+  const statusCode = typeof status === "number" ? status : undefined;
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  const normalized = message.toLowerCase();
+  const quotaExhausted =
+    statusCode === 429 ||
+    normalized.includes("quota") ||
+    normalized.includes("rate limit") ||
+    normalized.includes("exceeded");
+  const modelUnavailable =
+    statusCode === 404 ||
+    statusCode === 410 ||
+    normalized.includes("unavailable for free") ||
+    normalized.includes("paid version") ||
+    normalized.includes("use this slug") ||
+    normalized.includes("model not found") ||
+    normalized.includes("model_not_found") ||
+    normalized.includes("no such model") ||
+    normalized.includes("model is unavailable");
+  return quotaExhausted || modelUnavailable;
+}
+
 const toolParameters = (properties: Record<string, unknown>, required: string[]) => ({
   type: "object" as const,
   properties,
