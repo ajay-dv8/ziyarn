@@ -8,6 +8,11 @@
  * points at this same constant, so the two cannot drift.
  */
 export const CHAT_PATH = "/api/chat";
+/**
+ * Visitor-initiated handoff to a human agent. Used when the AI is unavailable
+ * or its tokens are exhausted and the visitor asks to speak to a human.
+ */
+export const CHAT_ESCALATE_PATH = "/api/chat/escalate";
 
 /**
  * Every route handler under `app/api`, named once.
@@ -91,7 +96,10 @@ export const API_ROUTES = {
     /** Called by the scheduler, never by us. */
     processScheduled: "/api/campaigns/process-scheduled",
   },
-  chat: CHAT_PATH,
+  chat: {
+    root: CHAT_PATH,
+    escalate: CHAT_ESCALATE_PATH,
+  },
   customers: "/api/customers",
   /** Public liveness/readiness check used by uptime monitoring. */
   health: "/api/health",
