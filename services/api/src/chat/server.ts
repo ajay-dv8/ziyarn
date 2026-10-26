@@ -8,9 +8,18 @@ import {
   messages,
   products,
   bookingSettings,
+  users,
 } from "@repo/database/schema";
-import type { AgentToolName } from "@repo/ai";
+import { isAiModelUnavailableError, type AgentToolName } from "@repo/ai";
 import { currencyCode, formatDecimal } from "@repo/money";
+import {
+  absoluteUrl,
+  APP_ROUTES,
+} from "@repo/routes";
+import {
+  escalationNotificationTemplate,
+} from "@repo/api/email/templates";
+import { sendTransactional } from "@repo/api/email/server";
 import {
   clampWidgetVariantForPlan,
   getPlanLimits,
@@ -682,7 +691,105 @@ export function customerFacingAiErrorMessage(error: unknown): string {
   ) {
     return "I'm a bit busy right now. Please try again in a moment.";
   }
+  if (isAiModelUnavailableError(error)) {
+    return "I'm having trouble reaching the assistant right now. Let me connect you with a human agent.";
+  }
   return "I couldn't finish that reply. Please try again.";
+}
+
+export type EscalateConversationDeps = {
+  db: Database;
+  domain: { id: string; slug: string };
+  conversationId: string;
+  chatService: ChatService;
+  logger: Logger;
+  /** Why the handoff is happening, e.g. "model_unavailable". */
+  reason?: string;
+};
+
+/**
+ * Marks a conversation as escalated and notifies the owning human agent. Shared
+ * by the LLM `escalate` tool and by the widget's manual "escalate to human agent"
+ * handoff so both paths notify the human identically.
+ */
+export async function escalateConversationToHuman(deps: EscalateConversationDeps): Promise<void> {
+  const { db, domain, conversationId, chatService, logger, reason } = deps;
+  await chatService.setConversationStatus(conversationId, "escalated");
+  logger.info({ conversationId, reason }, "conversation_escalated");
+
+  try {
+    const [domainRow] = await db
+      .select({ ownerId: domains.ownerId, domainName: domains.name })
+      .from(domains)
+      .where(eq(domains.id, domain.id))
+      .limit(1);
+    if (domainRow) {
+      const [ownerRow] = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, domainRow.ownerId))
+        .limit(1);
+      if (ownerRow?.email) {
+        const firstMsg = await chatService.contextMessages(conversationId, 1);
+        const dashboardUrl = `${absoluteUrl(process.env.BETTER_AUTH_URL ?? "", APP_ROUTES.DASHBOARD_CONVERSATIONS)}?conversationId=${conversationId}`;
+        const template = escalationNotificationTemplate({
+          domainName: domainRow.domainName,
+          dashboardUrl,
+          firstMessage: firstMsg[0]?.content ?? null,
+          reason: typeof reason === "string" ? reason : undefined,
+        });
+        await sendTransactional({
+          to: ownerRow.email,
+          subject: template.subject,
+          text: template.text,
+          html: template.html,
+        });
+      }
+    }
+  } catch (emailError) {
+    logger.error({ err: emailError, conversationId }, "escalation_email_failed");
+  }
+}
+
+/** POST /api/chat/escalate — visitor-initiated handoff to a human agent. */
+export async function handleChatEscalate(
+  request: Request,
+  handlerDeps: {
+    db: Database;
+    chatService: ChatService;
+    logger: Logger;
+  },
+): Promise<Response> {
+  const { db, chatService, logger } = handlerDeps;
+  const secret = request.headers.get("x-embed-secret");
+  if (!secret) return jsonError(401, "MISSING_SECRET", "Missing embed secret");
+
+  let body: { conversationId?: string; reason?: string };
+  try {
+    body = (await request.json()) as { conversationId?: string; reason?: string };
+  } catch {
+    return jsonError(400, "INVALID_BODY", "Invalid body");
+  }
+  if (!body?.conversationId) {
+    return jsonError(400, "INVALID_BODY", "conversationId is required");
+  }
+
+  const domain = await chatService.resolveDomainBySecret(secret);
+  const conversation = await chatService.getConversationForDomain(body.conversationId, domain.id);
+
+  await escalateConversationToHuman({
+    db,
+    domain,
+    conversationId: conversation.id,
+    chatService,
+    logger,
+    reason: typeof body.reason === "string" ? body.reason : undefined,
+  });
+
+  return new Response(JSON.stringify({ ok: true, conversationId: conversation.id }), {
+    status: 200,
+    headers: { ...CORS_HEADERS, "content-type": "application/json" },
+  });
 }
 
 /** POST /api/chat — streams AI response as SSE. */
@@ -862,7 +969,7 @@ export async function handleChatPost(
           logger.error({ err: error }, "chat_stream_failed");
           send({
             type: "error",
-            code: "AI_ERROR",
+            code: isAiModelUnavailableError(error) ? "AI_MODEL_UNAVAILABLE" : "AI_ERROR",
             message: customerFacingAiErrorMessage(error),
           });
         } finally {
