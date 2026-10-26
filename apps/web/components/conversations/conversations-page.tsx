@@ -80,7 +80,7 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
       eventSourceRef.current = null;
     }
     const url =
-      API_ROUTES.chat + "?conversationId=" +
+      API_ROUTES.chat.root + "?conversationId=" +
       encodeURIComponent(selectedConversationRef.current) +
       "&since=" +
       encodeURIComponent(since) +
@@ -173,7 +173,7 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
 
     // Fetch full message history
     const res = await fetch(
-      API_ROUTES.chat + "?conversationId=" + encodeURIComponent(conversationId),
+      API_ROUTES.chat.root + "?conversationId=" + encodeURIComponent(conversationId),
     );
     if (res.ok) {
       const data = await res.json();
