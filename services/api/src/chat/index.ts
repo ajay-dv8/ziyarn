@@ -8,6 +8,8 @@ export {
   handleChatPost,
   handleChatConfig,
   handleChatHistory,
+  escalateConversationToHuman,
+  handleChatEscalate,
 } from "@repo/api/chat/server";
 
 export type { ChatService } from "@repo/api/chat/server";
