@@ -428,7 +428,9 @@ export function ChatWidget({
 
   const composerWidth = isPreview
     ? "w-full max-w-[410px]"
-    : "w-[min(88vw,410px)]";
+    : expanded
+      ? "w-full max-w-[560px]"
+      : "w-[min(88vw,410px)]";
 
   return (
     <div className={cn("relative flex w-full flex-col items-center", className)}>
