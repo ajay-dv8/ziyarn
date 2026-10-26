@@ -30,6 +30,7 @@ import {
 } from "@repo/ui/components/tooltip";
 import { cn } from "@repo/ui/lib/utils";
 import { formatMoney } from "@repo/money";
+import { CHAT_ESCALATE_PATH } from "@repo/routes";
 import {
   createSession,
   type AgentProduct,
@@ -66,6 +67,7 @@ type ChatMessage = {
   tool?: ToolActivity;
   products?: AgentProduct[];
   error?: string;
+  errorCode?: string;
 };
 
 type Status = "loading" | "ready" | "error" | "unavailable";
@@ -346,10 +348,11 @@ export function ChatWidget({
       },
       onEscalate: () => setEscalated(true),
       onDone: () => {},
-      onError: (errorMessage) =>
+      onError: (errorMessage, errorCode) =>
         patchMessage(replyId, (message) => ({
           ...message,
           error: errorMessage,
+          errorCode,
         })),
     });
 
@@ -384,6 +387,32 @@ export function ChatWidget({
     }
     void sendReal();
   };
+
+  const escalateToHuman = useCallback(
+    async (reason?: string) => {
+      const session = sessionRef.current;
+      const conversationId = session?.conversationId;
+      if (conversationId) {
+        try {
+          await fetch(`${apiBase}${CHAT_ESCALATE_PATH}`, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              ...(secret ? { "x-embed-secret": secret } : {}),
+            },
+            body: JSON.stringify({ conversationId, reason }),
+          });
+        } catch {
+          // The visitor-facing handoff still moves on; the notification itself
+          // is best effort.
+        }
+      }
+      setEscalated(true);
+      setStatusMessage("Connecting you with a human...");
+      session?.listenForOwnerReplies({ onMessage: appendOwnerMessage });
+    },
+    [apiBase, appendOwnerMessage, secret],
+  );
 
   const composerWidth = isPreview
     ? "w-full max-w-[410px]"
@@ -457,7 +486,7 @@ export function ChatWidget({
           <div
             ref={scrollRef}
             className={cn(
-              "relative flex-1 overflow-y-auto overscroll-contain px-5 sm:px-6",
+              "relative flex-1 overflow-y-auto overscroll-contain px-5 sm:px-6 no-scrollbar [&::-webkit-scrollbar]:hidden",
               isPreview ? "pt-5 sm:pt-6" : "pt-14",
               onClose && "pr-12 sm:pr-14",
               isPreview ? "pb-5" : "pb-16",
@@ -479,6 +508,7 @@ export function ChatWidget({
                     running={message.id === activeId}
                     logoUrl={domainLogoUrl}
                     onOpenProduct={openProduct}
+                    onEscalate={escalateToHuman}
                   />
                 ),
               )}
@@ -669,11 +699,13 @@ function AssistantMessage({
   running,
   logoUrl,
   onOpenProduct,
+  onEscalate,
 }: {
   message: ChatMessage;
   running: boolean;
   logoUrl?: string | null;
   onOpenProduct: (product: AgentProduct) => void;
+  onEscalate?: (reason?: string) => void;
 }) {
   return (
     <div className="space-y-2.5">
@@ -697,9 +729,20 @@ function AssistantMessage({
               must not sit above it. Errors only show when nothing else
               rendered, and the API has already made the text customer-safe. */}
           {message.error && !message.products?.length ? (
-            <p className="mt-1 text-[11px] leading-[1.45] text-[#b3261e]">
-              {message.error}
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-[11px] leading-[1.45] text-[#b3261e]">
+                {message.error}
+              </p>
+              {message.errorCode === "AI_MODEL_UNAVAILABLE" ? (
+                <button
+                  type="button"
+                  onClick={() => onEscalate?.("model_unavailable")}
+                  className="rounded-full bg-[#17161b] px-2.5 py-1 text-[11px] font-medium text-white transition hover:bg-[#2a2930] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17161b]/20"
+                >
+                  Escalate to human agent
+                </button>
+              ) : null}
+            </div>
           ) : null}
           {message.role === "owner" ? (
             <p className="mt-1 text-[9.5px] font-medium tracking-wide text-[#9c99a5]">
