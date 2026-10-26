@@ -1376,6 +1376,10 @@ var BASE_CSS = `
     border: none;
   }
   .zy-wrap, .zy-wrap[data-position] { left: 0; right: 0; bottom: 0; }
+  /* When the panel is open on mobile, anchor it to the top of the screen so it
+     can never overflow above the viewport when the mobile keyboard opens. */
+  .zy-wrap[data-open="true"] { top: 0; bottom: auto; height: 100dvh; }
+  .zy-wrap[data-open="true"] .zy-panel { height: 100%; max-height: 100%; }
   /* Keep the launcher as a floating bubble at the bottom */
   .zy-launcher { position: fixed; right: 16px; bottom: 16px; }
   .zy-wrap[data-position="bottom-left"] .zy-launcher { left: 16px; right: auto; }
@@ -1383,6 +1387,8 @@ var BASE_CSS = `
      the send button), show the header close button instead */
   .zy-wrap[data-open="true"] .zy-launcher { display: none; }
   .zy-header-close { display: flex; }
+  /* Drop the "Powered by Ziyarn" footer on mobile to free vertical space. */
+  .zy-note { display: none; }
 }
 `;
 
