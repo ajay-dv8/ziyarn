@@ -7,7 +7,6 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  Clock,
   Copy,
   Download,
   Maximize2,
@@ -73,6 +72,7 @@ type ChatMessage = {
 type Status = "loading" | "ready" | "error" | "unavailable";
 
 const GREETING = "Hello! How can I help you today?";
+const COMPOSER_MAX_HEIGHT_PX = 64;
 
 export type ChatWidgetProps = {
   className?: string;
@@ -120,7 +120,7 @@ export function ChatWidget({
   const [attempt, setAttempt] = useState(0);
 
   const sessionRef = useRef<Session | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const nextId = useRef(1);
   const stopped = useRef(false);
@@ -237,13 +237,25 @@ export function ChatWidget({
     slug,
   ]);
 
+  const resizeComposer = useCallback((element: HTMLTextAreaElement | null) => {
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${Math.min(element.scrollHeight, COMPOSER_MAX_HEIGHT_PX)}px`;
+    element.style.maxHeight = `${COMPOSER_MAX_HEIGHT_PX}px`;
+    element.style.overflow = "hidden";
+  }, []);
+
   useEffect(() => {
     const node = scrollRef.current;
     if (node) node.scrollTop = node.scrollHeight;
   }, [messages]);
 
   useEffect(() => {
-    if (mode === "embed" && status === "ready") inputRef.current?.focus();
+    resizeComposer(textareaRef.current);
+  }, [draft, resizeComposer]);
+
+  useEffect(() => {
+    if (mode === "embed" && status === "ready") textareaRef.current?.focus();
   }, [mode, status]);
 
   useEffect(() => {
@@ -549,14 +561,15 @@ export function ChatWidget({
         <ComposerIcon label="Add attachment">
           <Plus className="size-4" strokeWidth={2} />
         </ComposerIcon>
-        <ComposerIcon label="Recent chats">
-          <Clock className="size-4" strokeWidth={2} />
-        </ComposerIcon>
 
-        <input
-          ref={inputRef}
+        <textarea
+          ref={textareaRef}
+          rows={1}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            resizeComposer(event.target);
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
@@ -567,7 +580,7 @@ export function ChatWidget({
           aria-label="Ask anything"
           autoComplete="off"
           disabled={status !== "ready"}
-          className="min-w-0 flex-1 bg-transparent px-1.5 text-[12.5px] text-[#1b1a20] outline-none placeholder:text-[#8f8b97]"
+          className="min-w-0 max-h-16 flex-1 resize-none overflow-hidden bg-transparent px-1.5 py-1 text-[12.5px] text-[#1b1a20] outline-none placeholder:text-[#8f8b97]"
         />
 
         <ComposerIcon label="Voice input">
