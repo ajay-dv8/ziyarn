@@ -35,7 +35,7 @@ export interface SendHandlers {
   onTool(name: string, args?: Record<string, unknown>): void;
   onEscalate(): void;
   onDone(conversationId: string | null): void;
-  onError(message: string): void;
+  onError(message: string, code?: string): void;
   /** Called for every event, including ones the shell has no bubble for. */
   onTick?(): void;
   /** The server goes quiet for this long mid-reply: give up on this turn. */
@@ -198,7 +198,7 @@ export function createSession(config: SessionConfig): Session {
         return;
       }
       if (event.type === "error") {
-        handlers.onError(event.message ?? "Something went wrong");
+        handlers.onError(event.message ?? "Something went wrong", event.code);
         return;
       }
       // done
