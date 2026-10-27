@@ -443,7 +443,7 @@ export function ChatWidget({
           "shadow-[0_36px_90px_-24px_rgba(8,6,18,0.78)]",
           "transition-[width,height] duration-300 ease-out",
           expanded
-            ? "h-[min(88dvh,760px)] w-[min(94vw,860px)]"
+            ? "h-[min(88dvh,760px)] w-[min(98vw,860px)]"
             : isPreview
               ? "h-105 w-full max-w-130"
               : "h-[min(68dvh,450px)] w-[min(92vw,520px)]",
