@@ -452,7 +452,7 @@ export function ChatWidget({
         {/* Soft lavender bloom behind the conversation, like the reference. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute top-[34%] -left-24 size-80 rounded-full bg-transparent blur-[72px]"
+          className="pointer-events-none absolute top-[34%] -left-24 size-80 rounded-full bg-transparent blur-[52px]"
         />
         <div
           aria-hidden="true"
