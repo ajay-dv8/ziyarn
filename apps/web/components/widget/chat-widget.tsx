@@ -433,7 +433,13 @@ export function ChatWidget({
       : "w-[min(88vw,410px)]";
 
   return (
-    <div className={cn("relative flex w-full flex-col items-center", className)}>
+    <div
+      className={cn(
+        "relative flex w-full flex-col items-center",
+        mode === "embed" && "max-[480px]:h-full max-[480px]:min-h-0",
+        className,
+      )}
+    >
       <div
         role="region"
         aria-label={agentName ? `Chat with ${agentName}` : "Chat with the assistant"}
@@ -447,6 +453,12 @@ export function ChatWidget({
             : isPreview
               ? "h-105 w-full max-w-130"
               : "h-[min(68dvh,450px)] w-[min(92vw,520px)]",
+          // Embed mode on phones: the panel shares the visible frame with the
+          // composer below it, so it takes the remaining space instead of a
+          // fixed height. Sizing only the panel to the screen made panel plus
+          // composer taller than the screen.
+          mode === "embed" &&
+            "max-[480px]:h-auto max-[480px]:min-h-0 max-[480px]:w-full max-[480px]:max-w-none max-[480px]:flex-1 max-[480px]:rounded-none max-[480px]:border-0 max-[480px]:shadow-none",
         )}
       >
         {/* Soft lavender bloom behind the conversation, like the reference. */}
@@ -479,7 +491,10 @@ export function ChatWidget({
                     type="button"
                     onClick={() => setExpanded((value) => !value)}
                     aria-label={expanded ? "Exit Full Screen" : "Full Screen"}
-                    className="absolute top-3 left-3 z-20 grid size-8 place-items-center rounded-full bg-white/75 text-[#494652] shadow-[0_6px_18px_-6px_rgba(23,22,27,0.3)] backdrop-blur transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17161b]/20"
+                    className={cn(
+                      "absolute top-3 left-3 z-20 grid size-8 place-items-center rounded-full bg-white/75 text-[#494652] shadow-[0_6px_18px_-6px_rgba(23,22,27,0.3)] backdrop-blur transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17161b]/20",
+                      mode === "embed" && "max-[480px]:hidden",
+                    )}
                   >
                     {expanded ? (
                       <Minimize2 className="size-4" strokeWidth={2} />
