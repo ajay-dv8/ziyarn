@@ -80,22 +80,7 @@ export function SleekEmbed({ slug, secret }: { slug: string; secret: string }) {
           color-scheme pin defeats the canvas rule that .dark (set by
           next-themes on dark-OS devices) would otherwise impose. */}
       <style>
-        {`html,body{background:transparent}
-:root{color-scheme:light !important}
-/* Mobile: anchor the surface to the visible screen. --zy-vvh / --zy-vv-top
-   are written by the visualViewport effect above; the fallbacks keep the
-   static layout on browsers without that API. */
-@media (max-width: 480px) {
-  main {
-    position: fixed;
-    top: var(--zy-vv-top, 0px);
-    left: 0;
-    right: 0;
-    bottom: auto;
-    height: var(--zy-vvh, 100dvh);
-    padding: 0;
-  }
-}`}
+        {"html,body{background:transparent}:root{color-scheme:light !important}"}
       </style>
       <main className="relative flex flex-col min-h-dvh items-baseline justify-end overflow-hidden px-4 py-8">
         <ChatWidget
