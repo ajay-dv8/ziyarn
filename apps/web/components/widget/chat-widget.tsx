@@ -556,7 +556,7 @@ export function ChatWidget({
 
       <div
         className={cn(
-          "mt-3 flex items-center gap-0.5 rounded-full border border-white/50 bg-[#e8e5eb]/95 p-1.5 shadow-[0_24px_60px_-18px_rgba(0,0,0,0.7)] backdrop-blur-md",
+          "mt-1 md:mt-3 flex items-center gap-0.5 rounded-full border border-white/50 bg-[#e8e5eb]/95 p-1.5 shadow-[0_24px_60px_-18px_rgba(0,0,0,0.7)] backdrop-blur-md",
           composerWidth,
         )}
       >
@@ -1041,7 +1041,7 @@ function ProductView({
 
         {/* Pinned over long text while scrolling; sits right beneath the
             content when the screen fits it. */}
-        <div className="sticky bottom-0 bg-gradient-to-t from-[#f3f1f6] via-[#f3f1f6]/95 to-transparent px-5 pt-4 pb-4">
+        <div className="sticky bottom-0 bg-linear-to-t from-[#f3f1f6] via-[#f3f1f6]/95 to-transparent px-5 pt-4 pb-4">
           <div className="flex items-center gap-2">
             <ShareButton product={product} variant="primary" className="flex-1" />
             {product.imageUrl ? <DownloadButton product={product} /> : null}
@@ -1367,7 +1367,7 @@ function ToolCard({
 
       {open && tool.detail ? (
         <div className="px-2 pb-2">
-          <pre className="max-h-32 overflow-auto rounded-[6px] bg-[#0a0a0d] px-3 py-2.5 font-mono text-[10.5px] leading-[1.6] whitespace-pre-wrap break-words text-white/90">
+          <pre className="max-h-32 overflow-auto rounded-[6px] bg-[#0a0a0d] px-3 py-2.5 font-mono text-[10.5px] leading-[1.6] whitespace-pre-wrap wrap-break-words text-white/90">
             {tool.detail}
           </pre>
         </div>
@@ -1381,7 +1381,7 @@ function ToolSpinner() {
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      className="size-3.5 animate-spin text-[#b5aee3] [animation-duration:1.3s]"
+      className="size-3.5 animate-spin text-[#b5aee3] animation-duration-[1.3s]"
     >
       <circle
         cx="12"
