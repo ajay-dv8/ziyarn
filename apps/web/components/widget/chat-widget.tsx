@@ -447,6 +447,13 @@ export function ChatWidget({
             : isPreview
               ? "h-105 w-full max-w-130"
               : "h-[min(68dvh,450px)] w-[min(92vw,520px)]",
+          // Embed mode on mobile: the keyboard overlays the layout viewport
+          // rather than shrinking it, so dvh sizes stay too tall and the
+          // browser pans — parking the panel's header off the top edge.
+          // --zy-vvh is written by SleekEmbed from window.visualViewport on
+          // both the host page and the iframe, so the panel fills the visible
+          // area (screen above the keyboard) either way.
+          mode === "embed" && "max-[480px]:h-[var(--zy-vvh,100dvh)]",
         )}
       >
         {/* Soft lavender bloom behind the conversation, like the reference. */}

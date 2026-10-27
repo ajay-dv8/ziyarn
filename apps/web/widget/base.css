@@ -333,9 +333,19 @@
     border: none;
   }
   .zy-wrap, .zy-wrap[data-position] { left: 0; right: 0; bottom: 0; }
-  /* When the panel is open on mobile, anchor it to the top of the screen so it
-     can never overflow above the viewport when the mobile keyboard opens. */
-  .zy-wrap[data-open="true"] { top: 0; bottom: auto; height: 100dvh; }
+  /* When the panel is open on mobile, anchor it to the top of the VISIBLE
+     screen — not the layout viewport. See _watchVisualViewport in engine.js:
+     the keyboard overlays the bottom of the layout viewport without shrinking
+     it, so a plain 100dvh-tall panel is taller than the area above the
+     keyboard and the browser's pan parks the header off the top of the
+     screen. --zy-vv-top is the layout offset of the visible area and
+     --zy-vvh its height, written from window.visualViewport; the fallbacks
+     keep the previous behaviour on browsers without that API. */
+  .zy-wrap[data-open="true"] {
+    top: var(--zy-vv-top, 0px);
+    bottom: auto;
+    height: var(--zy-vvh, 100dvh);
+  }
   .zy-wrap[data-open="true"] .zy-panel { height: 100%; max-height: 100%; }
   /* Keep the launcher as a floating bubble at the bottom */
   .zy-launcher { position: fixed; right: 16px; bottom: 16px; }

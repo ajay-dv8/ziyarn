@@ -37,6 +37,36 @@ export function SleekEmbed({ slug, secret }: { slug: string; secret: string }) {
     if (isEmbedded) window.parent.postMessage({ type: "ziyarn:ready" }, "*");
   }, []);
 
+  // Mirror the mobile keyboard into CSS variables. iOS (and Chrome for
+  // Android) overlay the keyboard without shrinking the layout viewport, so
+  // dvh-based sizes keep their full-screen value and the browser pans the
+  // page — sliding the chat's header off the top edge exactly when the
+  // visitor starts typing. window.visualViewport describes the actually
+  // visible area; the mobile media block in the style tag below anchors the
+  // surface (and, via the panel's height utility, the chat itself) to it.
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const apply = () => {
+      const documentRoot = document.documentElement;
+      // iOS reports negative offsets while the keyboard's pan settles.
+      documentRoot.style.setProperty("--zy-vvh", `${viewport.height}px`);
+      documentRoot.style.setProperty(
+        "--zy-vv-top",
+        `${Math.max(0, viewport.offsetTop)}px`,
+      );
+    };
+    apply();
+    viewport.addEventListener("resize", apply);
+    viewport.addEventListener("scroll", apply);
+    return () => {
+      viewport.removeEventListener("resize", apply);
+      viewport.removeEventListener("scroll", apply);
+      document.documentElement.style.removeProperty("--zy-vvh");
+      document.documentElement.style.removeProperty("--zy-vv-top");
+    };
+  }, []);
+
   const close = useCallback(() => {
     if (window.parent !== window) {
       window.parent.postMessage({ type: "ziyarn:close" }, "*");
@@ -50,7 +80,22 @@ export function SleekEmbed({ slug, secret }: { slug: string; secret: string }) {
           color-scheme pin defeats the canvas rule that .dark (set by
           next-themes on dark-OS devices) would otherwise impose. */}
       <style>
-        {"html,body{background:transparent}:root{color-scheme:light !important}"}
+        {`html,body{background:transparent}
+:root{color-scheme:light !important}
+/* Mobile: anchor the surface to the visible screen. --zy-vvh / --zy-vv-top
+   are written by the visualViewport effect above; the fallbacks keep the
+   static layout on browsers without that API. */
+@media (max-width: 480px) {
+  main {
+    position: fixed;
+    top: var(--zy-vv-top, 0px);
+    left: 0;
+    right: 0;
+    bottom: auto;
+    height: var(--zy-vvh, 100dvh);
+    padding: 0;
+  }
+}`}
       </style>
       <main className="relative flex flex-col min-h-dvh items-baseline justify-end overflow-hidden px-4 py-8">
         <ChatWidget

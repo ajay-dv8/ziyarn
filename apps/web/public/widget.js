@@ -1376,9 +1376,19 @@ var BASE_CSS = `
     border: none;
   }
   .zy-wrap, .zy-wrap[data-position] { left: 0; right: 0; bottom: 0; }
-  /* When the panel is open on mobile, anchor it to the top of the screen so it
-     can never overflow above the viewport when the mobile keyboard opens. */
-  .zy-wrap[data-open="true"] { top: 0; bottom: auto; height: 100dvh; }
+  /* When the panel is open on mobile, anchor it to the top of the VISIBLE
+     screen — not the layout viewport. See _watchVisualViewport in engine.js:
+     the keyboard overlays the bottom of the layout viewport without shrinking
+     it, so a plain 100dvh-tall panel is taller than the area above the
+     keyboard and the browser's pan parks the header off the top of the
+     screen. --zy-vv-top is the layout offset of the visible area and
+     --zy-vvh its height, written from window.visualViewport; the fallbacks
+     keep the previous behaviour on browsers without that API. */
+  .zy-wrap[data-open="true"] {
+    top: var(--zy-vv-top, 0px);
+    bottom: auto;
+    height: var(--zy-vvh, 100dvh);
+  }
   .zy-wrap[data-open="true"] .zy-panel { height: 100%; max-height: 100%; }
   /* Keep the launcher as a floating bubble at the bottom */
   .zy-launcher { position: fixed; right: 16px; bottom: 16px; }
@@ -1715,6 +1725,20 @@ var VARIANT_CSS = {
 .zy-wrap[data-variant="sleek"][data-open="true"] .zy-launcher {
   display: none;
 }
+
+/* Mobile: the overlay clings to the VISIBLE screen rather than the layout
+   viewport. The engine mirrors window.visualViewport into --zy-vv-top /
+   --zy-vvh (see _watchVisualViewport), so when the software keyboard opens
+   the frame shrinks and slides with it — instead of its top edge leaving the
+   screen. The embed page inside the frame sizes itself from the frame, so
+   its own dvh units recompute against the resized frame automatically. */
+@media (max-width: 480px) {
+  .zy-wrap[data-variant="sleek"][data-open="true"] .zy-sleek-overlay {
+    top: var(--zy-vv-top, 0px);
+    bottom: auto;
+    height: var(--zy-vvh, 100dvh);
+  }
+}
 `,
 };
 
@@ -1904,6 +1928,7 @@ var VARIANT_CSS = {
       this._apiBase = null;          // API base URL (e.g. "https://ziyarn.vercel.app")
       this._conversationId = null;   // current conversation ID (persisted in localStorage)
       this._visitorId = null;        // unique visitor ID (persisted in localStorage)
+      this._viewportSync = null;     // visual-viewport listener record (mobile keyboard)
       // ---- Config (from data-* attributes) ----
       this._slug = "";               // domain slug — identifies which business/agent to talk to
       this._secret = "";             // embed secret — authenticates widget requests
@@ -1985,6 +2010,13 @@ var VARIANT_CSS = {
       // Avoids repeated querySelector calls during streaming/interaction.
       this._root = root;
       this._wrap = wrap;
+
+      // Mirror window.visualViewport into CSS custom properties so the open
+      // panel — and Sleek's iframe — cling to the visible screen. On mobile
+      // the keyboard overlays the layout viewport instead of resizing it, so
+      // without this the browser pans and the panel's header slides off the
+      // top of the screen exactly when the visitor starts typing.
+      this._watchVisualViewport();
 
       // Modern Sleek's chat lives on a separate page. It needs only the
       // launcher and the frame, so hand off before wiring the panel.
@@ -2166,6 +2198,69 @@ var VARIANT_CSS = {
       } else {
         this._sleekLauncher.focus();
       }
+    }
+
+    // -------------------------------------------------------------------------
+    // _watchVisualViewport — mobile keyboards overlay the screen, not resize it
+    // -------------------------------------------------------------------------
+    // iOS covers the lower screen with the keyboard without shrinking the
+    // layout viewport, and Chrome for Android defaults to the same
+    // resizes-visual behaviour. A panel sized to 100dvh is therefore taller
+    // than the area above the keyboard, and as the browser pans the visual
+    // viewport to reveal the focused input, the panel's top edge ends up
+    // off-screen — the header disappears exactly when the visitor types.
+    //
+    // window.visualViewport describes what is actually visible. Mirror it into
+    // two custom properties on the wrapper and let the mobile CSS do the rest:
+    //
+    //   --zy-vv-top  distance (px) from the layout viewport's top to the top
+    //                of the visible area (non-zero while the page is panned)
+    //   --zy-vvh     height (px) of the visible area, i.e. screen minus keyboard
+    //
+    // Browsers without the API never write the variables, so their fallbacks
+    // (0px / 100dvh) keep the previous behaviour.
+    _watchVisualViewport() {
+      var self = this;
+      var trackedViewport = window.visualViewport;
+      if (!trackedViewport || this._viewportSync) return;
+
+      var apply = function () {
+        var currentVisualViewport = window.visualViewport;
+        if (!currentVisualViewport || !self._wrap) return;
+        // iOS reports negative offsets while the keyboard's pan settles.
+        var visibleTop = Math.max(0, currentVisualViewport.offsetTop);
+        self._wrap.style.setProperty("--zy-vv-top", visibleTop + "px");
+        self._wrap.style.setProperty("--zy-vvh", currentVisualViewport.height + "px");
+        // A panel that just shrank keeps its old scrollTop, which pins the
+        // newest message below the fold. Re-seat it while the chat is open.
+        if (self._open && self._messages) {
+          self._messages.scrollTop = self._messages.scrollHeight;
+        }
+      };
+      // Coalesce the event storm while the keyboard animates.
+      var scheduledFrame = null;
+      var onViewportChange = function () {
+        if (scheduledFrame) return;
+        scheduledFrame = window.requestAnimationFrame(function () {
+          scheduledFrame = null;
+          apply();
+        });
+      };
+      trackedViewport.addEventListener("resize", onViewportChange);
+      trackedViewport.addEventListener("scroll", onViewportChange);
+      this._viewportSync = {
+        viewport: trackedViewport,
+        handler: onViewportChange,
+      };
+      apply();
+    }
+
+    _unwatchVisualViewport() {
+      var trackedViewport = this._viewportSync;
+      if (!trackedViewport) return;
+      trackedViewport.viewport.removeEventListener("resize", trackedViewport.handler);
+      trackedViewport.viewport.removeEventListener("scroll", trackedViewport.handler);
+      this._viewportSync = null;
     }
 
     // -------------------------------------------------------------------------
@@ -2412,6 +2507,7 @@ var VARIANT_CSS = {
         document.removeEventListener("keydown", this._sleekKeyHandler);
         this._sleekKeyHandler = null;
       }
+      this._unwatchVisualViewport();
       this._abortThinking();
     }
 

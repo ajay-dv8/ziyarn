@@ -33,3 +33,17 @@
 .zy-wrap[data-variant="sleek"][data-open="true"] .zy-launcher {
   display: none;
 }
+
+/* Mobile: the overlay clings to the VISIBLE screen rather than the layout
+   viewport. The engine mirrors window.visualViewport into --zy-vv-top /
+   --zy-vvh (see _watchVisualViewport), so when the software keyboard opens
+   the frame shrinks and slides with it — instead of its top edge leaving the
+   screen. The embed page inside the frame sizes itself from the frame, so
+   its own dvh units recompute against the resized frame automatically. */
+@media (max-width: 480px) {
+  .zy-wrap[data-variant="sleek"][data-open="true"] .zy-sleek-overlay {
+    top: var(--zy-vv-top, 0px);
+    bottom: auto;
+    height: var(--zy-vvh, 100dvh);
+  }
+}
