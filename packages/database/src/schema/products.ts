@@ -27,6 +27,8 @@ export const products = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     imageUrl: text("image_url"),
+    /** Owner's product page; null means the widget offers no page action. */
+    productUrl: text("product_url"),
     priceCents: integer("price_cents").notNull(),
     currency: text("currency", {
       enum: ["ghs", "usd", "eur", "gbp"],
