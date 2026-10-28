@@ -87,6 +87,7 @@ async function upsertSyncedProducts(
         name: row.name,
         description: row.description,
         imageUrl: row.imageUrl,
+        productUrl: row.productUrl,
         priceCents: row.priceCents,
         currency: input.currency,
         active: row.active,
@@ -99,6 +100,8 @@ async function upsertSyncedProducts(
         name: sql`excluded.name`,
         description: sql`excluded.description`,
         imageUrl: sql`excluded.image_url`,
+        // A source without a URL column must not erase a URL the owner entered.
+        productUrl: sql`coalesce(excluded.product_url, ${products.productUrl})`,
         priceCents: sql`excluded.price_cents`,
         currency: sql`excluded.currency`,
         active: sql`excluded.active`,
