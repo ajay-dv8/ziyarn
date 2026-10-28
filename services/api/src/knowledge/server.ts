@@ -38,6 +38,10 @@ import {
   startCrawlSchema,
   uploadFileSchema,
 } from "@repo/api/knowledge/schemas";
+import {
+  isPrivatePageUrl,
+  publicSourceUrl,
+} from "@repo/api/knowledge/source-links";
 
 export class KnowledgeServiceError extends Error {
   constructor(
@@ -473,8 +477,9 @@ export function createKnowledgeService(deps: {
     /**
      * Searches the knowledge base of an agent (used by the public chat API;
      * no session required — the caller already scoped the agent). Returns the
-     * most similar chunks above minScore, or an empty list when the agent has
-     * no knowledge base at all.
+     * most similar chunks above minScore with their public source title/URL,
+     * or an empty list when the agent has no knowledge base at all. Private
+     * crawled routes are omitted until a re-crawl removes them.
      */
     queryKnowledge: async (input: QueryKnowledgeInput) => {
       const body = queryKnowledgeSchema.parse(input);
@@ -515,6 +520,10 @@ export function createKnowledgeService(deps: {
         .select({
           text: documentChunks.text,
           score: sql<number>`1 - (${embeddings.embedding} <=> ${vector})`,
+          title: knowledgeDocuments.title,
+          source: knowledgeDocuments.source,
+          fileName: knowledgeDocuments.fileName,
+          crawlJobId: knowledgeDocuments.crawlJobId,
         })
         .from(embeddings)
         .innerJoin(documentChunks, eq(embeddings.chunkId, documentChunks.id))
@@ -528,7 +537,17 @@ export function createKnowledgeService(deps: {
 
       return results
         .filter((row) => row.score >= minScore)
-        .map((row) => ({ text: row.text, score: row.score }));
+        // Older crawls may have stored private routes before the crawler
+        // skipped them. Keep their text out of answers until a re-crawl.
+        .filter(
+          (row) => !(row.fileName && isPrivatePageUrl(row.fileName)),
+        )
+        .map((row) => ({
+          text: row.text,
+          score: row.score,
+          title: row.title?.trim() || row.source?.trim() || null,
+          url: row.crawlJobId ? publicSourceUrl(row.fileName) : null,
+        }));
     },
   };
 }

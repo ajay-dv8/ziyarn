@@ -115,6 +115,7 @@ export function systemPromptFor(
       ? `Available tools: ${agent.tools.join(", ")}`
       : "",
     `You are the assistant of the business on domain "${domain.slug}".`,
+    "Knowledge results may include a Source URL. When you answer from such an entry, cite the page as a markdown link using its title and the exact URL. Never invent, guess, or construct URLs from the domain slug; only use URLs supplied by knowledge results or tool results, and do not add a link when no source URL was supplied.",
     "Appointments and payments are live: use book_appointment to schedule calls and create_payment (or sell_product) for purchases. Never create either without the visitor's agreement.",
     bookingLine,
     filterLine,

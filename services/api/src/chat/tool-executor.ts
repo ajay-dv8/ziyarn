@@ -13,6 +13,7 @@ import { PortalServiceError } from "@repo/api/portal";
 import type { PortalService } from "@repo/api/portal/server";
 import type { KnowledgeService } from "@repo/api/knowledge/server";
 import { escalateConversationToHuman, type ChatService } from "@repo/api/chat/server";
+import { formatKnowledgeHits } from "@repo/api/chat/knowledge-result";
 import { upsertCustomers } from "@repo/api/customers/server";
 
 type ToolExecutorDeps = {
@@ -250,15 +251,16 @@ export function createToolExecutor(deps: ToolExecutorDeps) {
           agentId,
           query,
           limit: 5,
+          // Navigation pages such as "About" often score just below the
+          // default 0.5 because their text is short. 0.45 keeps them without
+          // flooding the model with unrelated chunks.
+          minScore: 0.45,
         });
         if (hits.length === 0) {
           return "No knowledge base entry found for this question. Answer generally or offer to escalate.";
         }
         return (
-          "Relevant knowledge base entries:\n" +
-          hits
-            .map((hit, index) => `[${index + 1}] ${hit.text}`)
-            .join("\n")
+          "Relevant knowledge base entries:\n" + formatKnowledgeHits(hits)
         );
       }
     }

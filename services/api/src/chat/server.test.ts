@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { customerFacingAiErrorMessage } from "@repo/api/chat/server";
+import {
+  customerFacingAiErrorMessage,
+  systemPromptFor,
+} from "@repo/api/chat/server";
 
 describe("customerFacingAiErrorMessage", () => {
   it("replaces a provider 429 with a calm retry message", () => {
@@ -46,5 +49,26 @@ describe("customerFacingAiErrorMessage", () => {
     expect(message).not.toContain("gpt-oss-20b");
     expect(message).not.toContain("paid version");
     expect(message).toContain("human agent");
+  });
+});
+
+describe("systemPromptFor", () => {
+  it("tells the model to use only supplied source URLs", () => {
+    const prompt = systemPromptFor(
+      { slug: "urban-plus-2", businessType: "ecommerce" },
+      {
+        name: "Urban+",
+        description: null,
+        instructions: null,
+        systemPrompt: null,
+        tools: null,
+        filterQuestions: null,
+      },
+      [],
+    );
+
+    expect(prompt).toContain("Source URL");
+    expect(prompt).toContain("Never invent, guess, or construct URLs");
+    expect(prompt).toContain("domain slug");
   });
 });

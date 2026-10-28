@@ -4,6 +4,7 @@ import {
   MAX_CRAWL_DEPTH,
 } from "@repo/api/knowledge/schemas";
 import { extractHtmlText, extractHtmlTitle } from "@repo/api/knowledge/extract";
+import { PRIVATE_PAGE_PATTERNS } from "@repo/api/knowledge/source-links";
 
 /** Per-page fetch timeout in milliseconds. */
 const FETCH_TIMEOUT_MS = 10_000;
@@ -13,22 +14,7 @@ const FETCH_DELAY_MS = 300;
 
 /** Path fragments that never contain useful public content. */
 const SKIP_PATTERNS = [
-  "/login",
-  "/signin",
-  "/sign-in",
-  "/signup",
-  "/sign-up",
-  "/register",
-  "/logout",
-  "/admin",
-  "/wp-admin",
-  "/cart",
-  "/basket",
-  "/checkout",
-  "/billing",
-  "/account",
-  "/profile",
-  "/password",
+  ...PRIVATE_PAGE_PATTERNS,
   "/api/",
   "/cdn-cgi/",
   "mailto:",
