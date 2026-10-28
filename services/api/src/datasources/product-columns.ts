@@ -1,8 +1,11 @@
+import { isProductPageUrl } from "@repo/api/products/url";
+
 export type MappedProduct = {
   externalKey: string;
   name: string;
   description: string | null;
   imageUrl: string | null;
+  productUrl: string | null;
   priceCents: number;
   active: boolean;
   availability: string | null;
@@ -14,6 +17,7 @@ export type ProductColumnMapping = {
   cents: boolean;
   description: string | null;
   image: string | null;
+  productUrl: string | null;
   stock: string | null;
   key: string | null;
 };
@@ -52,6 +56,10 @@ export function mapProductColumns(
     )?.name ?? null;
   const image =
     columns.find((column) => /^(image|image_?url|photo|photo_?url|thumbnail|picture)$/i.test(column.name))?.name ?? null;
+  const productUrl =
+    columns.find((column) =>
+      /^(url|link|permalink|product_?url|product_?page(?:_?url)?|page_?url|website_?url)$/i.test(column.name),
+    )?.name ?? null;
   const key =
     columns.find((column) =>
       /^(_?id|uuid|sku|code|product_?code|product_?key)$/i.test(column.name),
@@ -63,6 +71,7 @@ export function mapProductColumns(
     cents: /_?cents?$/i.test(priceCol.name),
     description,
     image,
+    productUrl,
     stock,
     key,
   };
@@ -114,6 +123,16 @@ export function mapProductRow(params: {
       ? rawImageUrl.trim().slice(0, 2_000)
       : null;
 
+  const rawProductUrl = mapping.productUrl ? row[mapping.productUrl] : null;
+  const productUrlValue =
+    typeof rawProductUrl === "string" ? rawProductUrl.trim() : "";
+  const productUrl =
+    productUrlValue.length > 0 &&
+    productUrlValue.length <= 2_000 &&
+    isProductPageUrl(productUrlValue)
+      ? productUrlValue
+      : null;
+
   let active = true;
   let availability: string | null = null;
   if (mapping.stock) {
@@ -142,6 +161,7 @@ export function mapProductRow(params: {
     name: name.slice(0, 200),
     description,
     imageUrl,
+    productUrl,
     priceCents,
     active,
     availability,
