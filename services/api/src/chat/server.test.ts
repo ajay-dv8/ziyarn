@@ -71,4 +71,30 @@ describe("systemPromptFor", () => {
     expect(prompt).toContain("Never invent, guess, or construct URLs");
     expect(prompt).toContain("domain slug");
   });
+
+  it("includes a product page URL in the catalog line", () => {
+    const prompt = systemPromptFor(
+      { slug: "urban-plus-2", businessType: "ecommerce" },
+      {
+        name: "Urban+",
+        description: null,
+        instructions: null,
+        systemPrompt: null,
+        tools: null,
+        filterQuestions: null,
+      },
+      [
+        {
+          name: "Tote bag",
+          priceCents: 2500,
+          currency: "ghs",
+          productUrl: "https://www.urbanplusgh.com/products/tote",
+        },
+      ],
+    );
+
+    expect(prompt).toContain(
+      "page: https://www.urbanplusgh.com/products/tote",
+    );
+  });
 });
