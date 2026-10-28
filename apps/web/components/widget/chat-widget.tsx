@@ -573,6 +573,9 @@ export function ChatWidget({
         className={cn(
           "mt-1 md:mt-3 flex items-center gap-0.5 rounded-full border border-white/50 bg-[#e8e5eb]/95 p-1.5 shadow-[0_24px_60px_-18px_rgba(0,0,0,0.7)] backdrop-blur-md",
           composerWidth,
+          // Embed mode on phones: the input bar spans the screen edge to edge,
+          // like the panel above it. Tablet and desktop keep the pill width.
+          mode === "embed" && "max-[480px]:w-full max-[480px]:max-w-none",
         )}
       >
         <ComposerIcon label="Add attachment">
