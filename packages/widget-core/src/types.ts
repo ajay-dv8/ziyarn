@@ -12,6 +12,8 @@ export interface AgentProduct {
   priceCents: number;
   currency: string;
   imageUrl?: string | null;
+  /** Owner-supplied product page; null means no page action. */
+  productUrl?: string | null;
   /** Owner-supplied marketing copy; shown in the fullscreen product viewer. */
   description?: string | null;
 }
