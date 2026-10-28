@@ -49,6 +49,7 @@ type Product = {
   name: string;
   description: string | null;
   imageUrl?: string | null;
+  productUrl?: string | null;
   priceCents: number;
   currency: string;
   active: boolean;
@@ -349,6 +350,7 @@ export function ProductTable({
         </Pagination>
       )}
       <EditProductSheet
+        key={editProduct?.id ?? "none"}
         product={editProduct}
         open={editProduct !== null}
         onOpenChange={(open) => { if (!open) setEditProduct(null); }}
