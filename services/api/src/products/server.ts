@@ -123,6 +123,7 @@ export function createProductsService(deps: {
           name: input.name,
           description: input.description ?? null,
           imageUrl: input.imageUrl ?? null,
+          productUrl: input.productUrl ?? null,
           priceCents: input.priceCents,
           currency: input.currency,
         })
@@ -149,6 +150,8 @@ export function createProductsService(deps: {
             ? input.description
             : product.description,
           imageUrl: input.imageUrl !== undefined ? input.imageUrl : product.imageUrl,
+          productUrl:
+            input.productUrl !== undefined ? input.productUrl : product.productUrl,
           priceCents: input.priceCents ?? product.priceCents,
           currency: input.currency ?? product.currency,
           active: input.active ?? product.active,
