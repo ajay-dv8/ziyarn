@@ -176,6 +176,9 @@
 .zy-product-details { min-width: 0; }
 .zy-product-name { font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
 .zy-product-price { margin-top: 2px; color: var(--_zy-muted); font-size: 12.5px; font-weight: 600; }
+.zy-product-link { display: inline-flex; margin-top: 6px; color: var(--_zy-color); font-size: 12px; font-weight: 650; text-decoration: underline; text-underline-offset: 2px; }
+.zy-product-link:hover { text-decoration: none; }
+.zy-product-link:focus-visible { outline: 2px solid var(--_zy-color); outline-offset: 2px; }
 /* Typing indicator — bouncing dots while waiting for AI response */
 .zy-msg-typing { padding: 9px 13px; }
 .zy-typing-dots { display: inline-flex; align-items: center; gap: 12%; }
