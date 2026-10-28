@@ -13,6 +13,7 @@ export type Product = {
   name: string;
   description: string | null;
   imageUrl?: string | null;
+  productUrl?: string | null;
   priceCents: number;
   currency: string;
   active: boolean;
