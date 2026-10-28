@@ -251,6 +251,7 @@ export function ProductGrid({
         )}
       </div>
       <EditProductSheet
+        key={editProduct?.id ?? "none"}
         product={editProduct}
         open={editProduct !== null}
         onOpenChange={(open) => { if (!open) setEditProduct(null); }}
