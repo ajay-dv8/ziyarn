@@ -32,6 +32,7 @@ import {
 } from "@repo/api/chat/schemas";
 import type { PortalService } from "@repo/api/portal/server";
 import type { KnowledgeService } from "@repo/api/knowledge/server";
+import { isProductPageUrl } from "@repo/api/products/url";
 import { createToolExecutor } from "@repo/api/chat/tool-executor";
 import {
   getBusinessTypeConfig,
@@ -82,7 +83,12 @@ export function systemPromptFor(
     tools: string[] | null;
     filterQuestions: unknown;
   },
-  catalog: { name: string; priceCents: number; currency: string }[],
+  catalog: {
+    name: string;
+    priceCents: number;
+    currency: string;
+    productUrl?: string | null;
+  }[],
   bookingConfig?: {
     availableDays: number[];
     availableStart: string;
@@ -97,7 +103,11 @@ export function systemPromptFor(
     : [];
   const catalogLine = catalog.length > 0
     ? `Product catalog (sell ONLY from this list, using sell_product; never invent prices):\n${catalog
-        .map((product) => `- ${product.name} — ${formatDecimal({ amountMinor: product.priceCents, currency: product.currency })} ${currencyCode({ amountMinor: product.priceCents, currency: product.currency })}`)
+        .map((product) => {
+          const price = `${formatDecimal({ amountMinor: product.priceCents, currency: product.currency })} ${currencyCode({ amountMinor: product.priceCents, currency: product.currency })}`;
+          const page = product.productUrl ? ` — page: ${product.productUrl}` : "";
+          return `- ${product.name} — ${price}${page}`;
+        })
         .join("\n")}\nWhen the visitor asks for product recommendations, wants to see what the recommended products look like, or asks to view options before buying, call sell_product with the chosen catalog product name. That call renders a product card in the widget showing the product image, name, and price. For a recommendation or budget-based bundle, call sell_product for each recommended product instead of answering with prose only.`
     : "There are no products in the catalog yet. Direct purchase interest to create_payment for a custom amount, or offer to escalate.";
   const filterLine = filterQuestions.length > 0
@@ -115,7 +125,7 @@ export function systemPromptFor(
       ? `Available tools: ${agent.tools.join(", ")}`
       : "",
     `You are the assistant of the business on domain "${domain.slug}".`,
-    "Knowledge results may include a Source URL. When you answer from such an entry, cite the page as a markdown link using its title and the exact URL. Never invent, guess, or construct URLs from the domain slug; only use URLs supplied by knowledge results or tool results, and do not add a link when no source URL was supplied.",
+    "Knowledge results may include a Source URL. When you answer from such an entry, cite the page as a markdown link using its title and the exact URL. Never invent, guess, or construct URLs from the domain slug; only use URLs supplied by knowledge results, the product catalog, or tool results, and do not add a link when no source URL was supplied.",
     "Appointments and payments are live: use book_appointment to schedule calls and create_payment (or sell_product) for purchases. Never create either without the visitor's agreement.",
     bookingLine,
     filterLine,
@@ -605,12 +615,13 @@ export function createChatService(deps: { db: Database }) {
 
     /** Active products for a domain (used in system prompt + sell_product). */
     getProductCatalog: async (domainId: string) => {
-      return db
+      const catalog = await db
         .select({
           name: products.name,
           priceCents: products.priceCents,
           currency: products.currency,
           imageUrl: products.imageUrl,
+          productUrl: products.productUrl,
           description: products.description,
         })
         .from(products)
@@ -620,6 +631,13 @@ export function createChatService(deps: { db: Database }) {
             eq(products.active, true),
           ),
         );
+      return catalog.map((product) => ({
+        ...product,
+        productUrl:
+          product.productUrl && isProductPageUrl(product.productUrl)
+            ? product.productUrl
+            : null,
+      }));
     },
 
     /** Booking settings for a domain (used in system prompt). */
@@ -1061,6 +1079,7 @@ export async function handleChatConfig(
             priceCents: product.priceCents,
             currency: product.currency,
             imageUrl: product.imageUrl,
+            productUrl: product.productUrl,
             description: product.description,
           }),
         ),
