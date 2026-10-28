@@ -40,6 +40,39 @@ exists, but no real payment has been run end to end.
       for anyone who never visits it — decide whether to create a default team
       with the first domain
 
+## Deferred — trigger-based
+
+### Widget links Phase 3 — relative and in-page links
+
+Do **not** implement now. Phase 3 is optional. **When:** after Phases 1–2 are
+live and their acceptance checks pass. There is no scheduled date; at least one
+of these triggers must also be true:
+
+- a crawled page or product source supplies only a relative URL or bare slug;
+- visitors need links found inside crawled pages to be clickable;
+- product pages are client-rendered and only discoverable through a sitemap;
+- a hard guarantee against invented URLs is required (known-URL allowlist or
+  structured sources).
+
+When triggered:
+
+- [ ] Add `websiteUrl` to domains (or use the latest crawl job URL) and pass it
+      to the system prompt.
+- [ ] Resolve relative page/product URLs server-side against `websiteUrl`;
+      keep the widget renderers absolute-only.
+- [ ] Preserve links found inside crawled pages, preferably with a structured
+      `links` column on `knowledgeDocuments` rather than appended text.
+- [ ] Add sitemap.xml support only if client-rendered product pages cannot be
+      discovered from crawlable links.
+- [ ] Consider a known-URL allowlist (crawled pages + product URLs +
+      tool-generated portal URLs) only if prompt-only generation proves
+      insufficient.
+
+If a data source only has a slug/handle, implement only the `websiteUrl` +
+server-side normalization part; skip sitemap support and the allowlist until
+there is evidence they are needed. Review this trigger during the Phase 2
+acceptance check and the first data-source re-sync.
+
 ## Documentation
 
 - [x] Fix `plan/documentation-site.md` line 170: change `data-domain` to `data-slug`
