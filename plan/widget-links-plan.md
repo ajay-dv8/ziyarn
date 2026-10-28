@@ -2,7 +2,8 @@
 
 Status: Phases 1–2 implemented 2026-10-28. The About-page link passed a live
 backend smoke test; Phase 2 code and migration are in place. Widget visual
-checks remain pending. Phase 3 is still proposed.
+checks remain pending. Phase 3 is deferred; its trigger and timing are tracked
+in `plan/todo.md`.
 Goal: every product or page the widget points a visitor to is a real,
 absolute URL that opens the correct destination in a new tab.
 
