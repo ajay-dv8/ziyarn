@@ -28,7 +28,7 @@
         "</span>" +
         "</button>" +
         '<div class="zy-sleek-overlay" hidden>' +
-        '<iframe class="zy-sleek-frame" title="Chat with us" allow="clipboard-write" referrerpolicy="no-referrer"></iframe>' +
+        '<iframe class="zy-sleek-frame" title="Chat with us" allow="clipboard-write; web-share" referrerpolicy="no-referrer"></iframe>' +
         "</div>" +
         "</div>"
       );
