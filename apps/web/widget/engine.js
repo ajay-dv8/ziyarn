@@ -838,6 +838,34 @@
       }
       details.appendChild(title);
       details.appendChild(price);
+      var productUrl =
+        typeof product.productUrl === "string" ? product.productUrl.trim() : "";
+      if (productUrl.length > 0 && productUrl.length <= 2000 && /^https?:\/\//i.test(productUrl)) {
+        var pageUrl = null;
+        try {
+          pageUrl = new URL(productUrl);
+        } catch (_) {
+          pageUrl = null;
+        }
+        var pathSegments = pageUrl
+          ? pageUrl.pathname.toLowerCase().split("/")
+          : [];
+        if (
+          pageUrl &&
+          (pageUrl.protocol === "http:" || pageUrl.protocol === "https:") &&
+          !pageUrl.username &&
+          !pageUrl.password &&
+          !(pathSegments[1] === "api" && pathSegments[2] === "storage")
+        ) {
+          var productLink = document.createElement("a");
+          productLink.className = "zy-product-link";
+          productLink.href = pageUrl.toString();
+          productLink.target = "_blank";
+          productLink.rel = "noopener noreferrer";
+          productLink.textContent = "View product";
+          details.appendChild(productLink);
+        }
+      }
       card.appendChild(details);
       this._messages.appendChild(card);
       this._scrollToBottom();
