@@ -1219,6 +1219,9 @@ var BASE_CSS = `
 .zy-product-details { min-width: 0; }
 .zy-product-name { font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
 .zy-product-price { margin-top: 2px; color: var(--_zy-muted); font-size: 12.5px; font-weight: 600; }
+.zy-product-link { display: inline-flex; margin-top: 6px; color: var(--_zy-color); font-size: 12px; font-weight: 650; text-decoration: underline; text-underline-offset: 2px; }
+.zy-product-link:hover { text-decoration: none; }
+.zy-product-link:focus-visible { outline: 2px solid var(--_zy-color); outline-offset: 2px; }
 /* Typing indicator — bouncing dots while waiting for AI response */
 .zy-msg-typing { padding: 9px 13px; }
 .zy-typing-dots { display: inline-flex; align-items: center; gap: 12%; }
@@ -2758,6 +2761,34 @@ var VARIANT_CSS = {
       }
       details.appendChild(title);
       details.appendChild(price);
+      var productUrl =
+        typeof product.productUrl === "string" ? product.productUrl.trim() : "";
+      if (productUrl.length > 0 && productUrl.length <= 2000 && /^https?:\/\//i.test(productUrl)) {
+        var pageUrl = null;
+        try {
+          pageUrl = new URL(productUrl);
+        } catch (_) {
+          pageUrl = null;
+        }
+        var pathSegments = pageUrl
+          ? pageUrl.pathname.toLowerCase().split("/")
+          : [];
+        if (
+          pageUrl &&
+          (pageUrl.protocol === "http:" || pageUrl.protocol === "https:") &&
+          !pageUrl.username &&
+          !pageUrl.password &&
+          !(pathSegments[1] === "api" && pathSegments[2] === "storage")
+        ) {
+          var productLink = document.createElement("a");
+          productLink.className = "zy-product-link";
+          productLink.href = pageUrl.toString();
+          productLink.target = "_blank";
+          productLink.rel = "noopener noreferrer";
+          productLink.textContent = "View product";
+          details.appendChild(productLink);
+        }
+      }
       card.appendChild(details);
       this._messages.appendChild(card);
       this._scrollToBottom();
