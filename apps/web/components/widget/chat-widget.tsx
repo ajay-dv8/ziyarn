@@ -1087,6 +1087,7 @@ function ShareButton({
 }) {
   const [done, setDone] = useState(false);
   const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shareFile = useRef<File | null>(null);
 
   useEffect(
     () => () => {
@@ -1095,9 +1096,27 @@ function ShareButton({
     [],
   );
 
+  // Warm the photo before the tap. iOS only opens the share sheet while the
+  // tap is still active, so the click handler must not await a network fetch
+  // before calling navigator.share. Fetching here leaves the file ready for
+  // the sheet when the visitor gets to the button.
+  useEffect(() => {
+    shareFile.current = null;
+    if (!product.imageUrl || typeof navigator.share !== "function") {
+      return;
+    }
+    let cancelled = false;
+    void imageFileFromUrl(product.imageUrl, product.name).then((file) => {
+      if (!cancelled) shareFile.current = file;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [product.imageUrl, product.name]);
+
   const share = async () => {
     try {
-      const result = await shareProduct(product);
+      const result = await shareProduct(product, shareFile.current);
       setDone(true);
       if (doneTimer.current) clearTimeout(doneTimer.current);
       doneTimer.current = setTimeout(() => setDone(false), 1600);
@@ -1199,13 +1218,17 @@ function DownloadButton({ product }: { product: AgentProduct }) {
 }
 
 /**
- * Shares a product through the native sheet — with the photo attached where
- * the device supports file sharing — and falls back to the clipboard on
- * browsers without the Share API (Firefox desktop, and insecure contexts).
- * A sheet canceled by the visitor rejects with AbortError; callers stay quiet.
+ * Shares a product through the native sheet — with the photo attached when it
+ * was preloaded and the device supports file sharing — and falls back to the
+ * clipboard on browsers without the Share API (Firefox desktop) or when the
+ * sheet is blocked (for example an iframe without the web-share permission).
+ * The sheet is opened before any await so mobile browsers keep the tap's user
+ * activation. A sheet canceled by the visitor rejects with AbortError; callers
+ * stay quiet.
  */
 async function shareProduct(
   product: AgentProduct,
+  file: File | null = null,
 ): Promise<"shared" | "copied"> {
   const extensions = navigator as Navigator & {
     canShare?: (data: ShareData) => boolean;
@@ -1216,30 +1239,25 @@ async function shareProduct(
   })}`;
 
   if (typeof navigator.share === "function") {
-    if (product.imageUrl) {
+    const data: ShareData = { text, title: product.name };
+    if (file) {
       try {
-        const file = await imageFileFromUrl(product.imageUrl, product.name);
-        if (file && extensions.canShare?.({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            text,
-            title: product.name,
-          });
-          return "shared";
-        }
-      } catch (error) {
-        // The visitor closed the sheet — that is a finished action, not a
-        // failure to retry through a different path.
-        if (error instanceof DOMException && error.name === "AbortError") {
-          throw error;
-        }
-        // Anything else (fetch refused, share failed) falls through to the
-        // plain-text share below.
+        if (extensions.canShare?.({ files: [file] })) data.files = [file];
+      } catch {
+        // An old share implementation that cannot inspect files still gets
+        // the text sheet instead of failing before the sheet opens.
       }
     }
-
-    await navigator.share({ text, title: product.name });
-    return "shared";
+    try {
+      await navigator.share(data);
+      return "shared";
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        throw error;
+      }
+      // Permission policy and transient failures fall through to the copy
+      // fallback rather than leaving the button doing nothing.
+    }
   }
 
   const details = product.description?.trim()
