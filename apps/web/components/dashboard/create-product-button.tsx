@@ -37,6 +37,7 @@ export function CreateProductButton({
     name: "",
     description: "",
     imageUrl: "",
+    productUrl: "",
     price: "",
     currency: (defaultCurrency as CurrencyCode) || DEFAULT_CURRENCY,
   });
@@ -58,6 +59,7 @@ export function CreateProductButton({
           name: form.name.trim(),
           description: form.description.trim() || undefined,
           imageUrl: form.imageUrl.trim() || undefined,
+          productUrl: form.productUrl.trim() || undefined,
           priceCents: Math.round(price * 100),
           currency: form.currency,
         }),
@@ -76,6 +78,7 @@ export function CreateProductButton({
         name: "",
         description: "",
         imageUrl: "",
+        productUrl: "",
         price: "",
         currency: (defaultCurrency as CurrencyCode) || DEFAULT_CURRENCY,
       });
@@ -140,6 +143,18 @@ export function CreateProductButton({
           <div className="space-y-2">
             <Label htmlFor="product-image-url">Image URL (optional)</Label>
             <Input id="product-image-url" type="url" placeholder="https://…" value={form.imageUrl} onChange={(event) => setForm({ ...form, imageUrl: event.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="product-page-url">Product page URL (optional)</Label>
+            <Input
+              id="product-page-url"
+              type="url"
+              placeholder="https://your-site.com/products/…"
+              value={form.productUrl}
+              onChange={(event) =>
+                setForm({ ...form, productUrl: event.target.value })
+              }
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="product-price">Price</Label>
