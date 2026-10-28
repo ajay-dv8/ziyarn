@@ -22,6 +22,7 @@ export type EditableProduct = {
   name: string;
   description: string | null;
   imageUrl?: string | null;
+  productUrl?: string | null;
   priceCents: number;
   currency: string;
   active: boolean;
@@ -44,6 +45,7 @@ export function EditProductSheet({
     name: product?.name ?? "",
     description: product?.description ?? "",
     imageUrl: product?.imageUrl ?? "",
+    productUrl: product?.productUrl ?? "",
     price: product
       ? formatDecimal({ amountMinor: product.priceCents, currency: product.currency })
       : "0",
@@ -68,6 +70,7 @@ export function EditProductSheet({
           name: form.name.trim(),
           description: form.description.trim() || null,
           imageUrl: form.imageUrl.trim() || null,
+          productUrl: form.productUrl.trim() || null,
           priceCents: Math.round(price * 100),
           currency: form.currency,
         }),
@@ -119,6 +122,18 @@ export function EditProductSheet({
           <div className="space-y-2">
             <Label htmlFor="edit-product-image-url">Image URL</Label>
             <Input id="edit-product-image-url" type="url" placeholder="https://…" value={form.imageUrl} onChange={(event) => setForm({ ...form, imageUrl: event.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-product-page-url">Product page URL</Label>
+            <Input
+              id="edit-product-page-url"
+              type="url"
+              placeholder="https://your-site.com/products/…"
+              value={form.productUrl}
+              onChange={(event) =>
+                setForm({ ...form, productUrl: event.target.value })
+              }
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-product-price">Price</Label>
