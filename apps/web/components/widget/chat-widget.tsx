@@ -9,6 +9,7 @@ import {
   ChevronUp,
   Copy,
   Download,
+  ExternalLink,
   Maximize2,
   Mic,
   Minimize2,
@@ -691,6 +692,22 @@ function toolLabel(name: string): string {
   );
 }
 
+/** Only absolute http(s) product pages; never a relative path or storage asset. */
+function productPageUrl(product: AgentProduct): string | null {
+  const value = product.productUrl?.trim();
+  if (!value || value.length > 2_000) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    if (url.username || url.password) return null;
+    const segments = url.pathname.toLowerCase().split("/");
+    if (segments[1] === "api" && segments[2] === "storage") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 function findProductByName(
   productName: string,
   catalog: AgentProduct[],
@@ -990,6 +1007,7 @@ function ProductView({
   const closeRef = useRef<HTMLButtonElement>(null);
   const [imageFailed, setImageFailed] = useState(false);
   const showImage = Boolean(product.imageUrl) && !imageFailed;
+  const pageUrl = productPageUrl(product);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -1060,6 +1078,17 @@ function ProductView({
         {/* Pinned over long text while scrolling; sits right beneath the
             content when the screen fits it. */}
         <div className="sticky bottom-0 bg-linear-to-t from-[#f3f1f6] via-[#f3f1f6]/95 to-transparent px-5 pt-4 pb-4">
+          {pageUrl ? (
+            <a
+              href={pageUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-full bg-[#0d0c11] px-4 py-2.5 text-[12.5px] font-semibold text-white shadow-[0_10px_24px_-10px_rgba(13,12,17,0.55)] transition hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17161b]/30"
+            >
+              View product
+              <ExternalLink className="size-3.5" strokeWidth={2.2} />
+            </a>
+          ) : null}
           <div className="flex items-center gap-2">
             <ShareButton product={product} variant="primary" className="flex-1" />
             {product.imageUrl ? <DownloadButton product={product} /> : null}
@@ -1233,10 +1262,16 @@ async function shareProduct(
   const extensions = navigator as Navigator & {
     canShare?: (data: ShareData) => boolean;
   };
-  const text = `${product.name} — ${formatMoney({
-    amountMinor: product.priceCents,
-    currency: product.currency,
-  })}`;
+  const pageUrl = productPageUrl(product);
+  const text = [
+    `${product.name} — ${formatMoney({
+      amountMinor: product.priceCents,
+      currency: product.currency,
+    })}`,
+    pageUrl,
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   if (typeof navigator.share === "function") {
     const data: ShareData = { text, title: product.name };
