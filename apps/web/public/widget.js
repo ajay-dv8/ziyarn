@@ -1737,9 +1737,20 @@ var VARIANT_CSS = {
    its own dvh units recompute against the resized frame automatically. */
 @media (max-width: 480px) {
   .zy-wrap[data-variant="sleek"][data-open="true"] .zy-sleek-overlay {
-    top: var(--zy-vv-top, 0px);
+    /* Hairline inset: the chat sheet is a card lifted 2px off the phone's
+       top and side edges (bottom stays flush with the mirrored viewport). */
+    top: calc(var(--zy-vv-top, 0px) + 2px);
     bottom: auto;
+    left: 2px;
+    right: 2px;
     height: var(--zy-vvh, 100dvh);
+    border-radius: 20px;
+  }
+
+  /* The frame must round with the veil, or its square corners paint over
+     the veil's rounded cut. Modern engines clip iframe content to the radius. */
+  .zy-wrap[data-variant="sleek"][data-open="true"] .zy-sleek-frame {
+    border-radius: 20px;
   }
 }
 `,
