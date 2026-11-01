@@ -23,11 +23,14 @@
     // -------------------------------------------------------------------------
     // This is the main initialization entry point. It:
     //   1. Reads data-* attributes
-    //   2. Creates the Shadow DOM (isolated styles + markup)
-    //   3. Caches references to key DOM elements for fast access
-    //   4. Restores visitor ID and conversation from localStorage
-    //   5. Wires up event listeners
-    //   6. Calls _init() to fetch agent config and load conversation history
+    //   2. Fetches the widget variant from the server config endpoint so that
+    //      changing the variant in the dashboard takes effect on live sites
+    //      without requiring an embed-snippet update.
+    //   3. Creates the Shadow DOM (isolated styles + markup) with that variant
+    //   4. Caches references to key DOM elements for fast access
+    //   5. Restores visitor ID and conversation from localStorage
+    //   6. Wires up event listeners
+    //   7. Calls _init() to fetch the full agent config and conversation history
     connectedCallback() {
       if (this._rendered) return; // prevent double-init (e.g. React re-renders)
       this._rendered = true;
@@ -42,12 +45,6 @@
       this._apiBase =
         this.getAttribute("data-api") || DEFAULT_API_BASE;
 
-      // ---- Resolve which look to render ----
-      // Fail-open: unknown or missing values fall back to classic, because
-      // every widget embedded before variants existed has no data-variant.
-      this._variant = resolveVariant(this.getAttribute("data-variant"));
-      var variant = this._variant;
-
       // ---- Validate required attributes ----
       if (!this._slug || !this._secret) {
         console.error(
@@ -56,6 +53,68 @@
         return;
       }
 
+      // ---- Fetch the server-authoritative variant, then mount ----
+      // The embed snippet no longer needs data-variant. The variant is stored
+      // in the database and served by /api/chat so owners can switch widgets
+      // from the dashboard without asking customers to update their site.
+      //
+      // Fail-open: if the request fails for any reason (network, rate-limit,
+      // cold start) we fall back to data-variant (backwards-compat with older
+      // snippets) then "classic", so no live site is left with a blank widget.
+      var self = this;
+      var apiBase = this._apiBase;
+      var secret = this._secret;
+      var VARIANT_FETCH_TIMEOUT_MS = 3000;
+
+      var didMount = false;
+      var mountTimeout = setTimeout(function () {
+        // Safety net: if the fetch has not resolved within the timeout, mount
+        // with the attribute fallback so the widget is never invisible.
+        if (!didMount) {
+          didMount = true;
+          self._mountVariant(resolveVariant(self.getAttribute("data-variant")));
+        }
+      }, VARIANT_FETCH_TIMEOUT_MS);
+
+      fetch(apiBase + "/api/chat", {
+        method: "GET",
+        headers: { "x-embed-secret": secret },
+      })
+        .then(function (response) {
+          if (!response.ok) throw new Error("config fetch failed");
+          return response.json();
+        })
+        .then(function (data) {
+          clearTimeout(mountTimeout);
+          if (!didMount) {
+            didMount = true;
+            // widgetVariant from the server takes priority; fall back to the
+            // data-variant attribute so older embed snippets keep working.
+            var serverVariant =
+              data && typeof data.widgetVariant === "string"
+                ? data.widgetVariant
+                : null;
+            var resolvedVariant = resolveVariant(
+              serverVariant || self.getAttribute("data-variant")
+            );
+            self._mountVariant(resolvedVariant);
+          }
+        })
+        .catch(function () {
+          clearTimeout(mountTimeout);
+          if (!didMount) {
+            didMount = true;
+            self._mountVariant(resolveVariant(self.getAttribute("data-variant")));
+          }
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // _mountVariant — build the Shadow DOM and wire the widget
+    // -------------------------------------------------------------------------
+    // Called once the variant is known (either from the server config endpoint
+    // or from the data-variant attribute fallback).
+    _mountVariant(variant) {
       // ---- Create Shadow DOM ----
       // The shadow root encapsulates all styles and markup. The host page
       // cannot access or style elements inside the shadow root.
@@ -90,6 +149,7 @@
       // Avoids repeated querySelector calls during streaming/interaction.
       this._root = root;
       this._wrap = wrap;
+      this._variant = variant;
 
       // Mirror window.visualViewport into CSS custom properties so the open
       // panel — and Sleek's iframe — cling to the visible screen. On mobile
@@ -151,7 +211,7 @@
       this._input.addEventListener("blur", this._onBlur.bind(this));
       this._startPlaceholderCycle();
 
-      // ---- Bootstrap: fetch agent info + load conversation history ----
+      // ---- Bootstrap: fetch full agent config + load conversation history ----
       this._init();
     }
 
