@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="360">
+  <defs>
+    <filter id="felt-cloud" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="3" seed="5"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.52  0 0 0 0 0.46  0 0 0 0 0.40  0 0 0 0.07 0"/>
+    </filter>
+    <filter id="felt-grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.92" numOctaves="2" seed="19"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.48  0 0 0 0 0.42  0 0 0 0 0.36  0 0 0 0.05 0"/>
+    </filter>
+  </defs>
+  <rect width="360" height="360" filter="url(#felt-cloud)"/>
+  <rect width="360" height="360" filter="url(#felt-grain)"/>
+  <g fill="none" stroke="#7a6a58" stroke-width="0.6" opacity="0.06">
+    <path d="M14 26l9 5M44 66l-8 6M86 16l6 8M134 52l-9 3M182 12l5 9M236 80l8-5M286 40l-6 6M330 22l4 8M30 112l8 4M76 162l-5 8M124 134l6-5M172 184l-8 4M226 154l5 6M272 122l-6 6M318 168l5 5M16 224l6 6M60 262l-8 5M110 240l5-6M160 282l6 5M214 246l-5 8M262 306l7 3M306 268l-6 8M344 306l-6 5M20 320l7 4M68 344l-4 6M118 330l5 5M170 318l-5 6M222 342l6-4M270 330l-5 5M322 344l4 5M350 330l-6 3"/>
+  </g>
+</svg>
