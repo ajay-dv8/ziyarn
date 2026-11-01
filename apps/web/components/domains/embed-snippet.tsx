@@ -15,9 +15,13 @@ import { Check, Copy, Terminal } from "lucide-react";
 /**
  * The install snippet for a domain.
  *
- * Every variant uses the same `<script>` + `<zy-widget>` tag. Classic and Glow
- * render inside the element's shadow root; Modern Sleek's script opens its
- * full-screen iframe overlay, so the customer still pastes one snippet.
+ * Every variant uses the same `<script>` + `<zy-widget>` tag. The widget
+ * fetches its variant from the server on every page load, so owners can switch
+ * between Classic, Glow, and Modern Sleek in the dashboard and the change
+ * takes effect on all live sites immediately — no snippet update required.
+ *
+ * Classic and Glow render inside the element's shadow root; Modern Sleek's
+ * script opens its full-screen iframe overlay.
  */
 export function EmbedSnippet({
   widgetUrl,
@@ -28,6 +32,7 @@ export function EmbedSnippet({
   widgetUrl: string;
   slug: string;
   secret: string;
+  /** Used only for the descriptive note below the snippet; not emitted into the embed tag. */
   variant?: string;
 }) {
   const [copied, setCopied] = useState(false);
@@ -40,14 +45,14 @@ export function EmbedSnippet({
     }
   })();
 
+  // data-variant is intentionally omitted: the widget fetches the active
+  // variant from the server on every load, so changing the widget style in
+  // the dashboard takes effect on live sites without a snippet update.
   const snippet = [
     `<script defer src="${widgetUrl}"></script>`,
     `<zy-widget`,
     `  data-slug="${slug}"`,
     `  data-secret="${secret}"`,
-    // Emitted only when set, so snippets copied before variants existed stay
-    // byte-identical and keep rendering the default widget.
-    ...(variant ? [`  data-variant="${variant}"`] : []),
     `  data-title="Chat with us"`,
     `></zy-widget>`,
   ].join("\n");
@@ -67,9 +72,12 @@ export function EmbedSnippet({
       <CardHeader>
         <CardTitle>Embed the widget</CardTitle>
         <CardDescription>
+          Paste this snippet into any page on your website. The widget style is
+          controlled from the dashboard — no snippet update needed when you
+          switch variants.
           {isSleek
-            ? "Paste this before the closing </body> tag. The script opens Modern Sleek as a full-screen iframe overlay."
-            : "Paste this snippet into any page on your website. Works in browsers and mobile apps — no iframe required."}
+            ? ` If your site sets a CSP, allow frame-src ${embedOrigin}.`
+            : ""}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -90,9 +98,7 @@ export function EmbedSnippet({
         </div>
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Terminal size={12} />
-          {isSleek
-            ? `Modern Sleek uses the same embed as Classic and Glow. If your site sets a CSP, allow frame-src ${embedOrigin}.`
-            : "Customize colors with data-color, position with data-position."}
+          Customize colors with data-color, position with data-position.
         </p>
       </CardContent>
     </Card>
