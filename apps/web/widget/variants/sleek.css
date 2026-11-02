@@ -23,6 +23,28 @@
   background: transparent;
 }
 
+/* The launcher is the Strands glass orb, not a tinted disc: the orb paints
+   itself (and its own drop shadow) onto the canvas inside the button. The
+   button keeps the size and hit area; the chat glyph stays as the fallback
+   for browsers without WebGL2, where mountStrands returns null. */
+.zy-wrap[data-variant="sleek"] .zy-launcher {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  padding: 0;
+}
+.zy-wrap[data-variant="sleek"] .zy-launcher.zy-strands {
+  background: transparent;
+  box-shadow: none;
+}
+.zy-wrap[data-variant="sleek"] .zy-launcher.zy-strands:hover {
+  box-shadow: none;
+}
+.zy-wrap[data-variant="sleek"] .zy-launcher.zy-strands .zy-open,
+.zy-wrap[data-variant="sleek"] .zy-launcher.zy-strands .zy-close {
+  display: none;
+}
+
 /* The frame covers the viewport, so the launcher would only sit on top of it. */
 .zy-wrap[data-variant="sleek"][data-open="true"] .zy-launcher {
   display: none;
