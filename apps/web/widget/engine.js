@@ -301,6 +301,14 @@
         self._setSleekOpen(true);
       });
 
+      // The launcher is the Strands glass orb — the widget's only always-
+      // visible pixel, so it carries the domain's accent colour. mountStrands
+      // returns null on browsers without WebGL2 and the static chat icon
+      // underneath stays as the fallback.
+      this._strands = mountStrands(this._sleekLauncher, {
+        color: this._color,
+      });
+
       // The iframe asks the host to close itself. event.source is the frame's
       // own window proxy, so another frame on the page cannot trigger this.
       this._sleekMessageHandler = function (event) {
@@ -646,6 +654,13 @@
       if (this._sleekKeyHandler) {
         document.removeEventListener("keydown", this._sleekKeyHandler);
         this._sleekKeyHandler = null;
+      }
+      // The Strands launcher owns a requestAnimationFrame loop and a WebGL
+      // context; destroying it here keeps a removed widget from animating a
+      // detached canvas in the background.
+      if (this._strands) {
+        this._strands.destroy();
+        this._strands = null;
       }
       this._unwatchVisualViewport();
       this._abortThinking();

@@ -19,8 +19,8 @@
  *   data-variant  widget style            (default "classic" — see VARIANTS)
  *
  * Classic and Glow render inside the shadow root, so host page CSS cannot leak
- * in or out. Modern Sleek's script mounts the same launcher and loads its chat
- * surface from /embed/<slug> in a full-screen iframe.
+ * in or out. Modern Sleek mounts the Strands glass-orb launcher and loads its
+ * chat surface from /embed/<slug> in a full-screen iframe.
  *
  * Architecture:
  *   1. Registers <zy-widget> via customElements.define()
@@ -36,6 +36,8 @@
  * Layout of the generated file:
  *   preamble.js      this header + IIFE open + API base detection
  *   helpers.js       DOM helpers, markdown renderer, variant registry
+ *   orb.js           thinking-orb canvas renderer (Glow)
+ *   strands.js       glass-orb launcher renderer (Modern Sleek)
  *   base.css         launcher / panel / header / messages styles
  *   variants/*.js    one CSS + markup pair per widget style
  *   engine.js        the ZyWidget class — all network and state

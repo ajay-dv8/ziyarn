@@ -140,6 +140,9 @@ async function build() {
     BANNER("thinking orb — canvas renderer + timeline engine (Glow)"),
     read("orb.js"),
     "",
+    BANNER("strands — glass orb launcher renderer (Modern Sleek)"),
+    read("strands.js"),
+    "",
     BANNER("base styles — panel, header, messages, composer, chips"),
     // base.css is the shared shell and the reference look. Variant CSS is
     // APPENDED after it, so a variant only has to declare what it changes.
