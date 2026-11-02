@@ -23,5 +23,8 @@
   "packageManager": "pnpm@11.18.0",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "framer-motion": "^14.9.0"
   }
 }

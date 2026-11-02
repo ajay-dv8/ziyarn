@@ -21,6 +21,7 @@
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.25",
     "@opentelemetry/api": "^1.9.1",
+    "@paper-design/shaders-react": "^0.0.82",
     "@repo/ai": "workspace:*",
     "@repo/api": "workspace:*",
     "@repo/database": "workspace:*",
