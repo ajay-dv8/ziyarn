@@ -129,19 +129,19 @@ export default function ShaderShowcase() {
         <nav className="flex items-center space-x-2">
           <Link
             href={APP_ROUTES.FEATURES}
-            className="text-white/80 hover:text-white text-xs font-light px-3 py-2 rounded-full hover:bg-white/10 transition-all duration-200"
+            className="text-white/80 hover:text-white text-sm font-light px-3 py-2 rounded-full hover:bg-white/10 transition-all duration-200"
           >
             Features
           </Link>
           <Link
             href={APP_ROUTES.PRICING}
-            className="text-white/80 hover:text-white text-xs font-light px-3 py-2 rounded-full hover:bg-white/10 transition-all duration-200"
+            className="text-white/80 hover:text-white text-sm font-light px-3 py-2 rounded-full hover:bg-white/10 transition-all duration-200"
           >
             Pricing
           </Link>
           <Link
             href={APP_ROUTES.DOCS}
-            className="text-white/80 hover:text-white text-xs font-light px-3 py-2 rounded-full hover:bg-white/10 transition-all duration-200"
+            className="text-white/80 hover:text-white text-sm font-light px-3 py-2 rounded-full hover:bg-white/10 transition-all duration-200"
           >
             Docs
           </Link>
@@ -175,7 +175,7 @@ export default function ShaderShowcase() {
           </Link>
           <Link
             href={APP_ROUTES.SIGN_IN}
-            className="px-6 py-2 rounded-full bg-white text-black font-normal text-xs transition-all duration-300 hover:bg-white/90 cursor-pointer h-8 flex items-center z-10"
+            className="px-6 py-2 rounded-full bg-white text-black font-normal text-sm transition-all duration-300 hover:bg-white/90 cursor-pointer h-8 flex items-center z-10"
           >
             Login
           </Link>
@@ -183,7 +183,7 @@ export default function ShaderShowcase() {
       </header>
 
       {/* HERO TEXT (TITLE) */}
-      <div className="absolute bottom-40 left-32 right-8 z-20 max-w-2xl">
+      <div className="absolute bottom-40 left-32 right-8 z-20 max-w-4xl">
         <div className="text-left">
 
           <motion.h1
