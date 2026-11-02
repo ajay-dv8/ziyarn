@@ -16,12 +16,11 @@ import {
   UserRoundCheck,
 } from "lucide-react";
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
 
 import { Button } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 
-import { LandingHeader } from "@/components/landing/landing-header";
+import ShaderShowcase from "@/components/landing/hero";
 import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 
@@ -34,94 +33,17 @@ export const metadata: Metadata = {
 /* Direction contract — seed ae10e354.
    THESIS: the spine is the real setup path (create, teach, embed); refuses
    the feature-grid landing because "how" is the buyer's first question.
-   OWN-WORLD: inherited app system — neutral ground, deep-green primary owns
-   live states and the closing band, Geist Mono for code only, bordered
-   surfaces holding real product fragments, no gradients.
-   STORY: one viewport to know what Ziyarn is and see it working; the spine
-   proves setup is three ordinary moves; the two-job split lands the
-   positioning; trust facts close doubt; Start free ends every path.
-   FIRST VIEWPORT: split hero — headline + subcopy + Start free left,
-   synthetic chat-widget conversation right showing answer-from-knowledge
-   then a booking action.
+   OWN-WORLD: dark shader hero (cyan/orange mesh) above an inherited app
+   system — neutral ground, deep-green primary owns live states and the
+   closing band, Geist Mono for code only, bordered surfaces holding real
+   product fragments.
+   STORY: one viewport to know what Ziyarn is; the spine proves setup is
+   three ordinary moves; the two-job split lands the positioning; trust
+   facts close doubt; Start free ends every path.
+   FIRST VIEWPORT: full-bleed shader hero — brand nav, headline "One agent
+   for support and sales.", subcopy, See how it works + Start free, and the
+   pulsing orbit mark.
    FORM: how-it-works spine, candidate 4 of 7 grounded structures. */
-
-/** Staggered-once entrance for hero bubbles; static under reduced motion. */
-function Bubble({
-  delay,
-  className,
-  children,
-}: {
-  delay?: string;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      style={delay ? { animationDelay: delay } : undefined}
-      className={cn(
-        "zy-fade-up opacity-0 motion-reduce:animate-none motion-reduce:opacity-100",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-function ChatWidgetDemo() {
-  return (
-    <figure className="w-full max-w-md rounded-2xl border bg-card shadow-sm">
-      <div className="flex items-center gap-2.5 border-b px-4 py-3">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-          Z
-        </span>
-        <div>
-          <p className="text-sm font-medium leading-tight">Akwaba Assistant</p>
-          <p className="text-xs text-muted-foreground">
-            Always on · replies instantly
-          </p>
-        </div>
-      </div>
-
-      <div className="space-y-3 px-4 py-4 text-sm">
-        <Bubble className="max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-3.5 py-2.5">
-          Do you deliver to Kumasi, and how fast?
-        </Bubble>
-        <Bubble
-          delay="200ms"
-          className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3.5 py-2.5 text-primary-foreground"
-        >
-          Yes — Greater Kumasi in 1–2 business days, free over GH₵500. Want me
-          to check an item?
-        </Bubble>
-        <Bubble
-          delay="400ms"
-          className="max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-3.5 py-2.5"
-        >
-          Nice. Can I book a fitting for Saturday?
-        </Bubble>
-        <Bubble
-          delay="600ms"
-          className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm border bg-card px-3 py-2.5"
-        >
-          <p className="font-medium">Saturday fittings</p>
-          <div className="mt-1.5 flex gap-1.5">
-            <span className="rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-              10:30
-            </span>
-            <span className="rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-              14:00
-            </span>
-          </div>
-        </Bubble>
-      </div>
-
-      <figcaption className="border-t px-4 py-2.5 text-center text-[11px] text-muted-foreground">
-        Illustrative conversation — yours will learn your business
-      </figcaption>
-    </figure>
-  );
-}
 
 const SETUP_STEPS = [
   {
@@ -251,43 +173,9 @@ export default async function HomePage() {
 
   return (
     <div className="flex min-h-svh flex-col">
-      <LandingHeader />
+      <ShaderShowcase />
+
       <main className="flex flex-1 flex-col">
-        {/* hero */}
-        <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-6 pb-20 pt-16 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:pt-24">
-          <div>
-            <h1 className="max-w-xl text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              One AI agent that answers support{" "}
-              <span className="text-primary">and</span> closes sales.
-            </h1>
-            <p className="mt-5 max-w-lg text-lg leading-relaxed text-muted-foreground">
-              Ziyarn embeds a trainable agent on your website. It resolves
-              customer questions from your own knowledge, qualifies leads,
-              books appointments, takes payments — and calls in your team the
-              moment a human matters.
-            </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Button size="lg" render={<Link href={APP_ROUTES.SIGN_UP} />}>
-                Start free
-              </Button>
-              <Button
-                size="lg"
-                variant="ghost"
-                render={<Link href="#how-it-works" />}
-              >
-                See how it works
-              </Button>
-            </div>
-            <p className="mt-4 text-sm text-muted-foreground">
-              Free plan included · live on your site in minutes
-            </p>
-          </div>
-
-          <div className="flex justify-center lg:justify-end">
-            <ChatWidgetDemo />
-          </div>
-        </section>
-
         {/* how-it-works spine */}
         <section
           id="how-it-works"
