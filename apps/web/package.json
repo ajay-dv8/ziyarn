@@ -53,7 +53,7 @@
     "@repo/widget-core": "workspace:*",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/mdx": "^2.0.14",
-    "@types/node": "^22.15.3",
+    "@types/node": "^26.6.6",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "@types/react-syntax-highlighter": "^15.5.13",
