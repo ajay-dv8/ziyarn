@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 
 import { APP_ROUTES } from "@/constants/routes";
+import { HeroChat } from "@/components/landing/hero-chat";
 
 const MotionLink = motion.create(Link);
 
@@ -183,9 +184,8 @@ export default function ShaderShowcase() {
       </header>
 
       {/* HERO TEXT (TITLE) */}
-      <div className="absolute bottom-40 left-32 right-8 z-20 max-w-4xl">
-        <div className="text-left">
-
+      <div className="absolute inset-x-0 top-16 bottom-0 z-20 flex items-center justify-between gap-8 px-6 sm:px-10 xl:px-40">
+        <div className="max-w-2xl text-left">
           <motion.h1
             className="text-6xl md:text-7xl lg:text-8xl font-bold text-white mb-6 leading-none tracking-tight"
             initial={{ opacity: 0, y: 30 }}
@@ -253,6 +253,12 @@ export default function ShaderShowcase() {
               Start free
             </MotionLink>
           </motion.div>
+        </div>
+
+        {/* CHAT */}
+
+        <div className="hidden w-[38rem] shrink-0 xl:block">
+          <HeroChat />
         </div>
       </div>
 
