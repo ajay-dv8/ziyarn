@@ -213,12 +213,9 @@ export default function ShaderShowcase() {
             >
               One agent
             </motion.span>
-            <span className="block font-black text-white drop-shadow-2xl">
-              for support
-            </span>
-            <span className="block font-light text-white/80 italic">
-              and sales.
-            </span>
+            <h2 className="flex font-black text-white drop-shadow-2xl">
+              <span className="block font-light text-white/80 italic">for {" "}</span>  support <span className="block font-light text-white/80 italic">and</span> sales.
+            </h2>   
           </motion.h1>
 
           <motion.p
@@ -253,12 +250,6 @@ export default function ShaderShowcase() {
               Start free
             </MotionLink>
           </motion.div>
-        </div>
-
-        {/* CHAT */}
-
-        <div className="hidden w-[38rem] shrink-0 xl:block">
-          <HeroChat />
         </div>
       </div>
 
