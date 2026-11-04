@@ -43,7 +43,6 @@ export const Jvideo = ({
     if (currentRef) {
       observer.observe(currentRef); // Start observing the video element
     }
-
     // Cleanup function
     return () => {
       if (currentRef) {
@@ -52,9 +51,16 @@ export const Jvideo = ({
     };
   }, []);
 
+  // A source added after mount never triggers the autoPlay attribute, so the
+  // in-view signal double as the explicit play call.
+  useEffect(() => {
+    if (isInView) void videoRef.current?.play().catch(() => {});
+  }, [isInView]);
+
   return (
-    // Container with 16:9 aspect ratio using padding-bottom trick
-    <div className={cn("relative h-full w-full bg-transparent rounded-xl", containerClassName)}>
+    // Container with 16:9 aspect ratio; the video itself is absolutely
+    // positioned, so this box is what keeps it visible.
+    <div className={cn("relative aspect-video w-full bg-transparent rounded-xl", containerClassName)}>
       <video
         ref={videoRef}
         poster={poster}
