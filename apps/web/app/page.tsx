@@ -7,7 +7,7 @@ import type { Metadata } from "next";
 
 import { Button } from "@repo/ui/components/button";
 
-import ShaderShowcase from "@/components/landing/hero";
+import HeroPage from "@/components/landing/hero-page";
 import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 import Process from "@/components/landing/process";
@@ -62,7 +62,7 @@ export default async function HomePage() {
   return (
     <div className="flex min-h-svh flex-col">
       {/* HERO */}
-      <ShaderShowcase />
+      <HeroPage />
 
       <Process />
 
