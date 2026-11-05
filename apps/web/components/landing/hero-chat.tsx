@@ -95,7 +95,7 @@ export const HERO_CHAT_SCRIPT: HeroChatTurn[] = [
  */
 export function HeroChat({ className }: { className?: string }) {
   return (
-    <div className={cn("flex w-full flex-col items-center rotate-y-5 -rotate-z-7", className)}>
+    <div className={cn("flex w-full flex-col items-center", className)}>
       {/* Conversation card — mirrors .zy-sleek panel styling. */}
       <div className="relative flex h-[42rem] w-full flex-col overflow-hidden rounded-[20px] border border-white/70 bg-[radial-gradient(120%_110%_at_32%_58%,#efe5ff_0%,#f7f4fb_48%,#f3f1f6_100%)] shadow-[0_36px_90px_-24px_rgba(8,6,18,0.78)]">
         <div className="flex-1 overflow-y-auto overscroll-contain px-5 sm:px-6 pt-6 pb-4 [&::-webkit-scrollbar]:hidden">
