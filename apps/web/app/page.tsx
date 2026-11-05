@@ -8,6 +8,7 @@ import type { Metadata } from "next";
 import { Button } from "@repo/ui/components/button";
 
 import HeroPage from "@/components/landing/hero-page";
+import Navbar from "@/components/landing/navbar";
 import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 import Process from "@/components/landing/process";
@@ -62,6 +63,7 @@ export default async function HomePage() {
   return (
     <div className="flex min-h-svh flex-col">
       {/* HERO */}
+      <Navbar />
       <HeroPage />
 
       <Process />
