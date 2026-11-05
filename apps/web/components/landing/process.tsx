@@ -4,7 +4,7 @@ import { EmbedSnippetDemo } from "./embed-snippet-demo";
 
 export default function Process() {
   return (
-    <div className="w-full px-40 py-32 bg-green-50">
+    <div id="how-it-works" className="w-full px-40 py-32 bg-green-50">
       <h3 className="text-4xl text-gray-500 max-w-6xl tracking-wide leading-snug">
         <span className="text-gray-800">
           Go from setup to answering customers in minutes,
