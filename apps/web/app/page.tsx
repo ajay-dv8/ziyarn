@@ -68,14 +68,14 @@ export default async function HomePage() {
 
       <Process />
 
-      <main className="flex flex-1 flex-col px-40 py-24 bg-gray-50">
+      <main className="flex flex-1 flex-col px-6 py-16 bg-gray-50 md:px-40 md:py-24">
         <Services />
         <Jobs />
 
         {/* trust */}
         <section className="border-y  py-24 sm:py-24">
           <div className=" px-6">
-            <h2 className="w-8xl text-balance text-gray-500 text-4xl tracking-tight sm:text-4xl">
+            <h2 className="text-balance text-gray-500 text-3xl tracking-tight sm:text-4xl">
               <span className="text-gray-800">
                 Your business knowledge. Your rules. Your voice.
               </span>{" "}
@@ -84,7 +84,7 @@ export default async function HomePage() {
               making things up or going beyond its intended role.
             </h2>
 
-            <div className="mt-24 grid gap-8 sm:grid-cols-3 px-20">
+            <div className="mt-12 grid gap-8 lg:mt-24 lg:grid-cols-3 lg:px-20">
               {TRUST_FACTS.map((fact) => (
                 <div
                   key={fact.title}
@@ -103,7 +103,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* close */}
+        {/* Get started */}
         <section className="px-6 py-20 sm:py-28">
           <div className="mx-auto max-w-4xl rounded-3xl bg-primary px-8 py-16 text-center text-primary-foreground sm:px-16">
             <h2 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -118,7 +118,7 @@ export default async function HomePage() {
                 size="lg"
                 variant="secondary"
                 render={<Link href={APP_ROUTES.SIGN_UP} />}
-                className=" px-16 py-8 rounded-full text-primary font-semibold bg-white hover:bg-white hover:scale-105 transition-transform duration-500"
+                className=" px-8 py-8 rounded-full text-primary font-semibold bg-white hover:bg-white hover:scale-105 transition-transform duration-500 sm:px-16"
               >
                 GET STARTED FOR FREE
               </Button>
