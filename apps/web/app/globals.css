@@ -1,1 +1,11 @@
 @import "@repo/ui/globals.css";
+
+/* The experience's phone/short layouts place copy at top:20px, assuming no
+   fixed header. Ziyarn's navbar is fixed at 64px, so drop the copy below it.
+   Doubled class beats the component's own <style> injected later in the body. */
+.af-experience.af-experience[data-layout="phone"]:not(.simple) .intro,
+.af-experience.af-experience[data-layout="phone"]:not(.simple) .flow-copy,
+.af-experience.af-experience[data-layout="short"]:not(.simple) .intro,
+.af-experience.af-experience[data-layout="short"]:not(.simple) .flow-copy {
+  top: 84px;
+}
