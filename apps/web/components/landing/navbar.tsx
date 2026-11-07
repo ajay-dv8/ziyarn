@@ -33,19 +33,19 @@ export default function Navbar() {
   // Over the dark hero the bar is transparent with light text; once scrolled
   // into the light sections it turns into a white glass bar with dark text.
   const dark = !scrolled;
-  const linkColor = dark ? "text-white/85 hover:text-white" : "text-gray-600 hover:text-gray-950";
+  const linkColor = dark ? "text-white/85 hover:text-white" : "text-gray-100 hover:text-gray-300";
 
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
-        scrolled ? "border-b border-black/5 bg-white/80 shadow-sm backdrop-blur-md" : "bg-transparent"
+        scrolled ? "border-b border-black/5 bg-white/5 shadow-sm backdrop-blur-md" : "bg-transparent"
       }`}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+      <div className="mx-auto flex h-16 items-center justify-between px-4 md:px-32">
         <Link
           href="/"
-          className={`text-2xl font-black tracking-tight transition-colors ${
-            dark ? "text-white" : "text-gray-950"
+          className={`text-2xl font-bold tracking-tight transition-colors ${
+            dark ? "text-white" : "text-gray-200"
           }`}
         >
           Ziyarn
