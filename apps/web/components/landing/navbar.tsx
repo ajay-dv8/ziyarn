@@ -134,7 +134,7 @@ export default function Navbar() {
                   key={link.label}
                   href={link.href}
                   onClick={() => setMenuOpen(false)}
-                  className="rounded-xl px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-950"
+                  className="rounded-xl px-4 py-3 text-base font-medium text-gray-200 hover:bg-gray-50 hover:text-gray-300"
                 >
                   {link.label}
                 </Link>
