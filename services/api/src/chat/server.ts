@@ -27,6 +27,10 @@ import {
   planSchema,
 } from "@repo/api/plans";
 import {
+  resolveChatTrigger,
+  resolveChatTriggerConfig,
+} from "@repo/api/domains/chat-triggers";
+import {
   sendMessageSchema,
   type SendMessageInput,
 } from "@repo/api/chat/schemas";
@@ -1067,6 +1071,19 @@ export async function handleChatConfig(
         widgetVariant: clampWidgetVariantForPlan(
           planSchema.parse(domain.plan),
           domain.widgetVariant,
+        ),
+        /**
+         * Which chat trigger opens the chat. Resolved so a row holding a
+         * retired id still reports something renderable; `default` means the
+         * launcher built into this widget variant's own markup.
+         */
+        chatTrigger: resolveChatTrigger(domain.chatTrigger),
+        /**
+         * Trigger customization (pill label, bubble icon source, tooltip text
+         * and visibility), defaults filled in — never missing a key.
+         */
+        chatTriggerConfig: resolveChatTriggerConfig(
+          domain.chatTriggerConfig,
         ),
         /**
          * Active product catalog for the widget's recommendation cards.
