@@ -1,6 +1,14 @@
 import { z } from "zod";
 
-import { WIDGET_VARIANT_IDS, type WidgetVariantId } from "@repo/api/domains/widget-variants";
+import {
+  WIDGET_VARIANT_IDS,
+  type WidgetVariantId,
+} from "@repo/api/domains/widget-variants";
+import {
+  CHAT_TRIGGER_IDS,
+  type ChatTriggerId,
+  chatTriggerConfigSchema,
+} from "@repo/api/domains/chat-triggers";
 
 export type { Plan } from "@repo/api/plans";
 
@@ -29,6 +37,17 @@ const widgetVariantEnum = z.enum(
 );
 
 export { widgetVariantEnum };
+
+/**
+ * Same doctrine as the widget variant: built from the registry, unknown values
+ * rejected at the boundary. The runtime's fail-open resolve exists for hand-edited
+ * rows, not for the update API.
+ */
+const chatTriggerEnum = z.enum(
+  CHAT_TRIGGER_IDS as [ChatTriggerId, ...ChatTriggerId[]],
+);
+
+export { chatTriggerEnum, chatTriggerConfigSchema };
 
 export const domainNameSchema = z
   .string()
@@ -74,6 +93,8 @@ export const updateDomainSchema = z
     logoUrl: domainLogoUrlSchema.nullable().optional(),
     businessType: businessTypeEnum.nullable().optional(),
     widgetVariant: widgetVariantEnum.optional(),
+    chatTrigger: chatTriggerEnum.optional(),
+    chatTriggerConfig: chatTriggerConfigSchema.optional(),
   })
   .refine(
     (data) =>
@@ -81,7 +102,9 @@ export const updateDomainSchema = z
       data.slug !== undefined ||
       data.logoUrl !== undefined ||
       data.businessType !== undefined ||
-      data.widgetVariant !== undefined,
+      data.widgetVariant !== undefined ||
+      data.chatTrigger !== undefined ||
+      data.chatTriggerConfig !== undefined,
     { message: "Nothing to update" },
   );
 
