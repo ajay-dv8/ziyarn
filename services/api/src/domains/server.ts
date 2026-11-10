@@ -344,6 +344,12 @@ export function createDomainsService(deps: {
           ...(body.widgetVariant !== undefined
             ? { widgetVariant: body.widgetVariant }
             : {}),
+          ...(body.chatTrigger !== undefined
+            ? { chatTrigger: body.chatTrigger }
+            : {}),
+          ...(body.chatTriggerConfig !== undefined
+            ? { chatTriggerConfig: body.chatTriggerConfig }
+            : {}),
           updatedAt: new Date(),
         })
         .where(eq(domains.id, domain.id))
