@@ -13,20 +13,25 @@
     iframe: true,
 
     /**
-     * @param {{title: string, subtitle: string, color: string, position: string}} config
+     * @param {{title: string, subtitle: string, color: string, position: string, trigger: string|null}} config
      */
     markup: function (config) {
+      // A domain that picked a chat trigger renders THAT launcher instead
+      // (the engine mounts it after this markup); "default" keeps our orb.
+      var launcher = config.trigger
+        ? ""
+        : ('<button type="button" class="zy-launcher" aria-label="Open chat" aria-expanded="false">' +
+          '<span class="zy-open">' +
+          SLEEK_ICONS.chat +
+          '</span><span class="zy-close">' +
+          SLEEK_ICONS.close +
+          "</span>" +
+          "</button>");
       return (
         '<div class="zy-wrap" data-position="' +
         config.position +
         '" data-variant="sleek" data-open="false">' +
-        '<button type="button" class="zy-launcher" aria-label="Open chat" aria-expanded="false">' +
-        '<span class="zy-open">' +
-        SLEEK_ICONS.chat +
-        '</span><span class="zy-close">' +
-        SLEEK_ICONS.close +
-        "</span>" +
-        "</button>" +
+        launcher +
         '<div class="zy-sleek-overlay" hidden>' +
         '<iframe class="zy-sleek-frame" title="Chat with us" allow="clipboard-write; web-share" referrerpolicy="no-referrer"></iframe>' +
         "</div>" +

@@ -14,9 +14,20 @@
     css: VARIANT_CSS.glow,
 
     /**
-     * @param {{title: string, subtitle: string, color: string, position: string}} config
+     * @param {{title: string, subtitle: string, color: string, position: string, trigger: string|null}} config
      */
     markup: function (config) {
+      // A domain that picked a chat trigger renders THAT launcher instead
+      // (the engine mounts it after this markup); "default" keeps ours.
+      var launcher = config.trigger
+        ? ""
+        : ('<button type="button" class="zy-launcher" aria-label="Open chat">' +
+          '<span class="zy-open">' +
+          GLOW_ICONS.chat +
+          '</span><span class="zy-close">' +
+          GLOW_ICONS.close +
+          "</span>" +
+          "</button>");
       return (
         '<div class="zy-wrap" data-position="' +
         config.position +
@@ -49,13 +60,7 @@
         "</div>" +
         '<div class="zy-note">Powered by Ziyarn</div>' +
         "</div>" +
-        '<button type="button" class="zy-launcher" aria-label="Open chat">' +
-        '<span class="zy-open">' +
-        GLOW_ICONS.chat +
-        '</span><span class="zy-close">' +
-        GLOW_ICONS.close +
-        "</span>" +
-        "</button>" +
+        launcher +
         "</div>"
       );
     },
