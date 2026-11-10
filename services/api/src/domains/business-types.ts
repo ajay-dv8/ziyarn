@@ -4,7 +4,8 @@ export type BusinessType =
   | "ecommerce"
   | "hospitality"
   | "food"
-  | "finance";
+  | "finance"
+  | "energy";
 
 export type PageLabels = {
   products: string;
@@ -230,6 +231,42 @@ export const BUSINESS_TYPES: Record<BusinessType, BusinessTypeConfig> = {
       "capture_email",
       "book_appointment",
       "create_payment",
+      "answer_knowledge",
+      "escalate",
+    ],
+    showBookings: true,
+    showProducts: true,
+    showOrders: true,
+  },
+  energy: {
+    label: "Energy",
+    tagline: "Solar, utilities, oil & gas, and fuel supply",
+    labels: {
+      products: "Product",
+      productsPlural: "Products",
+      orders: "Orders",
+      customers: "Customers",
+      bookings: "Site surveys",
+    },
+    placeholders: [
+      "Do you install solar panels?",
+      "How much does solar cost?",
+      "Do you deliver fuel or gas?",
+      "How do I book a site survey?",
+      "Which areas do you cover?",
+    ],
+    defaultSystemPrompt:
+      "You are a sales and support assistant for this energy business. " +
+      "Help visitors with product and service information, quotes for products and services and " +
+      "installations, fuel, gas and energy supply questions, site surveys, billing, and " +
+      "service plans. Be clear and honest about pricing and timelines, and never " +
+      "promise savings, output, or installation dates you cannot verify. " +
+      "If a visitor asks for a human, is frustrated, or the request is out of scope, escalate.",
+    defaultTools: [
+      "capture_email",
+      "book_appointment",
+      "create_payment",
+      "sell_product",
       "answer_knowledge",
       "escalate",
     ],
