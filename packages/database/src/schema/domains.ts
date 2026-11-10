@@ -5,6 +5,7 @@ import {
   uniqueIndex,
   uuid,
   index,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 import { user } from "@repo/database/schema/auth";
@@ -37,6 +38,24 @@ export const domains = pgTable(
      * truth, and the widget falls back to the default for unknown values.
      */
     widgetVariant: text("widget_variant").notNull().default("classic"),
+    /**
+     * Which chat trigger (launcher) opens this domain's chat. Kept as plain
+     * text (not a drizzle enum) so shipping a new trigger never needs a
+     * migration — the registry in services/api/src/domains/chat-triggers.ts is
+     * the source of truth, and the widget falls back to "default" for unknown
+     * values, which is itself the launcher built into `widgetVariant`.
+     */
+    chatTrigger: text("chat_trigger").notNull().default("default"),
+    /**
+     * Per-trigger customization (pill label, bubble icon source, tooltip text
+     * and visibility). One bag so customization grows without migrations; the
+     * shape is validated by chatTriggerConfigSchema in @repo/api before it is
+     * written, and resolved with runtime defaults on read.
+     */
+    chatTriggerConfig: jsonb("chat_trigger_config")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     plan: text("plan", {
       enum: ["free", "standard", "pro", "ultimate", "custom"],
     })
