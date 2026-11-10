@@ -88,6 +88,9 @@
           clearTimeout(mountTimeout);
           if (!didMount) {
             didMount = true;
+            // Stash the whole config (not just widgetVariant): it also names
+            // the chat trigger and its customization, resolved at mount.
+            self._configData = data || null;
             // widgetVariant from the server takes priority; fall back to the
             // data-variant attribute so older embed snippets keep working.
             var serverVariant =
@@ -115,6 +118,24 @@
     // Called once the variant is known (either from the server config endpoint
     // or from the data-variant attribute fallback).
     _mountVariant(variant) {
+      // ---- Chat trigger and its customization ----
+      // The server names the trigger ("default" keeps the launcher this
+      // variant ships; here data-trigger is the fallback for old embed
+      // snippets). Resolved BEFORE the shadow DOM is built, because the
+      // variant's markup must leave its own launcher out when a trigger is
+      // picked, and the trigger's stylesheet rides into the same <style>.
+      var configData = this._configData || null;
+      var triggerName =
+        configData && typeof configData.chatTrigger === "string"
+          ? configData.chatTrigger
+          : this.getAttribute("data-trigger");
+      this._trigger = resolveTrigger(triggerName);
+      // Customization is fully resolved (label, icon source, tooltip) even
+      // when the config request fell back, so every read is plain.
+      this._triggerConfig = resolveTriggerConfig(
+        configData && configData.chatTriggerConfig
+      );
+
       // ---- Create Shadow DOM ----
       // The shadow root encapsulates all styles and markup. The host page
       // cannot access or style elements inside the shadow root.
@@ -128,22 +149,76 @@
       //       <div class="zy-messages">  — scrollable message list
       //       <div class="zy-composer">  — input + send button
       //       <div class="zy-note">      — "Powered by Ziyarn"
-      //     <button class="zy-launcher"> — floating chat bubble
+      //     <button class="zy-launcher"> — floating chat bubble (variant's or
+      //                                    the picked chat trigger's)
       root.innerHTML =
         "<style>" +
         BASE_CSS +
         (variant.css || "") +
+        // The trigger's styles come last: they deliberately override the
+        // variant's own launcher look on shared properties, and selector ties
+        // are won by source order.
+        (this._trigger ? this._trigger.css : "") +
         "</style>" +
         variant.markup({
           title: this._title,
           subtitle: this._subtitle,
           color: this._color,
           position: this._position,
+          // The trigger id, or null when the variant keeps its own launcher.
+          trigger: this._trigger ? this._trigger.id : null,
         });
 
       // ---- Apply accent color via CSS custom property ----
       var wrap = root.querySelector(".zy-wrap");
       wrap.style.setProperty("--zy-color", this._color);
+
+      // ---- Mount the picked chat trigger ----
+      // The variant already emitted no launcher of its own; the trigger's
+      // button joins the wrap now. The orb trigger additionally animates
+      // (Strands mounts the canvas into the fresh button — see triggers/orb).
+      if (this._trigger) {
+        wrap.setAttribute("data-trigger", this._trigger.id);
+        wrap.insertAdjacentHTML(
+          "beforeend",
+          this._trigger.markup({ label: this._triggerConfig.label })
+        );
+        if (this._trigger.id === "orb") {
+          this._strands = mountStrands(
+            root.querySelector(".zy-launcher"),
+            { color: this._color }
+          );
+        }
+        // The bubble trigger may use the owner's logo as its icon, and the
+        // config fetch that named the trigger usually already delivers the
+        // logo URL — swap immediately rather than waiting for the panel's
+        // loadConfig round (which the sleek iframe path never runs; see
+        // _mountSleek).
+        if (this._triggerConfig.iconSource === "logo") {
+          this._setBubbleLogo(
+            root.querySelector(".zy-launcher"),
+            configData && configData.domain ? configData.domain.logoUrl : null
+          );
+        }
+      }
+
+      // ---- Launcher tooltip ----
+      // Rendered for every launcher, whoever owns it, so the feature works on
+      // unpicked triggers too. It is the wrap's LAST child, making the
+      // launcher its previous sibling — base.css anchors the chip from that
+      // pairing, which is why it sits outside the launcher (some launchers
+      // clip their contents). Hidden mode mounts nothing at all, so a widget
+      // whose owner never touched tooltips renders what it always rendered.
+      if (this._triggerConfig.tooltipVisibility !== "never") {
+        wrap.setAttribute("data-tip", this._triggerConfig.tooltipVisibility);
+        wrap.insertAdjacentHTML(
+          "beforeend",
+          '<span class="zy-tip" aria-hidden="true"></span>'
+        );
+        // Owner text goes in via textContent — never markup.
+        root.querySelector(".zy-tip").textContent =
+          this._triggerConfig.tooltip;
+      }
 
       // ---- Cache DOM references for fast access ----
       // Avoids repeated querySelector calls during streaming/interaction.
@@ -258,8 +333,15 @@
             self._setPlaceholders(data.placeholders);
           }
           self._products = data && Array.isArray(data.products) ? data.products : [];
-          if (data && data.domain && data.domain.logoUrl) {
-            self._setHeaderLogo(data.domain.logoUrl);
+          var logoUrl = data && data.domain ? data.domain.logoUrl : null;
+          if (logoUrl) {
+            self._setHeaderLogo(logoUrl);
+          }
+          // The bubble trigger asked for the logo icon: promote it now that
+          // the config answered, in case the mount-time fetch had none. A
+          // domain without a logo simply keeps the chat icon.
+          if (self._triggerConfig && self._triggerConfig.iconSource === "logo") {
+            self._setBubbleLogo(self._launcher, logoUrl);
           }
         })
         .catch(function () {
@@ -301,13 +383,18 @@
         self._setSleekOpen(true);
       });
 
-      // The launcher is the Strands glass orb — the widget's only always-
-      // visible pixel, so it carries the domain's accent colour. mountStrands
-      // returns null on browsers without WebGL2 and the static chat icon
-      // underneath stays as the fallback.
-      this._strands = mountStrands(this._sleekLauncher, {
-        color: this._color,
-      });
+      // The launcher is usually the Strands glass orb — the widget's only
+      // always-visible pixel, so it carries the domain's accent colour. But a
+      // domain that picked a chat trigger swapped in its own button (mounted
+      // before this point), so Strands only animates when the launcher is
+      // actually the orb — the untouched default, or the orb trigger itself.
+      // mountStrands returns null on browsers without WebGL2 and the static
+      // chat icon underneath stays as the fallback.
+      if (!this._trigger || this._trigger.id === "orb") {
+        this._strands = mountStrands(this._sleekLauncher, {
+          color: this._color,
+        });
+      }
 
       // The iframe asks the host to close itself. event.source is the frame's
       // own window proxy, so another frame on the page cannot trigger this.
@@ -515,6 +602,27 @@
       });
       logo.src = logoUrl;
       logo.hidden = false;
+    }
+
+    // -------------------------------------------------------------------------
+    // _setBubbleLogo — bubble trigger with the owner's logo as the icon.
+    // -------------------------------------------------------------------------
+    // Swap the chat glyph for the uploaded logo once /api/chat delivers it.
+    // Without a logo (or on any launcher that is not the bubble trigger) this
+    // is a no-op: the chat icon simply stays, so a missing image is never a
+    // broken launcher.
+    _setBubbleLogo(launcher, logoUrl) {
+      if (!launcher || typeof logoUrl !== "string") return;
+      if (!launcher.classList.contains("zy-trigger-bubble")) return;
+      var logo = launcher.querySelector(".zy-trigger-logo");
+      if (!logo) return;
+      logo.addEventListener("error", function () {
+        launcher.removeAttribute("data-icon");
+        logo.hidden = true;
+      });
+      logo.src = logoUrl;
+      logo.hidden = false;
+      launcher.setAttribute("data-icon", "logo");
     }
 
     // -------------------------------------------------------------------------
