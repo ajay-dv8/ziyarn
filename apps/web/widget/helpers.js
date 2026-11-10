@@ -361,6 +361,53 @@
     VARIANTS[id] = variant;
   }
 
+  // -------------------------------------------------------------------------
+  // Chat trigger registry — WHO RENDERS THE LAUNCHER.
+  //
+  // "default" (or an unknown id, warned about) keeps the launcher each widget
+  // variant ships, so a domain that has not chosen a trigger renders exactly
+  // what it did before this registry existed. Otherwise the variant's markup
+  // is asked to leave its launcher out (the engine passes `trigger` in its
+  // config), and the picked trigger's button is mounted in its place.
+  // -------------------------------------------------------------------------
+
+  var TRIGGERS = {};
+
+  /**
+   * @param {string} id
+   * @param {{
+   *   css: string,
+   *   markup: function(object): string
+   * }} trigger
+   */
+  function registerTrigger(id, trigger) {
+    TRIGGERS[id] = trigger;
+    trigger.id = id;
+  }
+
+  /**
+   * Resolves the server/attribute trigger id to a registered trigger,
+   * FAILING OPEN to null, meaning "the launcher built into the variant".
+   *
+   * A missing value and an unknown id both reach the built-in launcher, so a
+   * typo can never leave a customer's website without a launcher to click —
+   * it only falls back to the button the widget always shipped.
+   */
+  function resolveTrigger(name) {
+    if (typeof name !== "string") return null;
+    var key = name.trim();
+    if (!key) return null;
+    if (!TRIGGERS[key]) {
+      console.warn(
+        '[zy-widget] unknown chat trigger "' +
+          key +
+          '" — using the launcher built into the widget'
+      );
+      return null;
+    }
+    return TRIGGERS[key];
+  }
+
   /**
    * Resolves data-variant to a registered variant, FAILING OPEN.
    *
