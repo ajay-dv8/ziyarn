@@ -17,6 +17,8 @@
  *   data-position "bottom-right" | "bottom-left" (default "bottom-right")
  *   data-api      API base URL override   (default: origin of this script)
  *   data-variant  widget style            (default "classic" — see VARIANTS)
+ *   data-trigger  chat trigger launcher   (default "default" — see TRIGGERS;
+ *                 server config wins when present)
  *
  * Classic and Glow render inside the shadow root, so host page CSS cannot leak
  * in or out. Modern Sleek mounts the Strands glass-orb launcher and loads its
