@@ -1,0 +1,37 @@
+/* Trigger: bubble — a plain accent circle with the chat icon.
+   The base launcher already IS this, so the trigger's job is mostly to
+   override a variant's own launcher look back to it: Modern Sleek's 72px
+   glass bubble, Glow's halo, etc. These rules load after the variant sheet,
+   so they win the ties that matter. */
+
+.zy-wrap[data-trigger="bubble"] .zy-launcher {
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--_zy-color);
+  color: #fff;
+  box-shadow: var(--zy-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.zy-wrap[data-trigger="bubble"] .zy-launcher:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 16px 44px rgba(15, 23, 42, 0.24);
+}
+
+/* Logo icon — swapped in by the engine once /api/chat delivers the domain
+   logo. Without a delivered logo the chat icon simply stays. */
+.zy-wrap[data-trigger="bubble"] .zy-launcher .zy-trigger-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.94);
+  object-fit: cover;
+}
+.zy-trigger-logo[hidden] { display: none; }
+.zy-wrap[data-trigger="bubble"] .zy-launcher[data-icon="logo"] .zy-open {
+  display: none;
+}
