@@ -56,6 +56,51 @@
 .zy-wrap[data-open="true"] .zy-launcher .zy-open { display: none; }
 .zy-wrap[data-open="true"] .zy-launcher .zy-close { display: block; }
 
+/* ---- Launcher tooltip ---- */
+/* A small chip beside the launcher ("Chat with us" by default), editable per
+   domain. The engine injects it for every launcher, whoever owns the button:
+   never picked a trigger included. It is the wrap's LAST child — its previous
+   sibling is therefore always the launcher; positioning anchors from that
+   pairing, which is also why it lives outside the launcher (some launchers
+   clip their contents). Decorative (aria-hidden): the launcher's aria-label
+   stays the single annotation a screen reader hears.
+   Modes (data-tip on .zy-wrap):
+     "hover"  — shows on mouse-over (touch screens never hover: free)
+     "always" — permanently on, the classic chip-and-bubble combo */
+.zy-tip {
+  position: absolute;
+  bottom: 12px;
+  right: calc(100% + 10px);
+  max-width: 176px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 550;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transform: translateX(3px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
+}
+.zy-wrap[data-position="bottom-left"] .zy-tip {
+  right: auto;
+  left: calc(100% + 10px);
+  transform: translateX(-3px);
+}
+.zy-wrap[data-tip="hover"] .zy-launcher:hover + .zy-tip,
+.zy-wrap[data-tip="always"] .zy-tip {
+  opacity: 1;
+  transform: translateX(0);
+}
+/* An open chat must not have the chip floating over its messages. */
+.zy-wrap[data-open="true"] .zy-tip { display: none; }
+
 /* ---- Chat panel — the main chat window ---- */
 /* Hidden by default (display: none). Shown when data-open="true" on .zy-wrap. */
 .zy-panel {
