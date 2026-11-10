@@ -26,6 +26,10 @@ import {
   type UpdateDomainInput,
 } from "@repo/api/domains/schemas";
 import { DEFAULT_WIDGET_VARIANT } from "@repo/api/domains/widget-variants";
+import {
+  resolveChatTrigger,
+  resolveChatTriggerConfig,
+} from "@repo/api/domains/chat-triggers";
 
 export type SessionWithUser = {
   user: { id: string };
@@ -189,6 +193,12 @@ export function createDomainsService(deps: {
               planSchema.parse(row.plan),
               row.widgetVariant,
             ),
+            // Same doctrine for the chat trigger: unknown ids fail open to
+            // the default and the customization bag always has its keys.
+            chatTrigger: resolveChatTrigger(row.chatTrigger),
+            chatTriggerConfig: resolveChatTriggerConfig(
+              row.chatTriggerConfig,
+            ),
           })),
         );
     },
@@ -202,6 +212,8 @@ export function createDomainsService(deps: {
           planSchema.parse(domain.plan),
           domain.widgetVariant,
         ),
+        chatTrigger: resolveChatTrigger(domain.chatTrigger),
+        chatTriggerConfig: resolveChatTriggerConfig(domain.chatTriggerConfig),
       };
     },
 
