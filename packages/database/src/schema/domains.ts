@@ -28,6 +28,7 @@ export const domains = pgTable(
         "hospitality",
         "food",
         "finance",
+        "energy",
       ],
     }),
     embedSecret: text("embed_secret").notNull(),

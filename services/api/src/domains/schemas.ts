@@ -19,6 +19,7 @@ const businessTypeEnum = z.enum([
   "hospitality",
   "food",
   "finance",
+  "energy",
 ]);
 
 export { businessTypeEnum };
