@@ -25,6 +25,15 @@ export interface AgentConfig {
   businessType?: string | null;
   knowledgeSearch?: boolean;
   widgetVariant?: string;
+  /** Which chat trigger opens the chat; ids live in @repo/api chat-triggers. */
+  chatTrigger?: string;
+  /** Trigger customization (pill label, bubble icon source, tooltip). */
+  chatTriggerConfig?: {
+    label?: string;
+    iconSource?: string;
+    tooltip?: string;
+    tooltipVisibility?: string;
+  } | null;
   /** Active product catalog, used to render recommendation cards in chat. */
   products?: AgentProduct[] | null;
 }
