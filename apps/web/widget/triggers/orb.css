@@ -1,0 +1,32 @@
+/* Trigger: orb — the glass orb (Strands) as a launcher on any widget.
+   Visual contract with Modern Sleek's own launcher: a transparent button the
+   canvas fills, with the static chat icon underneath as the WebGL2 fallback.
+   The engine mounts the canvas after this markup is in the shadow root. */
+
+.zy-wrap[data-trigger="orb"] .zy-launcher {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  padding: 0;
+}
+.zy-wrap[data-trigger="orb"] .zy-launcher.zy-strands {
+  background: transparent;
+  box-shadow: none;
+}
+.zy-wrap[data-trigger="orb"] .zy-launcher.zy-strands:hover {
+  box-shadow: none;
+}
+.zy-wrap[data-trigger="orb"] .zy-launcher.zy-strands .zy-open,
+.zy-wrap[data-trigger="orb"] .zy-launcher.zy-strands .zy-close {
+  display: none;
+}
+/* When the chat is open the orb canvas drops away and the button reverts to
+   the plain accent circle with the close icon — same behaviour the base
+   launcher has when the icon swaps. */
+.zy-wrap[data-trigger="orb"][data-open="true"] .zy-launcher canvas {
+  opacity: 0;
+}
+.zy-wrap[data-trigger="orb"][data-open="true"] .zy-launcher.zy-strands {
+  background: var(--_zy-color);
+  box-shadow: var(--zy-shadow);
+}
