@@ -1,8 +1,13 @@
 import { PLAN_DISPLAY_NAMES } from "@repo/api/plans";
 import type { BusinessType } from "@repo/api/domains/business-types";
+import type {
+  ChatTriggerId,
+  ResolvedChatTriggerConfig,
+} from "@repo/api/domains/chat-triggers";
 import type { WidgetVariantId } from "@repo/api/domains/widget-variants";
 
 import { BusinessTypeEditor } from "@/components/domains/business-type-editor";
+import { ChatTriggerPicker } from "@/components/domains/chat-trigger-picker";
 import { CopySecretField } from "@/components/domains/copy-secret-field";
 import { DomainLogoEditor } from "@/components/domains/domain-logo-editor";
 import { RenameDomainForm } from "@/components/domains/rename-domain-form";
@@ -30,6 +35,8 @@ export function DomainSettingsPanel({
   plan,
   businessType,
   widgetVariant,
+  chatTrigger,
+  chatTriggerConfig,
   embedSecret,
 }: {
   domainId: string;
@@ -39,6 +46,8 @@ export function DomainSettingsPanel({
   plan: keyof typeof PLAN_DISPLAY_NAMES;
   businessType: BusinessType | null;
   widgetVariant: WidgetVariantId;
+  chatTrigger: ChatTriggerId;
+  chatTriggerConfig: ResolvedChatTriggerConfig;
   embedSecret: string | null;
 }) {
   return (
@@ -99,6 +108,13 @@ export function DomainSettingsPanel({
             domainId={domainId}
             currentVariant={widgetVariant}
             plan={plan}
+          />
+        </div>
+        <div className="mt-6 border-t pt-4">
+          <ChatTriggerPicker
+            domainId={domainId}
+            currentTrigger={chatTrigger}
+            currentConfig={chatTriggerConfig}
           />
         </div>
       </div>
