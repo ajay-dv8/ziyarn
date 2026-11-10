@@ -25,6 +25,7 @@ const DESCRIPTION_PLACEHOLDERS: Record<BusinessType, string> = {
   hospitality: "Tell us about your property…",
   food: "Tell us about your restaurant…",
   finance: "Tell us about your firm…",
+  energy: "Tell us about your energy business…",
 };
 
 export function CreateAgentButton({
