@@ -39,6 +39,15 @@ const outFile = join(appRoot, "public", "widget.js");
  */
 const VARIANTS = ["classic", "glow", "sleek"];
 
+/**
+ * Chat triggers, in pick order (services/api chat-triggers registry is the
+ * source of truth for ids/labels). Like variants: each trigger owns its
+ * .css and .js in widget/triggers/, and triggers/common.js loads first.
+ * A trigger renders a LAUNCHER only, which the engine mounts in place of the
+ * variant's launcher — the panel wiring stays the engine's.
+ */
+const TRIGGERS = ["bubble", "orb", "pill"];
+
 const BANNER = (name) => `/* ${name} */`;
 
 function read(...parts) {
@@ -127,6 +136,9 @@ async function build() {
   for (const id of VARIANTS) {
     assertBalancedMarkup(id, read("variants", `${id}.js`));
   }
+  for (const id of TRIGGERS) {
+    assertBalancedMarkup(id, read("triggers", `${id}.js`));
+  }
 
   const parts = [
     read("preamble.js"),
@@ -157,6 +169,20 @@ async function build() {
     ...VARIANTS.flatMap((id) => [
       BANNER(`variant: ${id}`),
       read("variants", `${id}.js`),
+      "",
+    ]),
+    BANNER("trigger stylesheets — keyed by id"),
+    `var TRIGGER_CSS = {\n${TRIGGERS.map((id) => {
+      const css = read("triggers", `${id}.css`);
+      return `  ${JSON.stringify(id)}: ${asCssLiteral(css)},`;
+    }).join("\n")}\n};`,
+    "",
+    BANNER("chat triggers — launcher styles (see TRIGGERS / helpers.js)"),
+    read("triggers", "common.js"),
+    "",
+    ...TRIGGERS.flatMap((id) => [
+      BANNER(`chat trigger: ${id}`),
+      read("triggers", `${id}.js`),
       "",
     ]),
     BANNER("engine — /api/chat, SSE streaming, delta long-poll, composer"),
