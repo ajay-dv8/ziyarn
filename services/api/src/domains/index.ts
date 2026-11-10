@@ -8,6 +8,7 @@ export {
   domainNameSchema,
   domainSlugSchema,
   updateDomainSchema,
+  chatTriggerEnum,
   widgetVariantEnum,
 } from "@repo/api/domains/schemas";
 
@@ -35,3 +36,19 @@ export {
   widgetVariantLabel,
   type WidgetVariantId,
 } from "@repo/api/domains/widget-variants";
+
+export {
+  CHAT_TRIGGERS,
+  CHAT_TRIGGER_IDS,
+  DEFAULT_CHAT_TRIGGER,
+  CHAT_TRIGGER_TOOLTIP_DEFAULT,
+  chatTriggerLabel,
+  isChatTrigger,
+  resolveChatTrigger,
+  resolveChatTriggerConfig,
+  TOOLTIP_VISIBILITY_DEFAULT,
+  type ChatTriggerId,
+  type ChatTriggerConfig,
+  type ResolvedChatTriggerConfig,
+  type TooltipVisibility,
+} from "@repo/api/domains/chat-triggers";
