@@ -9,16 +9,10 @@ import { Label } from "@repo/ui/components/label";
 
 import { createDomainAction, type ActionResult } from "@/lib/actions/domains";
 import { APP_ROUTES } from "@/constants/routes";
-import type { BusinessType } from "@repo/api/domains/business-types";
-
-const BUSINESS_TYPES: BusinessType[] = [
-  "education",
-  "health",
-  "ecommerce",
-  "hospitality",
-  "food",
-  "finance",
-];
+import {
+  BUSINESS_TYPES,
+  type BusinessType,
+} from "@repo/api/domains/business-types";
 
 export function CreateDomainForm() {
   const router = useRouter();
@@ -36,9 +30,10 @@ export function CreateDomainForm() {
 
     const formData = new FormData(event.currentTarget);
     const rawBusinessType = String(formData.get("businessType") ?? "");
-    const businessType = BUSINESS_TYPES.includes(rawBusinessType as BusinessType)
-      ? (rawBusinessType as BusinessType)
-      : undefined;
+    const businessType =
+      rawBusinessType && Object.hasOwn(BUSINESS_TYPES, rawBusinessType)
+        ? (rawBusinessType as BusinessType)
+        : undefined;
     const result = (await createDomainAction({
       name: String(formData.get("name") ?? ""),
       slug: String(formData.get("slug") ?? ""),
@@ -98,12 +93,13 @@ export function CreateDomainForm() {
           className="w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <option value="">Generic (default)</option>
-          <option value="education">Education</option>
-          <option value="health">Health & Pharmacy</option>
-          <option value="ecommerce">E-Commerce</option>
-          <option value="hospitality">Hotels & Hospitality</option>
-          <option value="food">Food & Restaurants</option>
-          <option value="finance">Banking & Finance</option>
+          {/* Options come from the shared registry — a new business type needs
+              one row there, never an edit in this form. */}
+          {Object.entries(BUSINESS_TYPES).map(([id, typeConfig]) => (
+            <option key={id} value={id}>
+              {typeConfig.label}
+            </option>
+          ))}
         </select>
       </div>
 
