@@ -73,6 +73,8 @@ export default async function DomainsPage({
             plan={domain.plan}
             businessType={domain.businessType}
             widgetVariant={domain.widgetVariant}
+            chatTrigger={domain.chatTrigger}
+            chatTriggerConfig={domain.chatTriggerConfig}
             embedSecret={embedConfig?.secret ?? null}
           />
         </div>
