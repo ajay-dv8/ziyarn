@@ -41,9 +41,10 @@ When do you need this by?
 
 ### Which model answers
 
-The model is a deployment setting, not a per-agent one: the dashboard runs on
-Gemini, with an OpenRouter model as a fallback when the primary provider is
-unavailable. Both are configured with environment variables.
+Each domain uses the platform's model unless its owner connects their own
+provider. The owner can set a default for the whole account and override it per
+domain; chat and embeddings can use different models. See
+[AI Provider](/docs/ai-provider).
 
 ### When the agent cannot help
 
