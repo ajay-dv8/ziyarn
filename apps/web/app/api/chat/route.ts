@@ -1,7 +1,14 @@
+import { createAiService } from "@repo/ai";
 import { handleChatPost, handleChatConfig, handleChatHistory, CORS_HEADERS } from "@repo/api/chat";
 import { db } from "@repo/database";
 
-import { aiService, chatService, logger } from "@/services/chat-service";
+import { aiConfigService } from "@/services/ai-config-service";
+import {
+  aiService,
+  chatService,
+  logger,
+  platformEmbedConfig,
+} from "@/services/chat-service";
 import { authService } from "@/services/auth-service";
 import { knowledgeService } from "@/services/knowledge-service";
 import { portalService } from "@/services/portal-service";
@@ -15,12 +22,31 @@ export function OPTIONS() {
 }
 
 /**
+ * Builds the chat client for a domain that brought its own provider.
+ * Null means "use the platform default".
+ */
+async function resolveAiService(domain: { id: string; ownerId: string }) {
+  const provider = await aiConfigService.resolveForDomain(
+    domain.id,
+    domain.ownerId,
+  );
+  if (!provider) return null;
+  return createAiService({
+    chat: provider,
+    // No platform fallback for a BYO provider: its owner pays for its calls.
+    fallback: null,
+    embed: platformEmbedConfig,
+  });
+}
+
+/**
  * POST /api/chat — streams AI response as SSE.
  * All business logic lives in @repo/api/chat.
  */
 export async function POST(request: Request) {
   return handleChatPost(chatService, db, request, {
     aiService,
+    resolveAiService,
     portalService,
     knowledgeService,
     chatRateLimiter,
