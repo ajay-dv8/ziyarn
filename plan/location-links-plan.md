@@ -1,0 +1,225 @@
+# Widget Location Links Plan
+
+Status: proposed. Phase 1 is a server-side prompt change; Phase 2 is only built
+if Phase 1 fails its verification gate.
+
+## Goal
+
+When an agent's reply names a specific place a visitor could visit, tapping the
+place opens it in Google Maps — the app on mobile when installed, the browser
+otherwise. This covers both direct questions ("Where are you located?") and
+places mentioned in passing.
+
+## Non-goals
+
+- Geocoding, address autocomplete, or map embeds.
+- Detecting locations in arbitrary text with regex or NER. Place names have no
+  reliable shape: "Accra Mall" looks like ordinary words. The AI already knows
+  when it is naming a place, so it should mark it.
+- Route planning, "near me" search, or a map preview card.
+- Click analytics.
+- Multiple saved business addresses.
+
+## Current state
+
+- Both widget surfaces already render markdown links and bare `http(s)` URLs as
+  clickable links with `target="_blank" rel="noopener noreferrer"`:
+  - Classic: `apps/web/widget/helpers.js` (`renderMd`) and
+    `apps/web/widget/base.css` (`.zy-msg a`).
+  - Sleek React: `apps/web/lib/widget-markdown.ts` (parser) and
+    `apps/web/components/widget/widget-markdown.tsx` (renderer).
+- Links survive history reloads. Nothing extra is needed for the click itself.
+- `isSafeLinkUrl` and `isMdSafeUrl` allow only `http(s)` and `mailto`, so a
+  Google Maps HTTPS link is already permitted.
+- There is no address or location field in the database. The AI learns
+  locations from the knowledge base, the agent description/instructions, or
+  business-type defaults.
+- `services/api/src/chat/server.ts` (`systemPromptFor`) currently forbids
+  constructing URLs:
+  > Never invent, guess, or construct URLs from the domain slug; only use URLs
+  > supplied by knowledge results, the product catalog, or tool results...
+
+## Why the AI marks the location
+
+A browser cannot reliably tell a place from ordinary text. A regex would link
+random words or miss "Accra Mall" entirely, and adding an NER/geocoding API
+adds cost, latency, and ambiguity. The model already decides whether it is
+answering with a real place, so the cheapest reliable design is a prompt rule
+that makes the place a Maps link.
+
+## Phase 1 — Prompt-only (recommended first)
+
+### Changes
+
+1. `services/api/src/chat/server.ts` — in `systemPromptFor`:
+   - Scope the existing URL rule to **source** URLs so it still prevents
+     invented source links, and explicitly allow self-constructed Maps links.
+   - Add a locations rule. Proposed text:
+
+     > When your answer names a specific place a visitor could visit — a street
+     > address, office, branch, shop, or venue — make the place itself a Google
+     > Maps link:
+     > `[12 Oxford Street, Osu, Accra](https://www.google.com/maps/search/?api=1&query=12+Oxford+Street,+Osu,+Accra)`.
+     > Replace spaces with `+` and do not add spaces to the URL. Only link a
+     > place that appears in the knowledge results, tool results, or business
+     > instructions; never guess a location. Do not link broad regions,
+     > countries, or online services.
+
+2. `services/api/src/chat/server.test.ts`:
+   - Update the existing "supplied source URLs" assertion if the wording
+     changes.
+   - Add an assertion that the prompt contains the Maps rule and example query.
+
+No widget or database changes. The model emits a normal markdown link; both
+surfaces already render it.
+
+### Verification gate
+
+Use one scratch domain/agent with a knowledge entry containing a known address,
+for example:
+
+> Our office is at 12 Oxford Street, Osu, Accra. We are open Monday to Friday,
+> 9am–5pm.
+
+Run these prompts three times each, on the platform model and one BYO provider:
+
+| Kind | Prompt | Expected |
+|------|--------|----------|
+| Location | Where are you located? | Address text is a tappable Maps link |
+| Location | What's your office address? | Same |
+| Location | Can I visit your shop? | Address or venue is linked |
+| Location | Is there parking at your venue? | Venue/address is linked |
+| Location | I'm looking for your branch in Osu | Branch/address is linked |
+| Control | Do you deliver nationwide? | No Maps link |
+| Control | What are your opening hours? | No Maps link |
+| Control | Tell me about your return policy. | No Maps link |
+
+Check both widget variants, in the dashboard preview and when embedded, and
+reload the conversation to confirm history links still work.
+
+Pass criteria:
+
+- Every location prompt produces a working, tappable link.
+- Every control prompt produces no Maps link.
+- The link opens Google Maps (app or browser) on Android Chrome and iOS Safari.
+
+If any link is malformed, not tappable, missing from a location answer, or
+present on a control answer more than once across the runs, move to Phase 2.
+
+### Known limitations
+
+- The model can still omit a link. That is why Phase 2 exists.
+- A URL with raw spaces will not parse as a link. The prompt tells the model to
+  use `+`; uncommon characters (`#`, `&` in an address) can still break the
+  query. Phase 2 removes this failure by encoding in the widget.
+- The Google Maps link opens the Google Maps app when installed, otherwise the
+  browser. It does not force Apple Maps or the device's default map app.
+- The prompt becomes longer for every request, but only by a short paragraph.
+
+## Phase 2 — Deterministic location marker (conditional)
+
+Build this only if the Phase 1 gate fails. The model supplies the place text;
+the widget builds the URL, so encoding is always correct and no URL is
+model-generated.
+
+### Syntax
+
+The model writes:
+
+```
+[[location: 12 Oxford Street, Osu, Accra]]
+```
+
+### Changes
+
+1. `services/api/src/chat/server.ts` — replace the Phase 1 maps-link rule with
+   the marker rule. Keep the "only real places" constraint. The source-URL rule
+   goes back to its original scope.
+
+2. `apps/web/lib/widget-markdown.ts` — before markdown link parsing, recognize
+   a complete marker and emit a normal `link` node:
+   - `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}`
+   - Trim the place, reject newlines, and cap it (for example 300 characters).
+   - No new node kind is needed; the existing link renderer already handles
+     `target`, `rel`, and styling.
+   - Only complete markers are parsed. An incomplete marker falls back to
+     literal text, matching the parser's existing partial-markdown convention.
+     If the raw marker flash during streaming is distracting, hide an
+     unterminated trailing marker while streaming (requires passing a
+     streaming flag).
+
+3. `apps/web/widget/helpers.js` — the same recognition in `renderMdInline`,
+   using `esc()` for the label and attribute. Build the URL with
+   `encodeURIComponent`.
+
+4. Tests:
+   - `apps/web/lib/widget-markdown.test.ts`: complete marker becomes a link
+     with the encoded URL; special characters (`&`, `#`, unicode) encode
+     correctly; incomplete markers stay text; over-long markers do not link;
+     injected HTML stays escaped.
+   - Classic has no unit test for `renderMd`; add a case to
+     `apps/web/scripts/widget-e2e.mjs` or verify manually.
+   - Re-run the Phase 1 manual gate with the marker prompt.
+
+5. Run `pnpm --filter web build:widget` and commit the regenerated
+   `apps/web/public/widget.js`. Never hand-edit it.
+
+### Optional polish
+
+A map-pin icon or a slightly stronger affordance. Skip unless the underlined
+link is not obviously tappable in the widget.
+
+## Deferred / optional
+
+- **Business location field.** Add a nullable `locationAddress` to `domains`,
+  expose it in domain settings, and include it in `systemPromptFor`. This
+  guarantees the main address is known even if it is missing from knowledge.
+  It does not cover branches. Requires a migration, API schema, UI, and tests;
+  not needed for Phase 1.
+- **Device default maps.** Use `https://maps.apple.com/?q=...` on iOS (Apple
+  Maps) or `geo:` on Android (opens the default map app). The latter needs the
+  link allowlist extended and real-device testing. The Google Maps HTTPS link
+  already opens the Google Maps app when installed, so defer this until
+  requested.
+- **Richer location card.** Address, map preview, and a directions button, like
+  the product card. More UI work on both surfaces; the link is enough for the
+  requested behavior.
+- **Tap analytics.**
+
+## Risks
+
+- The model can mention an incorrect or invented place. The prompt limits links
+  to places from knowledge, tools, or business instructions, but the link is
+  only as accurate as the answer.
+- The clicked URL sends the location text to Google. That is expected for a
+  Maps link.
+- App handoff is controlled by the OS and browser; test on real devices, not
+  only desktop emulation.
+- Classic and sleek are separate renderers. Any Phase 2 parser change must be
+  made in both, and `public/widget.js` must be rebuilt and committed.
+- A prompt change applies to every domain immediately; there is no feature
+  flag. Reverting is a prompt revert.
+- The existing `systemPromptFor` test asserts the current URL wording. Update
+  it deliberately when the rule is scoped to source URLs.
+
+## Definition of done (Phase 1)
+
+- [ ] System prompt includes the Maps rule and the source-URL rule is scoped.
+- [ ] `systemPromptFor` test updated and a Maps-rule assertion added.
+- [ ] Five location prompts produce tappable links; three control prompts do
+      not.
+- [ ] Classic and sleek widgets verified, including history reload.
+- [ ] Android Chrome and iOS Safari checked; note app versus browser behavior.
+- [ ] `pnpm --filter @repo/api test`, `pnpm --filter web check-types`, and
+      `pnpm --filter web lint` pass.
+- [ ] No database changes.
+
+## Open decisions
+
+1. **Phase 1 then gate, or build Phase 2 immediately?** Recommended: Phase 1.
+2. **Google Maps everywhere, or Apple Maps on iOS?** Recommended: Google
+   universal link; revisit if iPhone users expect Apple Maps.
+3. **Add the business location field now or defer?** Recommended: defer until
+   the knowledge base proves insufficient.
+4. **Plain link or pin/button affordance?** Recommended: existing link style
+   first.
