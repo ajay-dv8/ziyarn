@@ -1,7 +1,8 @@
 # Widget Location Links Plan
 
-Status: proposed. Phase 1 is a server-side prompt change; Phase 2 is only built
-if Phase 1 fails its verification gate.
+Status: implemented via the deterministic marker path (Phase 2). Model-built
+Maps URLs were skipped because the widget can build the URL itself, which
+removes the fragile URL-encoding step. See "Implementation notes".
 
 ## Goal
 
@@ -214,12 +215,42 @@ link is not obviously tappable in the widget.
       `pnpm --filter web lint` pass.
 - [ ] No database changes.
 
-## Open decisions
+## Decisions taken
 
-1. **Phase 1 then gate, or build Phase 2 immediately?** Recommended: Phase 1.
-2. **Google Maps everywhere, or Apple Maps on iOS?** Recommended: Google
-   universal link; revisit if iPhone users expect Apple Maps.
-3. **Add the business location field now or defer?** Recommended: defer until
-   the knowledge base proves insufficient.
-4. **Plain link or pin/button affordance?** Recommended: existing link style
-   first.
+1. **Marker path instead of model-built URLs.** The widget builds the Maps URL,
+   so the model only supplies the place text. This removes malformed-URL
+   failures and works for every provider.
+2. **Google Maps universal link everywhere.** It opens the Google Maps app when
+   installed and the browser otherwise. Apple Maps/device-default links remain
+   deferred.
+3. **Business location field deferred.** Knowledge and business details are
+   enough for the current behavior.
+4. **Plain underlined link.** No pin icon or card; the existing link styling is
+   clear and consistent with source links.
+
+## Implementation notes
+
+Implemented:
+
+- System prompt marker rule in `systemPromptFor`
+  (`services/api/src/chat/server.ts`) and its unit test.
+- Marker parsing in `apps/web/lib/widget-markdown.ts` and
+  `apps/web/widget/helpers.js`. Incomplete markers show their place text while
+  streaming and never expose the raw `[[location:` prefix.
+- Maps URL built with `encodeURIComponent`; the link keeps `target="_blank"` and
+  `rel="noopener noreferrer"`.
+- Dashboard conversation bubbles and previews strip the marker for plain text.
+- Widget e2e fake reply includes a marker, and both classic and glow assert the
+  resulting link. `public/widget.js` was rebuilt.
+
+Verification:
+
+- `@repo/api`: 174 passed, 11 skipped.
+- `web`: 54 passed.
+- Widget e2e: 31/31 checks, including the Maps link in classic and glow.
+- Live platform-model check: address, showroom, and visit questions emitted
+  `[[location: ...]]` with the correct address/venue.
+
+Remaining: check app handoff on a real Android and iPhone. Apple Maps,
+device-default links, a business-location field, and a map card are still
+deferred.
