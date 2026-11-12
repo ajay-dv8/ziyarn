@@ -72,6 +72,24 @@ describe("systemPromptFor", () => {
     expect(prompt).toContain("domain slug");
   });
 
+  it("tells the model to mark visitable places for map links", () => {
+    const prompt = systemPromptFor(
+      { slug: "urban-plus-2", businessType: "ecommerce" },
+      {
+        name: "Urban+",
+        description: null,
+        instructions: null,
+        systemPrompt: null,
+        tools: null,
+        filterQuestions: null,
+      },
+      [],
+    );
+
+    expect(prompt).toContain("[[location: 123 Example Street, City]]");
+    expect(prompt).toContain("never guess or invent a location");
+  });
+
   it("includes a product page URL in the catalog line", () => {
     const prompt = systemPromptFor(
       { slug: "urban-plus-2", businessType: "ecommerce" },
