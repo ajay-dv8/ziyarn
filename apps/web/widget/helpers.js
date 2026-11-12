@@ -245,6 +245,50 @@
       }
 
       if (character === "[") {
+        var remaining = source.slice(index);
+        var lowerRemaining = remaining.toLowerCase();
+        var locationMatch = remaining.match(
+          /^\[\[location:\s*([^\]\n]*?)\s*\]\]/i
+        );
+        if (locationMatch) {
+          flushPlain();
+          var locationPlace = locationMatch[1].trim();
+          if (
+            locationPlace &&
+            locationPlace.length <= MD_LOCATION_MAX_LENGTH
+          ) {
+            html +=
+              '<a href="' +
+              esc(mdLocationUrl(locationPlace)) +
+              '" target="_blank" rel="noopener noreferrer">' +
+              esc(locationPlace) +
+              "</a>";
+          } else if (locationPlace) {
+            html += esc(locationPlace.slice(0, MD_LOCATION_MAX_LENGTH));
+          }
+          index += locationMatch[0].length;
+          continue;
+        }
+        if (lowerRemaining.indexOf(MD_LOCATION_PREFIX) === 0) {
+          var partialPlace = remaining.slice(MD_LOCATION_PREFIX.length);
+          if (partialPlace.indexOf("\n") === -1) {
+            flushPlain();
+            var visiblePlace = partialPlace.trim();
+            if (visiblePlace) {
+              html += esc(visiblePlace.slice(0, MD_LOCATION_MAX_LENGTH));
+            }
+            index = source.length;
+            continue;
+          }
+        } else if (
+          remaining.length < MD_LOCATION_PREFIX.length &&
+          MD_LOCATION_PREFIX.indexOf(lowerRemaining) === 0
+        ) {
+          // The marker is still arriving; do not show `[[location:` as text.
+          flushPlain();
+          index = source.length;
+          continue;
+        }
         var link = source.slice(index).match(/^\[([^\]]*)\]\(([^)\s]+)\)/);
         if (link && isMdSafeUrl(link[2])) {
           flushPlain();
@@ -288,6 +332,16 @@
 
     flushPlain();
     return html;
+  }
+
+  var MD_LOCATION_PREFIX = "[[location:";
+  var MD_LOCATION_MAX_LENGTH = 300;
+
+  function mdLocationUrl(place) {
+    return (
+      "https://www.google.com/maps/search/?api=1&query=" +
+      encodeURIComponent(place)
+    );
   }
 
   function isMdSafeUrl(url) {
