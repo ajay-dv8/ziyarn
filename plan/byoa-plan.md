@@ -4,6 +4,39 @@ Allow users to supply their own AI provider keys (OpenAI, Anthropic,
 Gemini, OpenRouter, or a custom OpenAI-compatible endpoint) instead of
 relying on the platform's default Gemini model.
 
+## Status (v1 shipped)
+
+Implemented:
+
+- Account-level provider (`ai_configs`) with an optional per-domain override
+  (`domain_ai_configs`). Migration `0033_ai_config.sql` is applied manually
+  because the drizzle journal is desynced from hand-applied migrations.
+- Providers: platform default, OpenAI, Google Gemini (OpenAI-compatible
+  endpoint), OpenRouter, and any custom OpenAI-compatible URL. Anthropic is not
+  supported yet.
+- API keys are AES-256-GCM encrypted with `AI_KEY_ENCRYPTION_SECRET` (scrypt
+  key derivation, fresh IV per save). The dashboard only ever receives a masked
+  key, and only the domain owner can read or edit the configuration.
+- Settings card and per-domain card with a "Test saved connection" probe.
+- Resolution order: domain override → account default → platform. BYO providers
+  get no platform fallback (the owner pays for their own calls). A stored
+  configuration that cannot be resolved (corrupt key, missing encryption secret)
+  is logged and falls back to the platform so visitors are not taken offline;
+  provider call failures surface as a normal chat error.
+- Chat streams through the resolved provider; embeddings always use the platform
+  model.
+- Unit tests for encryption, the provider registry, precedence and validation.
+
+Deferred (v2):
+
+- Anthropic adapter. It needs `@anthropic-ai/sdk` plus a message/tool/system
+  format transform; every other provider speaks the OpenAI protocol.
+- BYO embeddings. Every knowledge vector lives in one `vector(1536)` space and a
+  query is only comparable with vectors from the same model, so switching
+  providers requires re-indexing each domain first.
+- Per-provider token/temperature options (the AI service does not expose them
+  today).
+
 ## Goals
 
 - Users can configure a custom AI provider at the **account level**
