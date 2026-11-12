@@ -14,7 +14,9 @@ import { ProfileForm } from "@/components/dashboard/profile-form";
 import { PasswordForm } from "@/components/dashboard/password-form";
 import { DefaultCurrencyForm } from "@/components/dashboard/default-currency-form";
 import { ThemeSettings } from "@/components/dashboard/theme-settings";
+import { AiProviderForm } from "@/components/settings/ai-provider-form";
 import { APP_ROUTES } from "@/constants/routes";
+import { aiConfigService } from "@/services/ai-config-service";
 import { authService } from "@/services/auth-service";
 import { settingsService } from "@/services/settings-service";
 
@@ -30,6 +32,7 @@ export default async function SettingsPage() {
   }
 
   const settings = await settingsService.getSettings(requestHeaders);
+  const aiConfig = await aiConfigService.getAccountConfig(requestHeaders);
 
   return (
     <div className="space-y-6">
@@ -79,6 +82,19 @@ export default async function SettingsPage() {
           <DefaultCurrencyForm
             defaultCurrency={settings.defaultCurrency}
           />
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-lg">
+        <CardHeader>
+          <CardTitle>AI provider</CardTitle>
+          <CardDescription>
+            Bring your own OpenAI-compatible provider instead of the platform
+            model. Keys are encrypted and never shown in full.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AiProviderForm mode="account" current={aiConfig} />
         </CardContent>
       </Card>
 
