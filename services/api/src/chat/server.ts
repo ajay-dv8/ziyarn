@@ -822,13 +822,29 @@ export async function handleChatPost(
   request: Request,
   handlerDeps: {
     aiService: AiService;
+    /**
+     * Optional per-domain override for BYOA. Returns null for the platform
+     * default; a thrown error falls back to `aiService` so a broken user
+     * configuration never takes a customer's widget offline.
+     */
+    resolveAiService?: (domain: {
+      id: string;
+      ownerId: string;
+    }) => Promise<AiService | null>;
     portalService: PortalService;
     knowledgeService: KnowledgeService;
     chatRateLimiter: { check: (key: string) => boolean | Promise<boolean> };
     logger: Logger;
   },
 ) {
-  const { aiService, portalService, knowledgeService, chatRateLimiter, logger } = handlerDeps;
+  const {
+    aiService,
+    resolveAiService,
+    portalService,
+    knowledgeService,
+    chatRateLimiter,
+    logger,
+  } = handlerDeps;
 
   const secret = request.headers.get("x-embed-secret");
   if (!secret) return jsonError(401, "MISSING_SECRET", "Missing embed secret");
@@ -909,7 +925,19 @@ export async function handleChatPost(
       content: body.message,
     });
 
-    if (!aiService.isConfigured) {
+    let activeAiService = aiService;
+    if (resolveAiService) {
+      try {
+        activeAiService = (await resolveAiService(domain)) ?? aiService;
+      } catch (error) {
+        logger.error(
+          { err: error, domain: domain.slug },
+          "byo_ai_config_failed",
+        );
+      }
+    }
+
+    if (!activeAiService.isConfigured) {
       logger.error({ domain: domain.slug }, "ai_not_configured");
       return jsonError(
         503,
@@ -961,7 +989,7 @@ export async function handleChatPost(
         const abortController = new AbortController();
         const abortTimer = setTimeout(() => abortController.abort(), 60_000);
         try {
-          for await (const event of aiService.streamChat({
+          for await (const event of activeAiService.streamChat({
             systemPrompt: systemPromptFor(domain, agent, catalog, bookingConfig),
             messages: context,
             tools: enabledTools as AgentToolName[] | undefined,
