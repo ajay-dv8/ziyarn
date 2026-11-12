@@ -12,6 +12,8 @@ export type AiProviderConfigRow = {
   baseUrl: string | null;
   customBaseUrl: boolean;
   modelPlaceholder: string;
+  /** Whether this provider exposes an OpenAI-compatible /embeddings endpoint. */
+  supportsEmbeddings: boolean;
 };
 
 export const AI_PROVIDERS = {
@@ -21,6 +23,7 @@ export const AI_PROVIDERS = {
     baseUrl: null,
     customBaseUrl: false,
     modelPlaceholder: "",
+    supportsEmbeddings: true,
   },
   openai: {
     label: "OpenAI",
@@ -28,6 +31,7 @@ export const AI_PROVIDERS = {
     baseUrl: "https://api.openai.com/v1",
     customBaseUrl: false,
     modelPlaceholder: "gpt-4o-mini",
+    supportsEmbeddings: true,
   },
   gemini: {
     label: "Google Gemini",
@@ -35,13 +39,16 @@ export const AI_PROVIDERS = {
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/",
     customBaseUrl: false,
     modelPlaceholder: "gemini-2.0-flash",
+    supportsEmbeddings: true,
   },
   openrouter: {
     label: "OpenRouter",
-    description: "One key for many models — use OpenRouter model ids.",
+    description: "One key for many chat models — use OpenRouter model ids.",
     baseUrl: "https://openrouter.ai/api/v1",
     customBaseUrl: false,
     modelPlaceholder: "openai/gpt-4o-mini",
+    // OpenRouter relays chat completions but has no embeddings endpoint.
+    supportsEmbeddings: false,
   },
   custom: {
     label: "Custom endpoint",
@@ -49,6 +56,7 @@ export const AI_PROVIDERS = {
     baseUrl: null,
     customBaseUrl: true,
     modelPlaceholder: "your-model-name",
+    supportsEmbeddings: true,
   },
 } as const satisfies Record<string, AiProviderConfigRow>;
 
