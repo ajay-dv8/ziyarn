@@ -130,6 +130,7 @@ export function systemPromptFor(
       : "",
     `You are the assistant of the business on domain "${domain.slug}".`,
     "Knowledge results may include a Source URL. When you answer from such an entry, cite the page as a markdown link using its title and the exact URL. Never invent, guess, or construct URLs from the domain slug; only use URLs supplied by knowledge results, the product catalog, or tool results, and do not add a link when no source URL was supplied.",
+    "Locations: when your answer names a specific place a visitor could visit — a street address, office, branch, shop, or venue — wrap that place in a location tag exactly like this: [[location: 123 Example Street, City]]. The widget turns the tag into a tap-to-open Google Maps link. Use the specific address or place name inside the tag, not a phrase such as our office or here. Only tag a place that appears in the knowledge results, tool results, the business information above, or the visitor's message; never guess or invent a location. Do not tag broad regions, countries, or online services.",
     "Appointments and payments are live: use book_appointment to schedule calls and create_payment (or sell_product) for purchases. Never create either without the visitor's agreement.",
     bookingLine,
     filterLine,
