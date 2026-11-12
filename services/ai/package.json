@@ -11,7 +11,7 @@
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
-    "openai": "^5.7.1"
+    "openai": "^7.38.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
