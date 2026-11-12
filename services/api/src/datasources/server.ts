@@ -13,6 +13,8 @@ import {
   products,
 } from "@repo/database/schema";
 import { chunkText } from "@repo/api/knowledge/chunker";
+import type { KnowledgeEmbedder } from "@repo/api/knowledge/server";
+import { EMBEDDING_DIMENSIONS } from "@repo/api/ai/schemas";
 import {
   MAX_DOCUMENT_CHARS,
   MAX_DOCUMENT_CHUNKS,
@@ -206,10 +208,9 @@ function toConnection(input: ConnectDataSourceInput): AnyConnection {
 export function createDataSourcesService(deps: {
   db: Database;
   getSession: (headers: Headers) => Promise<SessionWithUser>;
-  embed: (texts: string[]) => Promise<number[][]>;
-  embeddingModel: string;
+  resolveEmbedder: (agentId: string) => Promise<KnowledgeEmbedder>;
 }) {
-  const { db, getSession, embed, embeddingModel } = deps;
+  const { db, getSession, resolveEmbedder } = deps;
 
   const requireOwnedAgent = async (
     domainId: string,
@@ -292,6 +293,7 @@ export function createDataSourcesService(deps: {
   /** Chunks + embeds + stores a synced table document. */
   async function ingestTableDocument(params: {
     agentId: string;
+    embedder: KnowledgeEmbedder;
     dataSourceId: string;
     tableName: string;
     text: string;
@@ -302,7 +304,17 @@ export function createDataSourcesService(deps: {
       chunks = chunks.slice(0, MAX_DOCUMENT_CHUNKS);
     }
 
-    const vectors = await embed(chunks);
+    const vectors = await params.embedder.embed(chunks);
+    if (
+      vectors.length !== chunks.length ||
+      vectors.some((vector) => vector.length !== EMBEDDING_DIMENSIONS)
+    ) {
+      throw new DataSourceServiceError(
+        502,
+        "EMBEDDING_FAILED",
+        `The embedding model must return one ${EMBEDDING_DIMENSIONS}-dimension vector per chunk`,
+      );
+    }
 
     const [document] = await db
       .insert(knowledgeDocuments)
@@ -331,7 +343,7 @@ export function createDataSourcesService(deps: {
     await db.insert(embeddings).values(
       inserted.map((chunk, index) => ({
         chunkId: chunk.id,
-        model: embeddingModel,
+        model: params.embedder.model,
         embedding: vectorLiteral(vectors[index] ?? []),
       })),
     );
@@ -513,6 +525,7 @@ export function createDataSourcesService(deps: {
         source.credentialsEncrypted,
       );
       const driver = await createDriver(connection);
+      const embedder = await resolveEmbedder(source.agentId);
 
       try {
         const tables = await db
@@ -565,6 +578,7 @@ export function createDataSourcesService(deps: {
             });
             await ingestTableDocument({
               agentId: source.agentId,
+              embedder,
               dataSourceId: source.id,
               tableName: table.tableName,
               text,
