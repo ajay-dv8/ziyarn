@@ -333,6 +333,39 @@ async function* streamWith(
   }
 }
 
+/**
+ * Builds the embeddings client used by both the platform model and BYO
+ * embedding configs. Kept separate so the knowledge re-index path can embed
+ * without constructing a chat client.
+ */
+export function createEmbedder(config: EmbedProviderConfig) {
+  const client = config.apiKey
+    ? new OpenAI({ apiKey: config.apiKey, baseURL: config.baseURL })
+    : null;
+
+  return {
+    isConfigured: client !== null,
+    model: config.model,
+
+    /**
+     * Embeds texts with the configured model. Returns one vector per input,
+     * each with `config.dimensions` components.
+     */
+    embed: async (texts: string[]): Promise<number[][]> => {
+      if (!client) {
+        throw new Error("AI service is not configured (missing API key)");
+      }
+      if (texts.length === 0) return [];
+      const response = await client.embeddings.create({
+        model: config.model,
+        input: texts,
+        dimensions: config.dimensions,
+      });
+      return response.data.map((item) => item.embedding);
+    },
+  };
+}
+
 export function createAiService(opts: {
   chat: AiProviderConfig;
   fallback?: AiProviderConfig | null;
@@ -347,9 +380,7 @@ export function createAiService(opts: {
         baseURL: opts.fallback.baseURL,
       })
     : null;
-  const embedClient = opts.embed.apiKey
-    ? new OpenAI({ apiKey: opts.embed.apiKey, baseURL: opts.embed.baseURL })
-    : null;
+  const embedder = createEmbedder(opts.embed);
 
   const chatModels: Array<{ client: OpenAI; model: string }> = [];
   if (chatClient) chatModels.push({ client: chatClient, model: opts.chat.model });
@@ -361,27 +392,12 @@ export function createAiService(opts: {
   }
 
   return {
-    isConfigured: chatClient !== null && embedClient !== null,
+    isConfigured: chatClient !== null && embedder.isConfigured,
 
-    embeddingModel: opts.embed.model,
+    embeddingModel: embedder.model,
     embeddingDimensions: opts.embed.dimensions,
 
-    /**
-     * Embeds texts with the configured embedding model. Returns one vector
-     * per input, each with `embeddingDimensions` components.
-     */
-    embed: async (texts: string[]): Promise<number[][]> => {
-      if (!embedClient) {
-        throw new Error("AI service is not configured (missing API key)");
-      }
-      if (texts.length === 0) return [];
-      const response = await embedClient.embeddings.create({
-        model: opts.embed.model,
-        input: texts,
-        dimensions: opts.embed.dimensions,
-      });
-      return response.data.map((item) => item.embedding);
-    },
+    embed: embedder.embed,
 
     /**
      * Streams an assistant reply with tool calling. Text deltas are yielded as
