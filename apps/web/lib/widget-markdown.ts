@@ -41,6 +41,19 @@ export function isSafeLinkUrl(url: string): boolean {
   return /^(?:https?:\/\/|mailto:)/i.test(url);
 }
 
+const LOCATION_MARKER_PREFIX = "[[location:";
+const LOCATION_MARKER_MAX_LENGTH = 300;
+const LOCATION_MARKER_PATTERN = /^\[\[location:\s*([^\]\n]*?)\s*\]\]/i;
+
+/** Removes the widget-only marker for plain-text surfaces (e.g. dashboard). */
+export function stripLocationMarkers(text: string): string {
+  return text.replace(/\[\[location:\s*([^\]\n]*?)\s*\]\]/gi, "$1");
+}
+
+function mapsHref(place: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}`;
+}
+
 /**
  * Turns agent markdown into blocks. Unknown syntax degrades to literal text —
  * streaming replies are parsed on every token, so partial markers (`**bold`
@@ -248,6 +261,52 @@ function parseInline(source: string): InlineNode[] {
     }
 
     if (character === "[") {
+      const locationMarker = LOCATION_MARKER_PATTERN.exec(source.slice(index));
+      if (locationMarker) {
+        flush();
+        const place = (locationMarker[1] ?? "").trim();
+        if (place && place.length <= LOCATION_MARKER_MAX_LENGTH) {
+          nodes.push({
+            kind: "link",
+            href: mapsHref(place),
+            children: [{ kind: "text", value: place }],
+          });
+        } else if (place) {
+          nodes.push({
+            kind: "text",
+            value: place.slice(0, LOCATION_MARKER_MAX_LENGTH),
+          });
+        }
+        index += locationMarker[0].length;
+        continue;
+      }
+
+      const remaining = source.slice(index);
+      const lowerRemaining = remaining.toLowerCase();
+      if (lowerRemaining.startsWith(LOCATION_MARKER_PREFIX)) {
+        const partialPlace = remaining.slice(LOCATION_MARKER_PREFIX.length);
+        if (!partialPlace.includes("\n")) {
+          flush();
+          const visiblePlace = partialPlace.trim();
+          if (visiblePlace) {
+            nodes.push({
+              kind: "text",
+              value: visiblePlace.slice(0, LOCATION_MARKER_MAX_LENGTH),
+            });
+          }
+          index = source.length;
+          continue;
+        }
+      } else if (
+        remaining.length < LOCATION_MARKER_PREFIX.length &&
+        LOCATION_MARKER_PREFIX.startsWith(lowerRemaining)
+      ) {
+        // The marker is still arriving; do not show `[[location:` as text.
+        flush();
+        index = source.length;
+        continue;
+      }
+
       const match = /^\[([^\]]*)\]\(([^)\s]+)\)/.exec(source.slice(index));
       const href = match?.[2] ?? "";
       if (match && isSafeLinkUrl(href)) {
