@@ -1,0 +1,143 @@
+---
+title: AI Provider
+description: Use your own OpenAI, Gemini, OpenRouter, or OpenAI-compatible key for chat and embeddings.
+---
+
+# AI Provider
+
+By default, Ziyarn answers with the platform's model. You can switch to your own
+provider key instead, on any plan. Usage is billed directly by your provider.
+
+Configure it at two levels:
+
+- **Account** — the default for every domain you own.
+- **Domain** — an optional override for a single domain.
+
+A domain without its own provider inherits the account default, which in turn
+falls back to the platform model.
+
+## Supported providers
+
+| Provider | Chat | Embeddings |
+|----------|------|------------|
+| Platform default | Yes | Yes |
+| OpenAI | Yes | Yes |
+| Google Gemini | Yes | Yes |
+| OpenRouter | Yes | No |
+| Custom endpoint | Yes | Yes |
+
+Every provider except the platform default is called through the
+OpenAI-compatible chat-completions and embeddings protocols, so any compatible
+endpoint (Ollama, vLLM, a proxy) works as a custom endpoint. Anthropic is not
+supported yet.
+
+## Set up an account provider
+
+1. Go to **Dashboard → Settings → AI Provider**.
+2. Choose a provider.
+3. Enter a model name, for example `gpt-4o-mini` for OpenAI, `gemini-2.0-flash`
+   for Gemini, or `openai/gpt-4o-mini` for OpenRouter.
+4. Paste the provider API key. For a **Custom endpoint**, also enter the base
+   URL, for example `https://my-endpoint.example.com/v1`.
+5. Click **Save**, then **Test saved connection**.
+
+The test sends a small chat request. If an embeddings model is configured, it
+also probes the embeddings endpoint. The test uses the saved configuration, so
+save your changes first.
+
+## Per-domain override
+
+1. Open the domain's settings.
+2. Check **Use a custom AI provider for this domain**.
+3. Enter the provider, model, key, and optional embeddings model.
+4. Click **Save**.
+
+Click **Revert to account default** to remove the override and its stored key.
+
+Saving or removing a domain override requires the domain owner. Workspace
+members cannot change it.
+
+## Resolution order
+
+For each request, the first available setting wins:
+
+1. Domain override
+2. Account default
+3. Platform default
+
+Chat and embeddings resolve separately. A domain override that changes only the
+chat provider still inherits the account's embeddings model, then the platform's.
+
+## API key handling
+
+- Keys are encrypted with AES-256-GCM before they are stored and are never
+  returned in full. The dashboard only shows a masked preview.
+- Keys are decrypted in memory only for the request that calls your provider.
+  They are never written to logs.
+- Leaving the key field blank on a later save keeps the stored key. Switching
+  providers requires a new key.
+- Reverting to the platform default, or reverting a domain, clears the stored
+  key. It cannot be recovered.
+
+## Embeddings
+
+Knowledge search compares your question with vectors built from your knowledge
+base. Ziyarn stores those vectors in one fixed 1536-dimension space, so the
+embeddings model matters.
+
+- **Embeddings model (optional)** — set it to use your provider for knowledge
+  indexing and search. It reuses the provider key and base URL above; there is
+  no second key.
+- A blank **account** value uses the platform embeddings. A blank **domain**
+  value inherits the account embeddings, or the platform's when the account has
+  none.
+- **OpenRouter** has no embeddings endpoint. Its field is hidden, and knowledge
+  search stays on the account or platform embeddings.
+- A custom embeddings model must return exactly 1536 dimensions.
+
+### Changing the embedding model
+
+Saving a new model re-indexes every affected domain before the configuration
+changes. All provider calls finish before the first database write, so a failure
+leaves the old vectors and the old configuration in place.
+
+- An account change re-indexes every domain that inherits the account model.
+- A domain change re-indexes that domain only.
+- The inline re-index is capped at **5,000 chunks per save**. A larger knowledge
+  base refuses the save; split the content or keep the platform embeddings.
+- Re-indexing is not transactional. If the database fails mid-write, retry the
+  same save; it recomputes every vector.
+
+When a BYO chat call fails, the visitor sees an error instead of silently using
+the platform model. Knowledge ingestion and search fail rather than mixing
+vectors from two embedding models. If a saved chat configuration cannot be read
+at all, Ziyarn falls back to the platform so the widget stays online.
+
+## Troubleshooting
+
+### Connection test fails
+
+Check the key, the model name, and — for custom endpoints — the base URL, which
+usually ends in `/v1`. Save before testing.
+
+### 401 or invalid key
+
+The key may have been revoked at the provider, or you switched providers without
+entering the new key.
+
+### The embedding model returned the wrong number of dimensions
+
+The model does not produce 1536-dimension vectors. Use a model that can: OpenAI's
+`text-embedding-3-small` returns 1536 by default, and `gemini-embedding-001`
+supports 1536 through the dimensions parameter.
+
+### "Automatic re-indexing is limited to 5000"
+
+The knowledge base for the affected domains has more chunks than the inline
+re-index allows. Split the content, or keep the platform embeddings.
+
+### Saved keys stopped working
+
+`AI_KEY_ENCRYPTION_SECRET` is a deployment setting. If it changes, previously
+saved keys can no longer be decrypted. Restore the old secret, or save the
+provider keys again.
