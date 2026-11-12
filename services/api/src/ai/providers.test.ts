@@ -30,6 +30,14 @@ describe("the provider registry", () => {
     }
   });
 
+  it("marks which providers expose an embeddings endpoint", () => {
+    expect(AI_PROVIDERS.openai.supportsEmbeddings).toBe(true);
+    expect(AI_PROVIDERS.gemini.supportsEmbeddings).toBe(true);
+    expect(AI_PROVIDERS.custom.supportsEmbeddings).toBe(true);
+    // OpenRouter relays chat completions only.
+    expect(AI_PROVIDERS.openrouter.supportsEmbeddings).toBe(false);
+  });
+
   it("recognises ids only", () => {
     expect(isAiProvider("openai")).toBe(true);
     expect(isAiProvider("OpenAI")).toBe(false);
@@ -94,6 +102,16 @@ describe("updateAiConfigSchema", () => {
         apiKey: "sk-test-123456",
       }).success,
     ).toBe(true);
+  });
+
+  it("accepts an optional embeddings model", () => {
+    const parsed = updateAiConfigSchema.safeParse({
+      provider: "openai",
+      model: "gpt-4o-mini",
+      apiKey: "sk-test-123456",
+      embeddingModel: "text-embedding-3-small",
+    });
+    expect(parsed.success).toBe(true);
   });
 
   it("accepts a custom endpoint when the base URL is supplied", () => {
