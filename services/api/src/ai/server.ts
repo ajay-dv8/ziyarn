@@ -1,22 +1,29 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import { aiConfigs, domainAiConfigs } from "@repo/database/schema";
 import { domains } from "@repo/database/schema/domains";
-import { testAiProvider } from "@repo/ai";
+import { createEmbedder, testAiProvider } from "@repo/ai";
+import type { EmbedProviderConfig } from "@repo/ai";
 import type { SessionWithUser } from "@repo/api/domains/server";
 
 import { decryptSecret, encryptSecret, maskApiKey } from "@repo/api/ai/encryption";
 import {
+  AI_PROVIDERS,
   DEFAULT_AI_PROVIDER,
   aiProviderLabel,
   isAiProvider,
   resolveBaseUrl,
 } from "@repo/api/ai/providers";
 import {
+  EmbeddingReindexError,
+  reindexDomainEmbeddings,
+} from "@repo/api/ai/embeddings";
+import {
   updateAiConfigSchema,
   type AiConfigView,
   type ResolvedAiProvider,
+  type ResolvedEmbeddingProvider,
   type UpdateAiConfigInput,
 } from "@repo/api/ai/schemas";
 
@@ -42,6 +49,7 @@ const domainNotFound = () =>
 type StoredConfig = {
   provider: string;
   model: string | null;
+  embeddingModel: string | null;
   baseUrl: string | null;
   apiKeyEncrypted: string | null;
 };
@@ -49,6 +57,7 @@ type StoredConfig = {
 const storedFields = {
   provider: aiConfigs.provider,
   model: aiConfigs.model,
+  embeddingModel: aiConfigs.embeddingModel,
   baseUrl: aiConfigs.baseUrl,
   apiKeyEncrypted: aiConfigs.apiKeyEncrypted,
 };
@@ -65,11 +74,44 @@ export function selectEffectiveConfig<Row>(
   return override ?? account ?? null;
 }
 
+/**
+ * Embedding settings resolve independently from chat: a domain override that
+ * only changes the chat model keeps inheriting the account's embedding model.
+ * A scope without an embedding model uses the platform embeddings.
+ */
+export function selectEmbeddingConfig<Row extends { embeddingModel: string | null }>(
+  account: Row | null | undefined,
+  override: Row | null | undefined,
+): Row | null {
+  if (override?.embeddingModel) return override;
+  if (account?.embeddingModel) return account;
+  return null;
+}
+
+/**
+ * Identifies the vector space of a scope. Provider and base URL matter because
+ * the same model name on two providers is not guaranteed to produce comparable
+ * vectors.
+ */
+export function embeddingFingerprint(
+  row: Pick<StoredConfig, "provider" | "baseUrl" | "embeddingModel"> | null,
+  platformModel: string,
+): string {
+  if (!row || row.provider === "platform" || !row.embeddingModel) {
+    return `platform:${platformModel}`;
+  }
+  const provider = isAiProvider(row.provider)
+    ? row.provider
+    : DEFAULT_AI_PROVIDER;
+  return `${provider}|${resolveBaseUrl(provider, row.baseUrl) ?? ""}|${row.embeddingModel}`;
+}
+
 function toView(row: StoredConfig | null, secret: string | undefined): AiConfigView {
   if (!row) {
     return {
       provider: DEFAULT_AI_PROVIDER,
       model: null,
+      embeddingModel: null,
       baseUrl: null,
       maskedApiKey: null,
       hasApiKey: false,
@@ -90,6 +132,7 @@ function toView(row: StoredConfig | null, secret: string | undefined): AiConfigV
   return {
     provider: isAiProvider(row.provider) ? row.provider : DEFAULT_AI_PROVIDER,
     model: row.model,
+    embeddingModel: row.embeddingModel,
     baseUrl: row.baseUrl,
     maskedApiKey,
     hasApiKey: Boolean(row.apiKeyEncrypted),
@@ -113,8 +156,16 @@ export function createAiConfigService(deps: {
   getSession: (headers: Headers) => Promise<SessionWithUser>;
   encryptionSecret: string | undefined;
   platformConfigured: boolean;
+  /** Platform embeddings, used when a scope has no BYO embedding model. */
+  platformEmbed: EmbedProviderConfig;
 }) {
-  const { db, getSession, encryptionSecret, platformConfigured } = deps;
+  const {
+    db,
+    getSession,
+    encryptionSecret,
+    platformConfigured,
+    platformEmbed,
+  } = deps;
 
   const requireSession = async (headers: Headers) => {
     const session = await getSession(headers);
@@ -147,6 +198,94 @@ export function createAiConfigService(deps: {
     return encryptionSecret;
   };
 
+  /**
+   * Builds the embeddings config for a stored row, or the platform config when
+   * the scope has no BYO embedding model.
+   */
+  const embedConfigForRow = (
+    row: Pick<
+      StoredConfig,
+      "provider" | "baseUrl" | "embeddingModel" | "apiKeyEncrypted"
+    > | null,
+  ): EmbedProviderConfig => {
+    if (!row || row.provider === "platform" || !row.embeddingModel) {
+      return platformEmbed;
+    }
+    const provider = isAiProvider(row.provider)
+      ? row.provider
+      : DEFAULT_AI_PROVIDER;
+    const baseURL = resolveBaseUrl(provider, row.baseUrl);
+    if (
+      !baseURL ||
+      !row.apiKeyEncrypted ||
+      !AI_PROVIDERS[provider].supportsEmbeddings
+    ) {
+      throw new AiConfigServiceError(
+        500,
+        "AI_CONFIG_INVALID",
+        "The saved embeddings configuration is incomplete",
+      );
+    }
+    return {
+      apiKey: decryptSecret(row.apiKeyEncrypted, requireEncryption()),
+      baseURL,
+      model: row.embeddingModel,
+      dimensions: platformEmbed.dimensions,
+    };
+  };
+
+  /** Re-embeds the affected domains, surfacing a useful message on failure. */
+  const reindexDomains = async (
+    domainIds: string[],
+    config: EmbedProviderConfig,
+  ) => {
+    if (domainIds.length === 0) return;
+    try {
+      await reindexDomainEmbeddings({
+        db,
+        domainIds,
+        embed: createEmbedder(config).embed,
+        model: config.model,
+      });
+    } catch (error) {
+      if (error instanceof EmbeddingReindexError) {
+        throw new AiConfigServiceError(400, "REINDEX_FAILED", error.message);
+      }
+      const message =
+        error instanceof Error ? error.message.slice(0, 300) : "Unknown error";
+      throw new AiConfigServiceError(
+        502,
+        "EMBEDDING_FAILED",
+        `Could not re-index the knowledge base: ${message}`,
+      );
+    }
+  };
+
+  /**
+   * Domains that follow the account's embedding model: everything the owner
+   * owns except domains with their own embedding model set.
+   */
+  const accountEmbeddingDomainIds = async (ownerId: string) => {
+    const owned = await db
+      .select({ id: domains.id })
+      .from(domains)
+      .where(eq(domains.ownerId, ownerId));
+    if (owned.length === 0) return [];
+
+    const overrides = await db
+      .select({ domainId: domainAiConfigs.domainId })
+      .from(domainAiConfigs)
+      .innerJoin(domains, eq(domainAiConfigs.domainId, domains.id))
+      .where(
+        and(
+          eq(domains.ownerId, ownerId),
+          isNotNull(domainAiConfigs.embeddingModel),
+        ),
+      );
+    const excluded = new Set(overrides.map((row) => row.domainId));
+    return owned.map((row) => row.id).filter((id) => !excluded.has(id));
+  };
+
   const accountRow = async (ownerId: string) => {
     const [row] = await db
       .select(storedFields)
@@ -161,6 +300,7 @@ export function createAiConfigService(deps: {
       .select({
         provider: domainAiConfigs.provider,
         model: domainAiConfigs.model,
+        embeddingModel: domainAiConfigs.embeddingModel,
         baseUrl: domainAiConfigs.baseUrl,
         apiKeyEncrypted: domainAiConfigs.apiKeyEncrypted,
       })
@@ -190,7 +330,12 @@ export function createAiConfigService(deps: {
   const saveValues = (
     input: UpdateAiConfigInput,
     existing: StoredConfig | null,
-  ): { model: string; baseUrl: string | null; apiKeyEncrypted: string } => {
+  ): {
+    model: string;
+    embeddingModel: string | null;
+    baseUrl: string | null;
+    apiKeyEncrypted: string;
+  } => {
     const provider = input.provider;
     const model =
       input.model ||
@@ -201,6 +346,25 @@ export function createAiConfigService(deps: {
         400,
         "INVALID_INPUT",
         `Model is required for ${aiProviderLabel(provider)}`,
+      );
+    }
+
+    const embeddingModel =
+      provider === "platform"
+        ? null
+        : input.embeddingModel !== undefined
+          ? input.embeddingModel || null
+          : existing?.provider === provider
+            ? existing.embeddingModel
+            : null;
+    if (
+      embeddingModel &&
+      !AI_PROVIDERS[provider].supportsEmbeddings
+    ) {
+      throw new AiConfigServiceError(
+        400,
+        "INVALID_INPUT",
+        `${aiProviderLabel(provider)} does not expose an embeddings endpoint`,
       );
     }
 
@@ -228,6 +392,7 @@ export function createAiConfigService(deps: {
 
     return {
       model,
+      embeddingModel,
       baseUrl: provider === "custom" ? baseUrl : null,
       apiKeyEncrypted,
     };
@@ -246,14 +411,30 @@ export function createAiConfigService(deps: {
       const existing = await accountRow(session.user.id);
 
       if (body.provider === "platform") {
+        // Reverting to platform embeddings must re-embed the domains that were
+        // following the account before the row is cleared.
+        if (
+          embeddingFingerprint(existing, platformEmbed.model) !==
+          embeddingFingerprint(null, platformEmbed.model)
+        ) {
+          await reindexDomains(
+            await accountEmbeddingDomainIds(session.user.id),
+            platformEmbed,
+          );
+        }
         await db
           .insert(aiConfigs)
-          .values({ ownerId: session.user.id, provider: "platform" })
+          .values({
+            ownerId: session.user.id,
+            provider: "platform",
+            embeddingModel: null,
+          })
           .onConflictDoUpdate({
             target: [aiConfigs.ownerId],
             set: {
               provider: "platform",
               model: null,
+              embeddingModel: null,
               baseUrl: null,
               apiKeyEncrypted: null,
               updatedAt: new Date(),
@@ -263,6 +444,23 @@ export function createAiConfigService(deps: {
       }
 
       const values = saveValues(body, existing);
+      const nextRow: StoredConfig = {
+        provider: body.provider,
+        model: values.model,
+        embeddingModel: values.embeddingModel,
+        baseUrl: values.baseUrl,
+        apiKeyEncrypted: values.apiKeyEncrypted,
+      };
+      if (
+        embeddingFingerprint(existing, platformEmbed.model) !==
+        embeddingFingerprint(nextRow, platformEmbed.model)
+      ) {
+        await reindexDomains(
+          await accountEmbeddingDomainIds(session.user.id),
+          embedConfigForRow(nextRow),
+        );
+      }
+
       await db
         .insert(aiConfigs)
         .values({ ownerId: session.user.id, provider: body.provider, ...values })
@@ -287,7 +485,7 @@ export function createAiConfigService(deps: {
       domainId: string,
       headers: Headers,
     ) {
-      await requireOwnedDomain(domainId, headers);
+      const session = await requireOwnedDomain(domainId, headers);
       const body = parseInput(input);
       if (body.provider === "platform") {
         throw new AiConfigServiceError(
@@ -297,8 +495,28 @@ export function createAiConfigService(deps: {
         );
       }
 
-      const existing = await overrideRow(domainId);
+      const [account, existing] = await Promise.all([
+        accountRow(session.user.id),
+        overrideRow(domainId),
+      ]);
       const values = saveValues(body, existing);
+      const nextRow: StoredConfig = {
+        provider: body.provider,
+        model: values.model,
+        embeddingModel: values.embeddingModel,
+        baseUrl: values.baseUrl,
+        apiKeyEncrypted: values.apiKeyEncrypted,
+      };
+
+      const oldEmbedding = selectEmbeddingConfig(account, existing);
+      const newEmbedding = selectEmbeddingConfig(account, nextRow);
+      if (
+        embeddingFingerprint(oldEmbedding, platformEmbed.model) !==
+        embeddingFingerprint(newEmbedding, platformEmbed.model)
+      ) {
+        await reindexDomains([domainId], embedConfigForRow(newEmbedding));
+      }
+
       await db
         .insert(domainAiConfigs)
         .values({ domainId, provider: body.provider, ...values })
@@ -309,7 +527,23 @@ export function createAiConfigService(deps: {
     },
 
     async deleteDomainOverride(domainId: string, headers: Headers) {
-      await requireOwnedDomain(domainId, headers);
+      const session = await requireOwnedDomain(domainId, headers);
+      const [account, existing] = await Promise.all([
+        accountRow(session.user.id),
+        overrideRow(domainId),
+      ]);
+
+      // Removing an override may move the domain back to the account's (or the
+      // platform's) vector space, so re-embed before deleting the row.
+      const oldEmbedding = selectEmbeddingConfig(account, existing);
+      const newEmbedding = selectEmbeddingConfig(account, null);
+      if (
+        embeddingFingerprint(oldEmbedding, platformEmbed.model) !==
+        embeddingFingerprint(newEmbedding, platformEmbed.model)
+      ) {
+        await reindexDomains([domainId], embedConfigForRow(newEmbedding));
+      }
+
       await db
         .delete(domainAiConfigs)
         .where(eq(domainAiConfigs.domainId, domainId));
@@ -354,21 +588,71 @@ export function createAiConfigService(deps: {
     },
 
     /**
+     * Embeddings config for the knowledge runtime. Returns null when the
+     * effective scope uses the platform model. Throws instead of silently
+     * falling back when a saved BYO config cannot be used: mixing vector
+     * spaces would return meaningless search results.
+     */
+    async resolveEmbeddingForDomain(
+      domainId: string,
+      ownerId: string,
+    ): Promise<ResolvedEmbeddingProvider | null> {
+      const [account, override] = await Promise.all([
+        accountRow(ownerId),
+        overrideRow(domainId),
+      ]);
+      const selected = selectEmbeddingConfig(account, override);
+      if (!selected) return null;
+
+      const provider = isAiProvider(selected.provider)
+        ? selected.provider
+        : DEFAULT_AI_PROVIDER;
+      if (provider === "platform") return null;
+
+      const baseURL = resolveBaseUrl(provider, selected.baseUrl);
+      if (
+        !baseURL ||
+        !selected.apiKeyEncrypted ||
+        !selected.embeddingModel ||
+        !AI_PROVIDERS[provider].supportsEmbeddings
+      ) {
+        throw new AiConfigServiceError(
+          500,
+          "AI_CONFIG_INVALID",
+          "The saved embeddings configuration is incomplete",
+        );
+      }
+      return {
+        provider,
+        apiKey: decryptSecret(selected.apiKeyEncrypted, requireEncryption()),
+        baseURL,
+        model: selected.embeddingModel,
+      };
+    },
+
+    /**
      * Sends a tiny prompt with the saved config. Tests the domain override when
-     * a domain is given, otherwise the account config.
+     * a domain is given, otherwise the account config. When the effective scope
+     * has a BYO embedding model, its embeddings endpoint is probed too.
      */
     async testConnection(
       headers: Headers,
       domainId?: string,
     ): Promise<{ ok: boolean; message: string }> {
       let row: StoredConfig | null;
+      let account: StoredConfig | null = null;
+      let override: StoredConfig | null = null;
       if (domainId) {
         const session = await requireOwnedDomain(domainId, headers);
-        row =
-          (await overrideRow(domainId)) ?? (await accountRow(session.user.id));
+        [account, override] = await Promise.all([
+          accountRow(session.user.id),
+          overrideRow(domainId),
+        ]);
+        row = override ?? account;
       } else {
         const session = await requireSession(headers);
-        row = await accountRow(session.user.id);
+        account = await accountRow(session.user.id);
+        row = account;
       }
 
       if (!row || row.provider === "platform") {
@@ -387,6 +671,7 @@ export function createAiConfigService(deps: {
         return { ok: true, message: "The platform default model is ready." };
       }
 
+      let embeddingLabel = "";
       try {
         const baseURL = resolveBaseUrl(provider, row.baseUrl);
         if (!baseURL || !row.apiKeyEncrypted || !row.model) {
@@ -397,9 +682,17 @@ export function createAiConfigService(deps: {
           baseURL,
           model: row.model,
         });
+
+        const embeddingRow = selectEmbeddingConfig(account, override);
+        if (embeddingRow) {
+          const embeddingConfig = embedConfigForRow(embeddingRow);
+          await createEmbedder(embeddingConfig).embed(["connection test"]);
+          embeddingLabel = ` · embeddings ${embeddingConfig.model}`;
+        }
+
         return {
           ok: true,
-          message: `Connected — ${aiProviderLabel(provider)} · ${row.model}`,
+          message: `Connected — ${aiProviderLabel(provider)} · ${row.model}${embeddingLabel}`,
         };
       } catch (error) {
         const message =
