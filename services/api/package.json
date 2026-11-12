@@ -9,6 +9,8 @@
     "./auth/*": "./src/auth/*.ts",
     "./agents": "./src/agents/index.ts",
     "./agents/*": "./src/agents/*.ts",
+    "./ai": "./src/ai/index.ts",
+    "./ai/*": "./src/ai/*.ts",
     "./analytics": "./src/analytics/index.ts",
     "./analytics/*": "./src/analytics/*.ts",
     "./billing": "./src/billing/index.ts",
