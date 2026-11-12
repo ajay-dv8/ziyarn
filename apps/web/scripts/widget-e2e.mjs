@@ -161,6 +161,11 @@ const server = createServer(async (req, res) => {
         delta:
           "\n\n**Top picks:**\n- **Alpha** jersey\n- Beta jersey\n\n1. First step\n2. Second step",
       },
+      {
+        type: "text",
+        delta:
+          "\n\nWe are at [[location: 12 Oxford Street, Osu, Accra]].",
+      },
       { type: "done", conversationId, serverTime: new Date().toISOString() },
     ]);
     return;
@@ -511,6 +516,40 @@ async function runVariant(variant) {
       markdown.literalMarkers === false,
     JSON.stringify(markdown),
   );
+
+  const locationLink = JSON.parse(
+    await page.evaluate(
+      shadow(`
+        location: (() => {
+          const link = root.querySelector(
+            '.zy-msg-agent a[href^="https://www.google.com/maps/search/"]',
+          );
+          if (!link) return null;
+          const message = link.closest('.zy-msg-agent');
+          return {
+            text: link.textContent,
+            href: link.getAttribute('href'),
+            target: link.getAttribute('target'),
+            rel: link.getAttribute('rel'),
+            rawMarker: (message ? message.textContent : '').includes('[[location:'),
+          };
+        })()
+      `),
+    ),
+  ).location;
+  check(
+    `${variant}: location marker rendered as a maps link`,
+    Boolean(locationLink) &&
+      locationLink.text.includes("12 Oxford Street, Osu, Accra") &&
+      locationLink.href.includes(
+        "12%20Oxford%20Street%2C%20Osu%2C%20Accra",
+      ) &&
+      locationLink.target === "_blank" &&
+      locationLink.rel === "noopener noreferrer" &&
+      locationLink.rawMarker === false,
+    JSON.stringify(locationLink),
+  );
+
   const productCard = JSON.parse(await page.evaluate(shadow(`product: (() => { const card = root.querySelector('.zy-product-card'); const image = root.querySelector('.zy-product-image'); return card ? { text: card.textContent, image: image ? image.getAttribute('src') : null } : null; })()`))).product;
   check(`${variant}: product card with image rendered`, Boolean(productCard) && productCard.text.includes("E2E Jersey") && Boolean(productCard.image), JSON.stringify(productCard));
 
