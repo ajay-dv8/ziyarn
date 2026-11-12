@@ -20,6 +20,7 @@ import { DomainTabs } from "@/components/domains/domain-tabs";
 import { EmbedSnippet } from "@/components/domains/embed-snippet";
 import { WidgetPreviewSwitcher } from "@/components/domains/widget-preview-switcher";
 import { APP_ROUTES } from "@/constants/routes";
+import { aiConfigService } from "@/services/ai-config-service";
 import { domainsService } from "@/services/domains-service";
 
 export const metadata: Metadata = {
@@ -45,9 +46,13 @@ export default async function DomainsPage({
       // somewhere real rather than rendering an empty shell.
       redirect(APP_ROUTES.DASHBOARD_DOMAINS);
     }
-    const embedConfig = await domainsService
-      .getEmbedConfig(domain.id, requestHeaders)
-      .catch(() => null);
+    const [embedConfig, aiAccount, aiOverride] = await Promise.all([
+      domainsService.getEmbedConfig(domain.id, requestHeaders).catch(() => null),
+      aiConfigService.getAccountConfig(requestHeaders),
+      aiConfigService
+        .getDomainOverride(domain.id, requestHeaders)
+        .catch(() => null),
+    ]);
 
     // Settings is a section of this page rather than its own route, so it is
     // selected with ?tab= instead of a path.
@@ -75,6 +80,8 @@ export default async function DomainsPage({
             widgetVariant={domain.widgetVariant}
             chatTrigger={domain.chatTrigger}
             chatTriggerConfig={domain.chatTriggerConfig}
+            aiOverride={aiOverride}
+            aiAccount={aiAccount}
             embedSecret={embedConfig?.secret ?? null}
           />
         </div>
