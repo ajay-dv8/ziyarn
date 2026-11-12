@@ -13,6 +13,7 @@ import {
 } from "@repo/database/schema";
 
 import type { SessionWithUser } from "@repo/api/domains/server";
+import { EMBEDDING_DIMENSIONS } from "@repo/api/ai/schemas";
 import {
   detectFileType,
   extensionOf,
@@ -74,6 +75,12 @@ const aiNotConfigured = () =>
 const vectorLiteral = (values: number[]) =>
   sql`${`[${values.join(",")}]`}::vector`;
 
+/** What the knowledge pipeline needs to embed text at the current scope. */
+export type KnowledgeEmbedder = {
+  embed: (texts: string[]) => Promise<number[][]>;
+  model: string;
+};
+
 /**
  * Knowledge base: upload documents, embed their chunks, and search them with
  * cosine similarity (pgvector). Mutations are owner-scoped like the other
@@ -82,11 +89,10 @@ const vectorLiteral = (values: number[]) =>
 export function createKnowledgeService(deps: {
   db: Database;
   getSession: (headers: Headers) => Promise<SessionWithUser>;
-  embed: (texts: string[]) => Promise<number[][]>;
-  embeddingModel: string;
+  resolveEmbedder: (agentId: string) => Promise<KnowledgeEmbedder>;
   storage: KnowledgeFileStorage;
 }) {
-  const { db, getSession, embed, embeddingModel, storage } = deps;
+  const { db, getSession, resolveEmbedder, storage } = deps;
 
   const requireOwnedDomain = async (
     domainId: string,
@@ -126,6 +132,7 @@ export function createKnowledgeService(deps: {
   /** Chunks, embeds, and persists a document. Shared by text paste + file upload. */
   const ingestContent = async (
     agentId: string,
+    embedder: KnowledgeEmbedder,
     content: string,
     title: string | undefined,
     file?: {
@@ -154,7 +161,7 @@ export function createKnowledgeService(deps: {
 
     let vectors: number[][];
     try {
-      vectors = await embed(chunks);
+      vectors = await embedder.embed(chunks);
     } catch (error) {
       if (error instanceof Error && /not configured|API key/.test(error.message)) {
         throw aiNotConfigured();
@@ -163,6 +170,18 @@ export function createKnowledgeService(deps: {
         502,
         "EMBEDDING_FAILED",
         error instanceof Error ? error.message : "Embedding failed",
+      );
+    }
+    // BYO models can ignore the requested dimensions; reject before any row is
+    // written so the document never ends up without usable vectors.
+    if (
+      vectors.length !== chunks.length ||
+      vectors.some((vector) => vector.length !== EMBEDDING_DIMENSIONS)
+    ) {
+      throw new KnowledgeServiceError(
+        502,
+        "EMBEDDING_FAILED",
+        `The embedding model must return one ${EMBEDDING_DIMENSIONS}-dimension vector per chunk`,
       );
     }
 
@@ -198,7 +217,7 @@ export function createKnowledgeService(deps: {
     await db.insert(embeddings).values(
       insertedChunks.map((chunk, index) => ({
         chunkId: chunk.id,
-        model: embeddingModel,
+        model: embedder.model,
         embedding: vectorLiteral(vectors[index] ?? []),
       })),
     );
@@ -218,7 +237,8 @@ export function createKnowledgeService(deps: {
       const body = createKnowledgeDocumentSchema.parse(input);
       await requireOwnedAgent(body.domainId, body.agentId, headers);
 
-      return ingestContent(body.agentId, body.content, body.title);
+      const embedder = await resolveEmbedder(body.agentId);
+      return ingestContent(body.agentId, embedder, body.content, body.title);
     },
 
     /**
@@ -238,6 +258,7 @@ export function createKnowledgeService(deps: {
     ) => {
       const parsed = uploadFileSchema.parse(input);
       await requireOwnedAgent(parsed.domainId, parsed.agentId, headers);
+      const embedder = await resolveEmbedder(parsed.agentId);
 
       const type = detectFileType(parsed.fileName);
       if (!type) {
@@ -263,7 +284,7 @@ export function createKnowledgeService(deps: {
       await storage.save(storageKey, parsed.data);
 
       try {
-        return await ingestContent(parsed.agentId, content, parsed.fileName, {
+        return await ingestContent(parsed.agentId, embedder, content, parsed.fileName, {
           fileName: parsed.fileName,
           fileMime: parsed.fileMime,
           fileSize: parsed.data.byteLength,
@@ -369,6 +390,7 @@ export function createKnowledgeService(deps: {
     }> => {
       const body = startCrawlSchema.parse(input);
       await requireOwnedAgent(body.domainId, body.agentId, headers);
+      const embedder = await resolveEmbedder(body.agentId);
 
       const [job] = await db
         .insert(crawlJobs)
@@ -416,6 +438,7 @@ export function createKnowledgeService(deps: {
               onPage: async (page) => {
                 await ingestContent(
                   body.agentId,
+                  embedder,
                   page.text,
                   page.title ?? page.url,
                   {
@@ -493,7 +516,8 @@ export function createKnowledgeService(deps: {
 
       let queryVector: number[];
       try {
-        const vectors = await embed([body.query]);
+        const embedder = await resolveEmbedder(body.agentId);
+        const vectors = await embedder.embed([body.query]);
         const first = vectors[0];
         if (!first) {
           throw new KnowledgeServiceError(
