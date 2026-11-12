@@ -2,9 +2,13 @@ export {
   createAiConfigService,
   AiConfigServiceError,
   selectEffectiveConfig,
+  selectEmbeddingConfig,
+  embeddingFingerprint,
 } from "@repo/api/ai/server";
 
 export type { AiConfigService } from "@repo/api/ai/server";
+
+export { EMBEDDING_DIMENSIONS } from "@repo/api/ai/schemas";
 
 export {
   AI_PROVIDERS,
@@ -26,5 +30,6 @@ export {
 export type {
   AiConfigView,
   ResolvedAiProvider,
+  ResolvedEmbeddingProvider,
   UpdateAiConfigInput,
 } from "@repo/api/ai/schemas";
