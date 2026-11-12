@@ -418,3 +418,17 @@ export function createAiService(opts: {
 }
 
 export type AiService = ReturnType<typeof createAiService>;
+
+/**
+ * One tiny non-streaming request, used by the dashboard's "Test connection"
+ * button for BYO provider keys. Throws on any failure so the caller can show
+ * the provider's message.
+ */
+export async function testAiProvider(config: AiProviderConfig): Promise<void> {
+  const client = new OpenAI({ apiKey: config.apiKey, baseURL: config.baseURL });
+  await client.chat.completions.create({
+    model: config.model,
+    messages: [{ role: "user", content: "Reply with OK." }],
+    max_tokens: 8,
+  });
+}
