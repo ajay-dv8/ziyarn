@@ -1,5 +1,7 @@
 import { PLAN_DISPLAY_NAMES } from "@repo/api/plans";
 import type { BusinessType } from "@repo/api/domains/business-types";
+import type { AiConfigView } from "@repo/api/ai/schemas";
+import { aiProviderLabel } from "@repo/api/ai/providers";
 import type {
   ChatTriggerId,
   ResolvedChatTriggerConfig,
@@ -13,6 +15,7 @@ import { DomainLogoEditor } from "@/components/domains/domain-logo-editor";
 import { RenameDomainForm } from "@/components/domains/rename-domain-form";
 import { SlugEditor } from "@/components/domains/slug-editor";
 import { WidgetVariantPicker } from "@/components/domains/widget-variant-picker";
+import { AiProviderForm } from "@/components/settings/ai-provider-form";
 
 /**
  * Everything about a domain that an owner can change, on one page.
@@ -37,6 +40,8 @@ export function DomainSettingsPanel({
   widgetVariant,
   chatTrigger,
   chatTriggerConfig,
+  aiOverride,
+  aiAccount,
   embedSecret,
 }: {
   domainId: string;
@@ -48,6 +53,8 @@ export function DomainSettingsPanel({
   widgetVariant: WidgetVariantId;
   chatTrigger: ChatTriggerId;
   chatTriggerConfig: ResolvedChatTriggerConfig;
+  aiOverride: AiConfigView | null;
+  aiAccount: AiConfigView;
   embedSecret: string | null;
 }) {
   return (
@@ -115,6 +122,35 @@ export function DomainSettingsPanel({
             domainId={domainId}
             currentTrigger={chatTrigger}
             currentConfig={chatTriggerConfig}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-lg border p-4">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          AI provider
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Which model answers this domain&apos;s chat. By default the domain
+          uses your account&apos;s provider.
+        </p>
+        <div className="mt-3">
+          <AiProviderForm
+            mode="domain"
+            domainId={domainId}
+            current={
+              aiOverride ?? {
+                ...aiAccount,
+                maskedApiKey: null,
+                hasApiKey: false,
+              }
+            }
+            hasOverride={aiOverride !== null}
+            accountLabel={
+              aiAccount.provider === "platform"
+                ? "Platform default"
+                : `${aiProviderLabel(aiAccount.provider)}${aiAccount.model ? ` · ${aiAccount.model}` : ""}`
+            }
           />
         </div>
       </div>
