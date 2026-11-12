@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseWidgetMarkdown,
+  stripLocationMarkers,
   type InlineNode,
   type MarkdownBlock,
 } from "@/lib/widget-markdown";
@@ -167,5 +168,62 @@ describe("parseWidgetMarkdown", () => {
       "paragraph",
       "paragraph",
     ]);
+  });
+
+  it("turns a complete location marker into a Google Maps link", () => {
+    const blocks = parseWidgetMarkdown(
+      "We are at [[location: 12 Oxford Street, Osu, Accra]] today.",
+    );
+    const paragraph = onlyBlock(blocks);
+    if (paragraph.kind !== "paragraph") throw new Error("unreachable");
+    expect(paragraph.children).toContainEqual({
+      kind: "link",
+      href: "https://www.google.com/maps/search/?api=1&query=12%20Oxford%20Street%2C%20Osu%2C%20Accra",
+      children: [{ kind: "text", value: "12 Oxford Street, Osu, Accra" }],
+    });
+    expect(inlineText(paragraph.children)).toBe(
+      "We are at 12 Oxford Street, Osu, Accra today.",
+    );
+  });
+
+  it("encodes location names in the map URL", () => {
+    const blocks = parseWidgetMarkdown("[[location: Café & Bar #1]]");
+    const paragraph = onlyBlock(blocks);
+    if (paragraph.kind !== "paragraph") throw new Error("unreachable");
+    expect(paragraph.children[0]).toMatchObject({
+      kind: "link",
+      href: "https://www.google.com/maps/search/?api=1&query=Caf%C3%A9%20%26%20Bar%20%231",
+    });
+    expect(inlineText(paragraph.children)).toBe("Café & Bar #1");
+  });
+
+  it("shows the place while a location marker is still streaming", () => {
+    const blocks = parseWidgetMarkdown("We are at [[location: 12 Oxford St");
+    const paragraph = onlyBlock(blocks);
+    if (paragraph.kind !== "paragraph") throw new Error("unreachable");
+    expect(paragraph.children.some((node) => node.kind === "link")).toBe(false);
+    expect(inlineText(paragraph.children)).toBe("We are at 12 Oxford St");
+  });
+
+  it("hides a partial location marker prefix while streaming", () => {
+    const blocks = parseWidgetMarkdown("We are at [[loc");
+    const paragraph = onlyBlock(blocks);
+    if (paragraph.kind !== "paragraph") throw new Error("unreachable");
+    expect(inlineText(paragraph.children).trim()).toBe("We are at");
+  });
+
+  it("does not link an over-long location marker", () => {
+    const place = "x".repeat(301);
+    const blocks = parseWidgetMarkdown(`[[location: ${place}]]`);
+    const paragraph = onlyBlock(blocks);
+    if (paragraph.kind !== "paragraph") throw new Error("unreachable");
+    expect(paragraph.children.some((node) => node.kind === "link")).toBe(false);
+    expect(inlineText(paragraph.children)).toBe("x".repeat(300));
+  });
+
+  it("strips location markers for plain-text surfaces", () => {
+    expect(stripLocationMarkers("We are at [[location: Accra Mall]].")).toBe(
+      "We are at Accra Mall.",
+    );
   });
 });
