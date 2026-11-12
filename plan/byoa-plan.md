@@ -4,7 +4,7 @@ Allow users to supply their own AI provider keys (OpenAI, Anthropic,
 Gemini, OpenRouter, or a custom OpenAI-compatible endpoint) instead of
 relying on the platform's default Gemini model.
 
-## Status (v1 shipped)
+## Status (v1 + BYO embeddings shipped)
 
 Implemented:
 
@@ -23,19 +23,42 @@ Implemented:
   configuration that cannot be resolved (corrupt key, missing encryption secret)
   is logged and falls back to the platform so visitors are not taken offline;
   provider call failures surface as a normal chat error.
-- Chat streams through the resolved provider; embeddings always use the platform
-  model.
+- Chat streams through the resolved provider; embeddings resolve separately, so
+  a domain can keep platform embeddings while using a BYO chat model (see
+  "BYO embeddings" below).
 - Unit tests for encryption, the provider registry, precedence and validation.
 
-Deferred (v2):
+### BYO embeddings (v2, shipped)
+
+- An account or domain can set an optional `embeddingModel` alongside its chat
+  provider. Embeddings reuse that row's provider key and base URL — there is no
+  second key to manage. A blank value keeps the platform embeddings (or, for a
+  domain, keeps inheriting the account choice).
+- Precedence is per setting: domain embedding model → account embedding model →
+  platform. An override that only changes the chat model still inherits the
+  account's embedding model.
+- The stored pgvector column is fixed at `vector(1536)`, so a returned vector
+  with any other dimension is rejected before anything is written.
+- Changing the effective model/provider re-embeds every affected domain inside
+  the save request, before the config row changes. All provider calls finish
+  before the first database write; failures leave the old vectors in place and
+  surface as an error. Re-indexing is capped at 5000 chunks per save.
+- Reverting an account to the platform, or deleting a domain override, also
+  re-embeds the affected domains back to the previous vector space.
+- OpenRouter is flagged as chat-only (`supportsEmbeddings: false`) and cannot be
+  given an embeddings model; the form tells the owner why.
+- A stored BYO embedding config that cannot be used (unreadable key, missing
+  encryption secret) fails knowledge ingestion/search instead of silently
+  falling back to platform vectors, because mixing vector spaces would return
+  meaningless results.
+
+Deferred (v3):
 
 - Anthropic adapter. It needs `@anthropic-ai/sdk` plus a message/tool/system
   format transform; every other provider speaks the OpenAI protocol.
-- BYO embeddings. Every knowledge vector lives in one `vector(1536)` space and a
-  query is only comparable with vectors from the same model, so switching
-  providers requires re-indexing each domain first.
 - Per-provider token/temperature options (the AI service does not expose them
   today).
+- Background re-indexing for knowledge bases above the 5000-chunk inline limit.
 
 ## Goals
 
