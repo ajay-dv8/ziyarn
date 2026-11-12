@@ -12,6 +12,7 @@ import { cn } from "@repo/ui/lib/utils";
 
 import { API_ROUTES } from "@/constants/routes";
 import { formatFullDateTime, formatRelativeTime } from "@/lib/utils";
+import { stripLocationMarkers } from "@/lib/widget-markdown";
 
 import {
   getConversationLeadAction,
@@ -280,7 +281,9 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
                     </span>
                     <span className="truncate text-xs text-muted-foreground">
                       {conversation.lastMessage
-                        ? conversation.lastMessage.content
+                        ? stripLocationMarkers(
+                            conversation.lastMessage.content,
+                          )
                         : conversation.domainName + " · no messages yet"}
                     </span>
                     <span className="flex items-center justify-between text-xs text-muted-foreground">
@@ -495,7 +498,9 @@ function MessageBubble({ message }: { message: MessageRow }) {
             You
           </p>
         )}
-        <p className="whitespace-pre-wrap wrap-break-word">{message.content}</p>
+        <p className="whitespace-pre-wrap wrap-break-word">
+          {stripLocationMarkers(message.content)}
+        </p>
         <p className="mt-1 text-[10px] opacity-60">
           {new Date(message.createdAt).toLocaleTimeString([], {
             hour: "2-digit",
