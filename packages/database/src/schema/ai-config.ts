@@ -27,6 +27,8 @@ export const aiConfigs = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     provider: text("provider").notNull().default("platform"),
     model: text("model"),
+    /** Optional BYO embeddings model; null keeps platform embeddings. */
+    embeddingModel: text("embedding_model"),
     apiKeyEncrypted: text("api_key_encrypted"),
     baseUrl: text("base_url"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -55,6 +57,8 @@ export const domainAiConfigs = pgTable(
       .references(() => domains.id, { onDelete: "cascade" }),
     provider: text("provider").notNull(),
     model: text("model"),
+    /** Optional BYO embeddings model; null inherits the account choice. */
+    embeddingModel: text("embedding_model"),
     apiKeyEncrypted: text("api_key_encrypted"),
     baseUrl: text("base_url"),
     createdAt: timestamp("created_at", { withTimezone: true })
