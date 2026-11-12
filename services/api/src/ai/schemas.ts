@@ -2,6 +2,9 @@ import { z } from "zod";
 
 import { AI_PROVIDER_IDS, type AiProviderId } from "@repo/api/ai/providers";
 
+/** pgvector column width. Every stored embedding must use this dimension. */
+export const EMBEDDING_DIMENSIONS = 1536;
+
 export const aiProviderSchema = z.enum(
   AI_PROVIDER_IDS as [AiProviderId, ...AiProviderId[]],
 );
@@ -18,6 +21,11 @@ export const aiProviderSchema = z.enum(
 export const updateAiConfigSchema = z.object({
   provider: aiProviderSchema,
   model: z.string().trim().max(200).optional(),
+  /**
+   * Optional BYO embeddings model for this scope. An empty string clears it and
+   * returns the scope to the next level's embeddings (account → platform).
+   */
+  embeddingModel: z.string().trim().max(200).optional(),
   apiKey: z.string().trim().max(500).optional(),
   clearApiKey: z.boolean().optional(),
   baseUrl: z
@@ -37,6 +45,7 @@ export type UpdateAiConfigInput = z.infer<typeof updateAiConfigSchema>;
 export type AiConfigView = {
   provider: AiProviderId;
   model: string | null;
+  embeddingModel: string | null;
   baseUrl: string | null;
   maskedApiKey: string | null;
   hasApiKey: boolean;
@@ -44,6 +53,14 @@ export type AiConfigView = {
 
 /** The provider config the chat runtime needs, after decryption. */
 export type ResolvedAiProvider = {
+  provider: AiProviderId;
+  apiKey: string;
+  baseURL: string;
+  model: string;
+};
+
+/** The embeddings config the knowledge runtime needs, after decryption. */
+export type ResolvedEmbeddingProvider = {
   provider: AiProviderId;
   apiKey: string;
   baseURL: string;
