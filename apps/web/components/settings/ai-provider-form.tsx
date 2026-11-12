@@ -9,6 +9,7 @@ import {
   type AiProviderId,
 } from "@repo/api/ai/providers";
 import type { AiConfigView } from "@repo/api/ai/schemas";
+import { EMBEDDING_DIMENSIONS } from "@repo/api/ai/schemas";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
@@ -50,6 +51,11 @@ export function AiProviderForm({
         : "platform",
   );
   const [model, setModel] = useState(current.model ?? "");
+  const [embeddingModel, setEmbeddingModel] = useState(
+    // A domain without its own row inherits the account's model; showing it
+    // here would copy it into a new override by accident.
+    isDomain && !hasOverride ? "" : (current.embeddingModel ?? ""),
+  );
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState(current.baseUrl ?? "");
   const [pending, setPending] = useState(false);
@@ -59,6 +65,12 @@ export function AiProviderForm({
 
   const showProviderFields = provider !== "platform";
   const providerEntry = AI_PROVIDERS[provider];
+  const embeddingPlaceholder =
+    provider === "openai"
+      ? "text-embedding-3-small"
+      : provider === "gemini"
+        ? "gemini-embedding-001"
+        : "your-embedding-model";
 
   async function save() {
     setPending(true);
@@ -69,6 +81,9 @@ export function AiProviderForm({
       ...(showProviderFields
         ? {
             model: model.trim() || undefined,
+            embeddingModel: providerEntry.supportsEmbeddings
+              ? embeddingModel.trim()
+              : undefined,
             apiKey: apiKey.trim() || undefined,
             baseUrl:
               provider === "custom" ? baseUrl.trim() || undefined : undefined,
@@ -164,7 +179,9 @@ export function AiProviderForm({
               id={`ai-provider-${mode}`}
               value={provider}
               onChange={(event) => {
-                setProvider(event.target.value as AiProviderId);
+                const nextProvider = event.target.value as AiProviderId;
+                if (nextProvider !== provider) setEmbeddingModel("");
+                setProvider(nextProvider);
                 setFeedback(null);
                 setError(null);
               }}
@@ -224,6 +241,33 @@ export function AiProviderForm({
                   />
                 </div>
               ) : null}
+
+              {providerEntry.supportsEmbeddings ? (
+                <div className="space-y-2">
+                  <Label htmlFor={`ai-embedding-model-${mode}`}>
+                    Embeddings model (optional)
+                  </Label>
+                  <Input
+                    id={`ai-embedding-model-${mode}`}
+                    value={embeddingModel}
+                    maxLength={200}
+                    placeholder={embeddingPlaceholder}
+                    onChange={(event) => setEmbeddingModel(event.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {isDomain
+                      ? "Leave blank to inherit the account embeddings (or the platform model when the account has none). Saving a model re-embeds this domain's knowledge base before the change takes effect."
+                      : "Leave blank to use the platform embeddings. Saving a model re-embeds the knowledge base of every domain that inherits your account setting before the change takes effect."}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {providerEntry.label} has no embeddings endpoint, so{" "}
+                  {isDomain
+                    ? "this domain keeps inheriting the account or platform embeddings."
+                    : "knowledge search keeps using the platform embeddings."}
+                </p>
+              )}
             </>
           ) : null}
 
@@ -250,8 +294,9 @@ export function AiProviderForm({
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Knowledge-base embeddings always use the platform model, so
-            document search stays consistent.
+            Embeddings default to the platform model. A custom embeddings model
+            must return {EMBEDDING_DIMENSIONS}-dimension vectors and support the
+            OpenAI embeddings endpoint.
           </p>
         </>
       ) : null}
