@@ -338,6 +338,9 @@ export function ChatWidget({
           text: message.text + delta,
         })),
       onTool: (name, args) => {
+        // Knowledge retrieval is internal - the answer is the result the
+        // visitor asked for, not the search query behind it.
+        if (name === "answer_knowledge") return;
         const product =
           name === "sell_product"
             ? findProductByName(String(args?.product ?? ""), products)
@@ -677,7 +680,6 @@ function historyToMessages(
 
 function toolLabel(name: string): string {
   const labels: Record<string, string> = {
-    answer_knowledge: "Knowledge Search",
     book_appointment: "Appointment Booking",
     create_payment: "Payment Link",
     sell_product: "Product Lookup",
