@@ -13,7 +13,8 @@
  *   paragraphs, hard line breaks, bullet lists, numbered lists, headings,
  *   fenced code blocks, blockquotes, horizontal rules,
  *   **bold**, *italic*, _italic_, `code`, ~~strikethrough~~,
- *   [links](https://…), bare https:// links, em/en-dash spacing.
+ *   [links](https://…), bare https:// links, email/phone autolinks,
+ *   tel:/mailto: links, em/en-dash spacing.
  *
  * Not supported: tables, images, nested lists, raw HTML (never emitted — the
  * renderers only build nodes/escaped strings from plain text).
@@ -47,7 +48,104 @@ export type MarkdownBlock =
 
 /** Only these schemes become anchors; anything else stays literal text. */
 export function isSafeLinkUrl(url: string): boolean {
-  return /^(?:https?:\/\/|mailto:)/i.test(url);
+  return (
+    /^(?:https?:\/\/|mailto:)/i.test(url) ||
+    /^tel:\+?\d[\d().\s-]*$/i.test(url)
+  );
+}
+
+/** Phone and email links should hand off to the device, not open a tab. */
+export function isContactLink(href: string): boolean {
+  return /^(?:mailto:|tel:)/i.test(href);
+}
+
+type ContactAutolink = { text: string; href: string };
+
+const EMAIL_PATTERN =
+  /^[A-Za-z0-9._%+-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+/;
+const PHONE_PATTERN = /^\(?\+?\(?\d[\d() .-]{5,}\d/;
+
+function emailAutolinkAt(source: string, index: number): ContactAutolink | null {
+  const previous = source[index - 1] ?? "";
+  if (previous && /[A-Za-z0-9._%+-]/.test(previous)) return null;
+
+  const match = EMAIL_PATTERN.exec(source.slice(index));
+  if (!match) return null;
+  const text = match[0];
+  if (text.length > 254) return null;
+
+  const next = source[index + text.length] ?? "";
+  if (next && /[A-Za-z0-9_-]/.test(next)) return null;
+  return { text, href: `mailto:${text}` };
+}
+
+/** Nearby wording separates a bare phone number from an order number. */
+function hasPhoneContext(source: string, index: number): boolean {
+  const before = source.slice(Math.max(0, index - 32), index);
+  return /\b(?:call|phone|tel|telephone|mobile|cell|whatsapp|contact|dial|reach)\b[^\n]{0,24}$/i.test(
+    before,
+  );
+}
+
+function phoneAutolinkAt(source: string, index: number): ContactAutolink | null {
+  const previous = source[index - 1] ?? "";
+  if (/[0-9]/.test(previous)) return null;
+
+  const match = PHONE_PATTERN.exec(source.slice(index));
+  if (!match) return null;
+
+  const text = match[0];
+  if (text.length > 40) return null;
+  const digits = text.replace(/\D/g, "");
+  if (digits.length < 7 || digits.length > 15) return null;
+
+  const next = source[index + text.length] ?? "";
+  if (/[A-Za-z0-9_@#/$%-]/.test(previous)) return null;
+  if (/[A-Za-z0-9_%-]/.test(next)) return null;
+
+  const hasPlus = /^\(?\+/.test(text);
+  if (
+    /^(?:\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{4}\s+\d{1,2}\s+\d{1,2}|\d{1,2}\s+\d{1,2}\s+\d{4})$/.test(
+      text,
+    ) ||
+    /^\d{4}(?:\s*[-/.]\s*|\s+)\d{4}$/.test(text) ||
+    /^\d{1,3}(?:\.\d{1,3}){3}$/.test(text) ||
+    /^\d{1,3}(?:[ .-]\d{3})+$/.test(text) ||
+    /^\d+\.\d+$/.test(text)
+  ) {
+    return null;
+  }
+  if (countCharacter(text, "(") !== countCharacter(text, ")")) return null;
+
+  if (!hasPlus && !/[()]/.test(text)) {
+    const groups = text.split(/[ .-]+/);
+    if (!groups.some((group) => group.length >= 3)) return null;
+  }
+
+  const hasFormatting = /[() .-]/.test(text);
+  if (!hasPlus && !hasFormatting && !hasPhoneContext(source, index)) {
+    return null;
+  }
+
+  return {
+    text,
+    href: `tel:${hasPlus ? "+" : ""}${digits}`,
+  };
+}
+
+function contactAutolinkAt(
+  source: string,
+  index: number,
+): ContactAutolink | null {
+  const character = source[index] ?? "";
+  if (/[A-Za-z0-9._%+-]/.test(character)) {
+    const email = emailAutolinkAt(source, index);
+    if (email) return email;
+  }
+  if (/[+(\d]/.test(character)) {
+    return phoneAutolinkAt(source, index);
+  }
+  return null;
 }
 
 const LOCATION_MARKER_PREFIX = "[[location:";
@@ -292,7 +390,11 @@ function isBlockStart(line: string): boolean {
   );
 }
 
-function parseInline(source: string, locationMap: LocationMap): InlineNode[] {
+function parseInline(
+  source: string,
+  locationMap: LocationMap,
+  allowAutolinks = true,
+): InlineNode[] {
   const nodes: InlineNode[] = [];
   let buffer = "";
   let index = 0;
@@ -330,7 +432,11 @@ function parseInline(source: string, locationMap: LocationMap): InlineNode[] {
         flush();
         nodes.push({
           kind: "strong",
-          children: parseInline(source.slice(index + 2, close), locationMap),
+          children: parseInline(
+            source.slice(index + 2, close),
+            locationMap,
+            allowAutolinks,
+          ),
         });
         index = close + 2;
         continue;
@@ -343,7 +449,11 @@ function parseInline(source: string, locationMap: LocationMap): InlineNode[] {
         flush();
         nodes.push({
           kind: "del",
-          children: parseInline(source.slice(index + 2, close), locationMap),
+          children: parseInline(
+            source.slice(index + 2, close),
+            locationMap,
+            allowAutolinks,
+          ),
         });
         index = close + 2;
         continue;
@@ -356,7 +466,11 @@ function parseInline(source: string, locationMap: LocationMap): InlineNode[] {
         flush();
         nodes.push({
           kind: "em",
-          children: parseInline(source.slice(index + 1, close), locationMap),
+          children: parseInline(
+            source.slice(index + 1, close),
+            locationMap,
+            allowAutolinks,
+          ),
         });
         index = close + 1;
         continue;
@@ -374,7 +488,11 @@ function parseInline(source: string, locationMap: LocationMap): InlineNode[] {
         flush();
         nodes.push({
           kind: "em",
-          children: parseInline(source.slice(index + 1, close), locationMap),
+          children: parseInline(
+            source.slice(index + 1, close),
+            locationMap,
+            allowAutolinks,
+          ),
         });
         index = close + 1;
         continue;
@@ -454,7 +572,7 @@ function parseInline(source: string, locationMap: LocationMap): InlineNode[] {
         nodes.push({
           kind: "link",
           href,
-          children: parseInline(match[1] ?? "", locationMap),
+          children: parseInline(match[1] ?? "", locationMap, false),
         });
         index += match[0].length;
         continue;
@@ -463,6 +581,7 @@ function parseInline(source: string, locationMap: LocationMap): InlineNode[] {
 
     // Bare URLs, only at a word boundary so `xhttps://…` stays text.
     if (
+      allowAutolinks &&
       (character === "h" || character === "H") &&
       (index === 0 || /[\s([<]/.test(source[index - 1] ?? "")) &&
       /^https?:\/\//i.test(source.slice(index))
@@ -480,6 +599,20 @@ function parseInline(source: string, locationMap: LocationMap): InlineNode[] {
           index += url.length;
           continue;
         }
+      }
+    }
+
+    if (allowAutolinks) {
+      const contact = contactAutolinkAt(source, index);
+      if (contact) {
+        flush();
+        nodes.push({
+          kind: "link",
+          href: contact.href,
+          children: [{ kind: "text", value: contact.text }],
+        });
+        index += contact.text.length;
+        continue;
       }
     }
 
