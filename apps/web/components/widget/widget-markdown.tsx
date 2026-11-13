@@ -4,6 +4,7 @@ import { Fragment, type ReactNode } from "react";
 
 import { cn } from "@repo/ui/lib/utils";
 import {
+  isContactLink,
   parseWidgetMarkdown,
   type InlineNode,
   type MarkdownBlock,
@@ -120,12 +121,13 @@ function InlineNodes({ nodes }: { nodes: InlineNode[] }): ReactNode {
           );
         }
         if (node.kind === "link") {
+          const contact = isContactLink(node.href);
           return (
             <a
               key={index}
               href={node.href}
-              target="_blank"
-              rel="noopener noreferrer"
+              target={contact ? undefined : "_blank"}
+              rel={contact ? undefined : "noopener noreferrer"}
               className="font-medium underline decoration-[#17161b]/25 underline-offset-2 transition hover:decoration-[#17161b]/60"
             >
               <InlineNodes nodes={node.children} />
