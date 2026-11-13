@@ -166,6 +166,11 @@ const server = createServer(async (req, res) => {
         delta:
           "\n\nWe are at [[location: loc_e2e|12 Oxford Street, Osu, Accra]].",
       },
+      {
+        type: "text",
+        delta:
+          "\n\nCall +233 20 123 4567 or email hello@example.com. Order 1234567890 on 2026-11-13.",
+      },
       { type: "done", conversationId, serverTime: new Date().toISOString() },
     ]);
     return;
@@ -509,6 +514,27 @@ async function runVariant(variant) {
             strong: [...agent.querySelectorAll('strong')].map(
               (node) => node.textContent,
             ),
+            tel: (() => {
+              const link = agent.querySelector('a[href^="tel:"]');
+              return link
+                ? {
+                    href: link.getAttribute('href'),
+                    text: link.textContent,
+                    target: link.getAttribute('target'),
+                  }
+                : null;
+            })(),
+            telCount: agent.querySelectorAll('a[href^="tel:"]').length,
+            mailto: (() => {
+              const link = agent.querySelector('a[href^="mailto:"]');
+              return link
+                ? {
+                    href: link.getAttribute('href'),
+                    text: link.textContent,
+                    target: link.getAttribute('target'),
+                  }
+                : null;
+            })(),
             literalMarkers:
               agent.textContent.includes('**') ||
               agent.textContent.includes('- Alpha'),
@@ -528,6 +554,25 @@ async function runVariant(variant) {
       markdown.strong.includes("Top picks:") &&
       markdown.strong.includes("Alpha") &&
       markdown.literalMarkers === false,
+    JSON.stringify(markdown),
+  );
+  check(
+    `${variant}: phone number is a tap-to-call link`,
+    Boolean(markdown) &&
+      markdown.tel !== null &&
+      markdown.tel.href === "tel:+233201234567" &&
+      markdown.tel.text === "+233 20 123 4567" &&
+      markdown.tel.target === null &&
+      markdown.telCount === 1,
+    JSON.stringify(markdown),
+  );
+  check(
+    `${variant}: email address is a tap-to-email link`,
+    Boolean(markdown) &&
+      markdown.mailto !== null &&
+      markdown.mailto.href === "mailto:hello@example.com" &&
+      markdown.mailto.text === "hello@example.com" &&
+      markdown.mailto.target === null,
     JSON.stringify(markdown),
   );
 
