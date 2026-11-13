@@ -186,6 +186,41 @@ describe("parseWidgetMarkdown", () => {
     );
   });
 
+  it("resolves a saved location id to exact directions", () => {
+    const blocks = parseWidgetMarkdown(
+      "We are at [[location: loc_osu|12 Oxford Street, Osu, Accra]] today.",
+      [
+        {
+          id: "loc_osu",
+          label: "Osu branch",
+          address: "12 Oxford Street, Osu, Accra",
+          latitude: 5.5502,
+          longitude: -0.2174,
+        },
+      ],
+    );
+    const paragraph = onlyBlock(blocks);
+    if (paragraph.kind !== "paragraph") throw new Error("unreachable");
+    expect(paragraph.children).toContainEqual({
+      kind: "link",
+      href: "https://www.google.com/maps/dir/?api=1&destination=5.5502%2C-0.2174",
+      children: [{ kind: "text", value: "12 Oxford Street, Osu, Accra" }],
+    });
+  });
+
+  it("does not invent a link for an unknown saved location id", () => {
+    const blocks = parseWidgetMarkdown(
+      "We are at [[location: loc_missing|12 Oxford Street]] today.",
+      [],
+    );
+    const paragraph = onlyBlock(blocks);
+    if (paragraph.kind !== "paragraph") throw new Error("unreachable");
+    expect(paragraph.children.some((node) => node.kind === "link")).toBe(false);
+    expect(inlineText(paragraph.children)).toBe(
+      "We are at 12 Oxford Street today.",
+    );
+  });
+
   it("encodes location names in the map URL", () => {
     const blocks = parseWidgetMarkdown("[[location: Café & Bar #1]]");
     const paragraph = onlyBlock(blocks);
@@ -199,6 +234,16 @@ describe("parseWidgetMarkdown", () => {
 
   it("shows the place while a location marker is still streaming", () => {
     const blocks = parseWidgetMarkdown("We are at [[location: 12 Oxford St");
+    const paragraph = onlyBlock(blocks);
+    if (paragraph.kind !== "paragraph") throw new Error("unreachable");
+    expect(paragraph.children.some((node) => node.kind === "link")).toBe(false);
+    expect(inlineText(paragraph.children)).toBe("We are at 12 Oxford St");
+  });
+
+  it("shows the label, not the id, while a saved marker streams", () => {
+    const blocks = parseWidgetMarkdown(
+      "We are at [[location: loc_osu|12 Oxford St",
+    );
     const paragraph = onlyBlock(blocks);
     if (paragraph.kind !== "paragraph") throw new Error("unreachable");
     expect(paragraph.children.some((node) => node.kind === "link")).toBe(false);
@@ -225,5 +270,10 @@ describe("parseWidgetMarkdown", () => {
     expect(stripLocationMarkers("We are at [[location: Accra Mall]].")).toBe(
       "We are at Accra Mall.",
     );
+    expect(
+      stripLocationMarkers(
+        "We are at [[location: loc_osu|12 Oxford Street, Osu, Accra]].",
+      ),
+    ).toBe("We are at 12 Oxford Street, Osu, Accra.");
   });
 });

@@ -7,6 +7,7 @@ import {
   parseWidgetMarkdown,
   type InlineNode,
   type MarkdownBlock,
+  type WidgetLocation,
 } from "@/lib/widget-markdown";
 
 /**
@@ -21,11 +22,13 @@ import {
 export function WidgetMarkdown({
   text,
   className,
+  locations,
 }: {
   text: string;
   className?: string;
+  locations?: WidgetLocation[] | null;
 }) {
-  const blocks = parseWidgetMarkdown(text);
+  const blocks = parseWidgetMarkdown(text, locations);
 
   return (
     <div

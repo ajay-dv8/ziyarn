@@ -19,6 +19,8 @@
  * renderers only build nodes/escaped strings from plain text).
  */
 
+import type { MapLocation } from "@repo/api/domains/locations";
+
 export type InlineNode =
   | { kind: "text"; value: string }
   | { kind: "break" }
@@ -27,6 +29,13 @@ export type InlineNode =
   | { kind: "del"; children: InlineNode[] }
   | { kind: "code"; value: string }
   | { kind: "link"; href: string; children: InlineNode[] };
+
+/** The subset of a saved location the widget needs to build a map link. */
+export type WidgetLocation = MapLocation & {
+  id: string;
+  notes?: string | null;
+  isPrimary?: boolean;
+};
 
 export type MarkdownBlock =
   | { kind: "paragraph"; children: InlineNode[] }
@@ -45,9 +54,21 @@ const LOCATION_MARKER_PREFIX = "[[location:";
 const LOCATION_MARKER_MAX_LENGTH = 300;
 const LOCATION_MARKER_PATTERN = /^\[\[location:\s*([^\]\n]*?)\s*\]\]/i;
 
+type LocationMap = Map<string, WidgetLocation>;
+
 /** Removes the widget-only marker for plain-text surfaces (e.g. dashboard). */
 export function stripLocationMarkers(text: string): string {
-  return text.replace(/\[\[location:\s*([^\]\n]*?)\s*\]\]/gi, "$1");
+  return text.replace(
+    /\[\[location:\s*([^\]\n]*?)\s*\]\]/gi,
+    (_marker, body: string) => {
+      const trimmed = body.trim();
+      const separator = trimmed.indexOf("|");
+      if (separator !== -1) return trimmed.slice(separator + 1).trim();
+      // A label-only marker is the old syntax; keep its text. An id-only
+      // marker is new syntax and has no readable dashboard text.
+      return /^loc_[A-Za-z0-9_-]+$/.test(trimmed) ? "location" : trimmed;
+    },
+  );
 }
 
 function mapsHref(place: string): string {
@@ -55,11 +76,102 @@ function mapsHref(place: string): string {
 }
 
 /**
+ * Mirrors locationDirectionsUrl in @repo/api/domains/locations. Kept local so
+ * the sleek embed does not pull the zod validation module into its bundle.
+ */
+function locationDirectionsUrl(
+  location: WidgetLocation,
+  platform: "ios" | "other",
+): string {
+  const latitude = location.latitude;
+  const longitude = location.longitude;
+  const hasCoordinates =
+    typeof latitude === "number" && typeof longitude === "number";
+
+  if (hasCoordinates && platform === "ios") {
+    return `https://maps.apple.com/?daddr=${latitude},${longitude}`;
+  }
+
+  if (hasCoordinates) {
+    const params = new URLSearchParams({
+      api: "1",
+      destination: `${latitude},${longitude}`,
+    });
+    if (location.placeId) {
+      params.set("destination_place_id", location.placeId);
+    }
+    return `https://www.google.com/maps/dir/?${params.toString()}`;
+  }
+
+  if (location.placeId) {
+    const params = new URLSearchParams({
+      api: "1",
+      destination: location.address || location.label,
+      destination_place_id: location.placeId,
+    });
+    return `https://www.google.com/maps/dir/?${params.toString()}`;
+  }
+
+  if (location.mapsUrl) return location.mapsUrl;
+
+  return mapsHref(location.address || location.label);
+}
+
+function splitLocationMarker(body: string): {
+  id: string;
+  label: string;
+  hasSeparator: boolean;
+} {
+  const separator = body.indexOf("|");
+  if (separator === -1) {
+    return { id: "", label: body.trim(), hasSeparator: false };
+  }
+  return {
+    id: body.slice(0, separator).trim(),
+    label: body.slice(separator + 1).trim(),
+    hasSeparator: true,
+  };
+}
+
+function detectedMapPlatform(): "ios" | "other" {
+  if (typeof navigator === "undefined") return "other";
+  const userAgent = navigator.userAgent ?? "";
+  if (/iPad|iPhone|iPod/.test(userAgent)) return "ios";
+  return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1
+    ? "ios"
+    : "other";
+}
+
+function locationMapFor(locations?: WidgetLocation[] | null): LocationMap {
+  const map: LocationMap = new Map();
+  for (const location of locations ?? []) {
+    if (location && typeof location.id === "string") {
+      map.set(location.id, location);
+    }
+  }
+  return map;
+}
+
+/** The visible text while a marker is still arriving. */
+function partialLocationText(body: string): string {
+  const pipe = body.indexOf("|");
+  if (pipe !== -1) return body.slice(pipe + 1).trim();
+  const text = body.trim();
+  // Hide the new id-only tag (`[[location: loc_…`) until it closes; the id
+  // is not visitor-facing. Old label-only tags keep streaming their text.
+  return text.startsWith("loc_") || "loc_".startsWith(text) ? "" : text;
+}
+
+/**
  * Turns agent markdown into blocks. Unknown syntax degrades to literal text —
  * streaming replies are parsed on every token, so partial markers (`**bold`
  * without its close) must render as typed, never throw or swallow the bubble.
  */
-export function parseWidgetMarkdown(source: string): MarkdownBlock[] {
+export function parseWidgetMarkdown(
+  source: string,
+  locations?: WidgetLocation[] | null,
+): MarkdownBlock[] {
+  const locationMap = locationMapFor(locations);
   const text = source
     .replace(/\r\n?/g, "\n")
     // The widget has always typeset em/en dashes with breathing room; keep the
@@ -97,7 +209,10 @@ export function parseWidgetMarkdown(source: string): MarkdownBlock[] {
 
     const heading = line.match(/^\s{0,3}#{1,6}\s+(.*?)\s*$/);
     if (heading) {
-      blocks.push({ kind: "heading", children: parseInline(heading[1] ?? "") });
+      blocks.push({
+        kind: "heading",
+        children: parseInline(heading[1] ?? "", locationMap),
+      });
       index += 1;
       continue;
     }
@@ -114,7 +229,7 @@ export function parseWidgetMarkdown(source: string): MarkdownBlock[] {
       while (index < lines.length) {
         const item = (lines[index] ?? "").match(/^\s{0,6}[-*+]\s+(.*)$/);
         if (!item) break;
-        items.push(parseInline((item[1] ?? "").trim()));
+        items.push(parseInline((item[1] ?? "").trim(), locationMap));
         index += 1;
       }
       blocks.push({ kind: "list", ordered: false, start: 1, items });
@@ -128,7 +243,7 @@ export function parseWidgetMarkdown(source: string): MarkdownBlock[] {
       while (index < lines.length) {
         const item = (lines[index] ?? "").match(/^\s{0,6}(\d{1,3})[.)]\s+(.*)$/);
         if (!item) break;
-        items.push(parseInline((item[2] ?? "").trim()));
+        items.push(parseInline((item[2] ?? "").trim(), locationMap));
         index += 1;
       }
       blocks.push({ kind: "list", ordered: true, start, items });
@@ -143,7 +258,10 @@ export function parseWidgetMarkdown(source: string): MarkdownBlock[] {
         quoteLines.push(quoted[1] ?? "");
         index += 1;
       }
-      blocks.push({ kind: "quote", children: parseInline(quoteLines.join("\n")) });
+      blocks.push({
+        kind: "quote",
+        children: parseInline(quoteLines.join("\n"), locationMap),
+      });
       continue;
     }
 
@@ -154,7 +272,10 @@ export function parseWidgetMarkdown(source: string): MarkdownBlock[] {
       paragraph.push(paragraphLine);
       index += 1;
     }
-    blocks.push({ kind: "paragraph", children: parseInline(paragraph.join("\n")) });
+    blocks.push({
+      kind: "paragraph",
+      children: parseInline(paragraph.join("\n"), locationMap),
+    });
   }
 
   return blocks;
@@ -171,7 +292,7 @@ function isBlockStart(line: string): boolean {
   );
 }
 
-function parseInline(source: string): InlineNode[] {
+function parseInline(source: string, locationMap: LocationMap): InlineNode[] {
   const nodes: InlineNode[] = [];
   let buffer = "";
   let index = 0;
@@ -209,7 +330,7 @@ function parseInline(source: string): InlineNode[] {
         flush();
         nodes.push({
           kind: "strong",
-          children: parseInline(source.slice(index + 2, close)),
+          children: parseInline(source.slice(index + 2, close), locationMap),
         });
         index = close + 2;
         continue;
@@ -222,7 +343,7 @@ function parseInline(source: string): InlineNode[] {
         flush();
         nodes.push({
           kind: "del",
-          children: parseInline(source.slice(index + 2, close)),
+          children: parseInline(source.slice(index + 2, close), locationMap),
         });
         index = close + 2;
         continue;
@@ -235,7 +356,7 @@ function parseInline(source: string): InlineNode[] {
         flush();
         nodes.push({
           kind: "em",
-          children: parseInline(source.slice(index + 1, close)),
+          children: parseInline(source.slice(index + 1, close), locationMap),
         });
         index = close + 1;
         continue;
@@ -253,7 +374,7 @@ function parseInline(source: string): InlineNode[] {
         flush();
         nodes.push({
           kind: "em",
-          children: parseInline(source.slice(index + 1, close)),
+          children: parseInline(source.slice(index + 1, close), locationMap),
         });
         index = close + 1;
         continue;
@@ -264,17 +385,36 @@ function parseInline(source: string): InlineNode[] {
       const locationMarker = LOCATION_MARKER_PATTERN.exec(source.slice(index));
       if (locationMarker) {
         flush();
-        const place = (locationMarker[1] ?? "").trim();
-        if (place && place.length <= LOCATION_MARKER_MAX_LENGTH) {
+        const markerBody = (locationMarker[1] ?? "").trim();
+        const { id, label, hasSeparator } = splitLocationMarker(markerBody);
+        const location = id ? locationMap.get(id) : undefined;
+
+        if (location) {
+          const text = location.address || location.label || label;
           nodes.push({
             kind: "link",
-            href: mapsHref(place),
-            children: [{ kind: "text", value: place }],
+            href: locationDirectionsUrl(location, detectedMapPlatform()),
+            children: [{ kind: "text", value: text }],
           });
-        } else if (place) {
+        } else if (!hasSeparator && markerBody) {
+          // Backwards compatibility: the old marker held a place name.
+          if (markerBody.length <= LOCATION_MARKER_MAX_LENGTH) {
+            nodes.push({
+              kind: "link",
+              href: mapsHref(markerBody),
+              children: [{ kind: "text", value: markerBody }],
+            });
+          } else {
+            nodes.push({
+              kind: "text",
+              value: markerBody.slice(0, LOCATION_MARKER_MAX_LENGTH),
+            });
+          }
+        } else if (label) {
+          // Unknown id: show the readable label without inventing a map link.
           nodes.push({
             kind: "text",
-            value: place.slice(0, LOCATION_MARKER_MAX_LENGTH),
+            value: label.slice(0, LOCATION_MARKER_MAX_LENGTH),
           });
         }
         index += locationMarker[0].length;
@@ -284,14 +424,14 @@ function parseInline(source: string): InlineNode[] {
       const remaining = source.slice(index);
       const lowerRemaining = remaining.toLowerCase();
       if (lowerRemaining.startsWith(LOCATION_MARKER_PREFIX)) {
-        const partialPlace = remaining.slice(LOCATION_MARKER_PREFIX.length);
-        if (!partialPlace.includes("\n")) {
+        const partialBody = remaining.slice(LOCATION_MARKER_PREFIX.length);
+        if (!partialBody.includes("\n")) {
           flush();
-          const visiblePlace = partialPlace.trim();
-          if (visiblePlace) {
+          const visibleText = partialLocationText(partialBody);
+          if (visibleText) {
             nodes.push({
               kind: "text",
-              value: visiblePlace.slice(0, LOCATION_MARKER_MAX_LENGTH),
+              value: visibleText.slice(0, LOCATION_MARKER_MAX_LENGTH),
             });
           }
           index = source.length;
@@ -314,7 +454,7 @@ function parseInline(source: string): InlineNode[] {
         nodes.push({
           kind: "link",
           href,
-          children: parseInline(match[1] ?? ""),
+          children: parseInline(match[1] ?? "", locationMap),
         });
         index += match[0].length;
         continue;

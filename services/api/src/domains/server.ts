@@ -30,6 +30,10 @@ import {
   resolveChatTrigger,
   resolveChatTriggerConfig,
 } from "@repo/api/domains/chat-triggers";
+import {
+  parseDomainLocations,
+  resolveDomainLocations,
+} from "@repo/api/domains/locations";
 
 export type SessionWithUser = {
   user: { id: string };
@@ -199,6 +203,7 @@ export function createDomainsService(deps: {
             chatTriggerConfig: resolveChatTriggerConfig(
               row.chatTriggerConfig,
             ),
+            locations: resolveDomainLocations(row.locations),
           })),
         );
     },
@@ -214,6 +219,7 @@ export function createDomainsService(deps: {
         ),
         chatTrigger: resolveChatTrigger(domain.chatTrigger),
         chatTriggerConfig: resolveChatTriggerConfig(domain.chatTriggerConfig),
+        locations: resolveDomainLocations(domain.locations),
       };
     },
 
@@ -344,6 +350,11 @@ export function createDomainsService(deps: {
         );
       }
 
+      const locations =
+        body.locations !== undefined
+          ? parseDomainLocations(body.locations)
+          : undefined;
+
       const [updated] = await db
         .update(domains)
         .set({
@@ -362,6 +373,7 @@ export function createDomainsService(deps: {
           ...(body.chatTriggerConfig !== undefined
             ? { chatTriggerConfig: body.chatTriggerConfig }
             : {}),
+          ...(locations !== undefined ? { locations } : {}),
           updatedAt: new Date(),
         })
         .where(eq(domains.id, domain.id))

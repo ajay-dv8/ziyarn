@@ -42,6 +42,10 @@ import {
   getBusinessTypeConfig,
   type BusinessType,
 } from "@repo/api/domains/business-types";
+import {
+  domainLocationsPrompt,
+  resolveDomainLocations,
+} from "@repo/api/domains/locations";
 
 import { appendMessageSchema } from "@repo/api/chat/schemas";
 
@@ -78,7 +82,11 @@ export function jsonError(status: number, code: string, message: string) {
 
 /** Assembles the full system prompt from 8 parts concatenated at runtime. */
 export function systemPromptFor(
-  domain: { slug: string; businessType: BusinessType | null },
+  domain: {
+    slug: string;
+    businessType: BusinessType | null;
+    locations?: unknown;
+  },
   agent: {
     name: string | null;
     description: string | null;
@@ -121,6 +129,11 @@ export function systemPromptFor(
     ? `Booking availability: ${DAY_NAMES.filter((_, dayIndex) => bookingConfig.availableDays.includes(dayIndex)).join(", ")}, ${bookingConfig.availableStart}–${bookingConfig.availableEnd} (slot: ${bookingConfig.slotDuration}min, min notice: ${bookingConfig.minNoticeHours}h). When the visitor suggests a time, verify it falls within these hours using book_appointment — the system will check availability.`
     : "";
   const businessConfig = getBusinessTypeConfig(domain.businessType);
+  const locations = resolveDomainLocations(domain.locations);
+  const locationsLine = domainLocationsPrompt(locations);
+  const locationRule = locationsLine
+    ? "Locations: when your answer names a specific place a visitor could visit — a street address, office, branch, shop, or venue — wrap that place in a location tag exactly like this: [[location: 123 Example Street, City]]. If the place is one of the business locations listed above, use that location's exact tag instead of a generic tag. The widget turns the tag into a tap-to-open maps link. Use the specific address or place name inside a generic tag, not a phrase such as our office or here. Only tag a place that appears in the knowledge results, tool results, the business information above, the business locations listed above, or the visitor's message; never guess or invent a location. Do not tag broad regions, countries, or online services."
+    : "Locations: when your answer names a specific place a visitor could visit — a street address, office, branch, shop, or venue — wrap that place in a location tag exactly like this: [[location: 123 Example Street, City]]. The widget turns the tag into a tap-to-open Google Maps link. Use the specific address or place name inside the tag, not a phrase such as our office or here. Only tag a place that appears in the knowledge results, tool results, the business information above, or the visitor's message; never guess or invent a location. Do not tag broad regions, countries, or online services.";
   const parts = [
     agent.systemPrompt ?? businessConfig.defaultSystemPrompt,
     agent.description ? `About this business: ${agent.description}` : "",
@@ -130,7 +143,8 @@ export function systemPromptFor(
       : "",
     `You are the assistant of the business on domain "${domain.slug}".`,
     "Knowledge results may include a Source URL. When you answer from such an entry, cite the page as a markdown link using its title and the exact URL. Never invent, guess, or construct URLs from the domain slug; only use URLs supplied by knowledge results, the product catalog, or tool results, and do not add a link when no source URL was supplied.",
-    "Locations: when your answer names a specific place a visitor could visit — a street address, office, branch, shop, or venue — wrap that place in a location tag exactly like this: [[location: 123 Example Street, City]]. The widget turns the tag into a tap-to-open Google Maps link. Use the specific address or place name inside the tag, not a phrase such as our office or here. Only tag a place that appears in the knowledge results, tool results, the business information above, or the visitor's message; never guess or invent a location. Do not tag broad regions, countries, or online services.",
+    locationsLine,
+    locationRule,
     "Appointments and payments are live: use book_appointment to schedule calls and create_payment (or sell_product) for purchases. Never create either without the visitor's agreement.",
     bookingLine,
     filterLine,
@@ -1091,6 +1105,12 @@ export async function handleChatConfig(
         knowledgeSearch: Boolean(
           agent?.tools?.includes("answer_knowledge"),
         ),
+        /**
+         * Saved places, already public business information. The widget
+         * resolves location ids against this list; the model only sees ids and
+         * labels in its prompt.
+         */
+        locations: resolveDomainLocations(domain.locations),
         /**
          * Which widget this domain uses. Normalised against the registry so a
          * row holding a retired id still reports something renderable. Useful

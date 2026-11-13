@@ -9,6 +9,7 @@ import {
   type ChatTriggerId,
   chatTriggerConfigSchema,
 } from "@repo/api/domains/chat-triggers";
+import { domainLocationsSchema } from "@repo/api/domains/locations";
 
 export type { Plan } from "@repo/api/plans";
 
@@ -96,6 +97,7 @@ export const updateDomainSchema = z
     widgetVariant: widgetVariantEnum.optional(),
     chatTrigger: chatTriggerEnum.optional(),
     chatTriggerConfig: chatTriggerConfigSchema.optional(),
+    locations: domainLocationsSchema.optional(),
   })
   .refine(
     (data) =>
@@ -105,7 +107,8 @@ export const updateDomainSchema = z
       data.businessType !== undefined ||
       data.widgetVariant !== undefined ||
       data.chatTrigger !== undefined ||
-      data.chatTriggerConfig !== undefined,
+      data.chatTriggerConfig !== undefined ||
+      data.locations !== undefined,
     { message: "Nothing to update" },
   );
 

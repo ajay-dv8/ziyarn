@@ -59,10 +59,10 @@
   var SCRIPT_SRC = document.currentScript && document.currentScript.src;
 
 /* core — @repo/widget-core, bundled (transport, stream, session, store) */
-"use strict";var ZiyarnCore=(()=>{var D=Object.defineProperty;var P=Object.getOwnPropertyDescriptor;var H=Object.getOwnPropertyNames;var C=Object.prototype.hasOwnProperty;var N=(i,o)=>{for(var s in o)D(i,s,{get:o[s],enumerable:!0})},x=(i,o,s,d)=>{if(o&&typeof o=="object"||typeof o=="function")for(let n of H(o))!C.call(i,n)&&n!==s&&D(i,n,{get:()=>o[n],enumerable:!(d=P(o,n))||d.enumerable});return i};var B=i=>x(D({},"__esModule",{value:!0}),i);var M={};N(M,{StaleConversationError:()=>T,createSession:()=>_,createStore:()=>w,createTransport:()=>I,newVisitorId:()=>E});var A="/api/chat";function w(i){let o=s=>`zy:${s}:${i}`;return{load(s){try{return localStorage.getItem(o(s))}catch{return null}},save(s,d){try{localStorage.setItem(o(s),d)}catch{}}}}function E(){return typeof crypto<"u"&&typeof crypto.randomUUID=="function"?crypto.randomUUID():`v-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`}function I({apiBase:i,secret:o}){let s=r=>`${i}${r}`,d=()=>({"x-embed-secret":o});async function n(r,g={}){let c=await fetch(s(r),{...g,headers:{...d(),...g.headers}});if(!c.ok){let m=(await c.json().catch(()=>({})))?.error?.message??`Request failed (${c.status})`;throw new Error(m)}return await c.json()}let y=async r=>{if(!r.ok||!r.body){let c=(await r.json().catch(()=>({})))?.error,S=new Error(c?.message??`Request failed (${r.status})`);throw c?.code==="NOT_FOUND"&&(S.name="StaleConversation"),S}return r.body};function b(r,g,c){return fetch(s(r),{method:"POST",headers:{...d(),"content-type":"application/json"},body:JSON.stringify(g),signal:c}).then(y)}function u(r){return fetch(s(r),{method:"GET",headers:d()}).then(y)}async function f(r,g){let c=r.getReader(),S=new TextDecoder,m="",h=()=>c.read().then(({done:v,value:R})=>{if(v)return;m+=S.decode(R,{stream:!0});let e=m.split(`
+"use strict";var ZiyarnCore=(()=>{var D=Object.defineProperty;var P=Object.getOwnPropertyDescriptor;var H=Object.getOwnPropertyNames;var C=Object.prototype.hasOwnProperty;var N=(i,o)=>{for(var a in o)D(i,a,{get:o[a],enumerable:!0})},x=(i,o,a,d)=>{if(o&&typeof o=="object"||typeof o=="function")for(let n of H(o))!C.call(i,n)&&n!==a&&D(i,n,{get:()=>o[n],enumerable:!(d=P(o,n))||d.enumerable});return i};var B=i=>x(D({},"__esModule",{value:!0}),i);var M={};N(M,{StaleConversationError:()=>T,createSession:()=>_,createStore:()=>w,createTransport:()=>I,newVisitorId:()=>E});var A="/api/chat";function w(i){let o=a=>`zy:${a}:${i}`;return{load(a){try{return localStorage.getItem(o(a))}catch{return null}},save(a,d){try{localStorage.setItem(o(a),d)}catch{}}}}function E(){return typeof crypto<"u"&&typeof crypto.randomUUID=="function"?crypto.randomUUID():`v-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`}function I({apiBase:i,secret:o}){let a=r=>`${i}${r}`,d=()=>({"x-embed-secret":o});async function n(r,g={}){let c=await fetch(a(r),{...g,headers:{...d(),...g.headers}});if(!c.ok){let m=(await c.json().catch(()=>({})))?.error?.message??`Request failed (${c.status})`;throw new Error(m)}return await c.json()}let y=async r=>{if(!r.ok||!r.body){let c=(await r.json().catch(()=>({})))?.error,S=new Error(c?.message??`Request failed (${r.status})`);throw c?.code==="NOT_FOUND"&&(S.name="StaleConversation"),S}return r.body};function b(r,g,c){return fetch(a(r),{method:"POST",headers:{...d(),"content-type":"application/json"},body:JSON.stringify(g),signal:c}).then(y)}function u(r){return fetch(a(r),{method:"GET",headers:d()}).then(y)}async function f(r,g){let c=r.getReader(),S=new TextDecoder,m="",h=()=>c.read().then(({done:v,value:R})=>{if(v)return;m+=S.decode(R,{stream:!0});let e=m.split(`
 
 `);m=e.pop()??"";for(let t of e){let l=t.split(`
-`)[0]??"";if(l.startsWith("data:"))try{g(JSON.parse(l.slice(5).trim()))}catch{}}return h()});return h()}return{json:n,stream:b,streamGet:u,readEvents:f}}var T=class extends Error{},U=9e4,k=2500,$=200;function _(i){let o=I({apiBase:i.apiBase,secret:i.secret}),s=w(i.slug),d=s.load("visitor")??E();s.save("visitor",d);let n=s.load("conversation"),y=null,b=!1,u=null,f=!1,r=null,g=null,c=e=>{if(!e)return;let t=Date.parse(e);Number.isNaN(t)||(y=new Date(t))},S=e=>{for(let t=e.length-1;t>=0;t-=1){let l=e[t]?.createdAt;if(l){c(l);return}}};function m(e){r&&clearTimeout(r),r=setTimeout(()=>{r=null,g&&h(g)},e)}function h(e){if(f||!n||!y)return;f=!0,g=e;let t=`${A}?conversationId=${encodeURIComponent(n)}&since=${encodeURIComponent(y.toISOString())}&stream=1`;o.streamGet(t).then(l=>o.readEvents(l,p=>{if(p.type==="message"&&p.message){e.onMessage(p.message),c(p.message.createdAt);return}f=!1,p.type==="done"&&c(p.serverTime),m(p.type==="error"?k:$)})).catch(()=>{f=!1,m(k)})}async function v(e,t){try{return await o.stream(A,{message:e,visitorId:d,conversationId:n??void 0},t)}catch(l){throw l instanceof Error&&l.name==="StaleConversation"?new T(l.message):l}}async function R(e,t,l){let p=await v(e,u.signal);await o.readEvents(p,a=>{if(l(),t.onTick?.(),a.type==="text"){t.onDelta(a.delta);return}if(a.type==="tool"){t.onTool(a.name,a.args);return}if(a.type==="escalate"){t.onEscalate();return}if(a.type==="error"){t.onError(a.message??"Something went wrong",a.code);return}a.conversationId&&(n=a.conversationId,s.save("conversation",a.conversationId)),c(a.serverTime??new Date().toISOString()),t.onDone(a.conversationId??n)})}return{get visitorId(){return d},get conversationId(){return n},get streaming(){return b},async loadConfig(){return o.json(A)},async loadHistory(){if(!n)return null;let e=await o.json(`${A}?conversationId=${encodeURIComponent(n)}`);return S(e.messages??[]),e},listenForOwnerReplies(e){h(e)},stopListening(){f=!1,g=null,r&&(clearTimeout(r),r=null)},async send(e,t){if(b)return;b=!0,u=new AbortController;let l=t.inactivityTimeoutMs??U,p=null,a=()=>{p&&clearTimeout(p),p=setTimeout(()=>{u?.abort(),t.onError("Response timed out. Please try again.")},l)};a();try{await R(e,t,a)}catch(O){O instanceof T?(n=null,y=null,s.save("conversation",""),a(),await R(e,t,a)):u?.signal.aborted||t.onError(O instanceof Error?O.message:"Something went wrong")}finally{p&&clearTimeout(p),b=!1,u=null}},stop(){u?.abort()}}}return B(M);})();
+`)[0]??"";if(l.startsWith("data:"))try{g(JSON.parse(l.slice(5).trim()))}catch{}}return h()});return h()}return{json:n,stream:b,streamGet:u,readEvents:f}}var T=class extends Error{},U=9e4,k=2500,$=200;function _(i){let o=I({apiBase:i.apiBase,secret:i.secret}),a=w(i.slug),d=a.load("visitor")??E();a.save("visitor",d);let n=a.load("conversation"),y=null,b=!1,u=null,f=!1,r=null,g=null,c=e=>{if(!e)return;let t=Date.parse(e);Number.isNaN(t)||(y=new Date(t))},S=e=>{for(let t=e.length-1;t>=0;t-=1){let l=e[t]?.createdAt;if(l){c(l);return}}};function m(e){r&&clearTimeout(r),r=setTimeout(()=>{r=null,g&&h(g)},e)}function h(e){if(f||!n||!y)return;f=!0,g=e;let t=`${A}?conversationId=${encodeURIComponent(n)}&since=${encodeURIComponent(y.toISOString())}&stream=1`;o.streamGet(t).then(l=>o.readEvents(l,p=>{if(p.type==="message"&&p.message){e.onMessage(p.message),c(p.message.createdAt);return}f=!1,p.type==="done"&&c(p.serverTime),m(p.type==="error"?k:$)})).catch(()=>{f=!1,m(k)})}async function v(e,t){try{return await o.stream(A,{message:e,visitorId:d,conversationId:n??void 0},t)}catch(l){throw l instanceof Error&&l.name==="StaleConversation"?new T(l.message):l}}async function R(e,t,l){let p=await v(e,u.signal);await o.readEvents(p,s=>{if(l(),t.onTick?.(),s.type==="text"){t.onDelta(s.delta);return}if(s.type==="tool"){t.onTool(s.name,s.args);return}if(s.type==="escalate"){t.onEscalate();return}if(s.type==="error"){t.onError(s.message??"Something went wrong",s.code);return}s.conversationId&&(n=s.conversationId,a.save("conversation",s.conversationId)),c(s.serverTime??new Date().toISOString()),t.onDone(s.conversationId??n)})}return{get visitorId(){return d},get conversationId(){return n},get streaming(){return b},async loadConfig(){return o.json(A)},async loadHistory(){if(!n)return null;let e=await o.json(`${A}?conversationId=${encodeURIComponent(n)}`);return S(e.messages??[]),e},listenForOwnerReplies(e){h(e)},stopListening(){f=!1,g=null,r&&(clearTimeout(r),r=null)},async send(e,t){if(b)return;b=!0,u=new AbortController;let l=t.inactivityTimeoutMs??U,p=null,s=()=>{p&&clearTimeout(p),p=setTimeout(()=>{u?.abort(),t.onError("Response timed out. Please try again.")},l)};s();try{await R(e,t,s)}catch(O){O instanceof T?(n=null,y=null,a.save("conversation",""),s(),await R(e,t,s)):u?.signal.aborted||t.onError(O instanceof Error?O.message:"Something went wrong")}finally{p&&clearTimeout(p),b=!1,u=null}},stop(){u?.abort()}}}return B(M);})();
 
 /* helpers — dom utilities, markdown, variant registry */
   var DEFAULT_API_BASE = (function () {
@@ -109,7 +109,7 @@
   // from the model cannot survive into innerHTML. It runs on every streaming
   // token, so partial syntax ("**bold" without a close) must render literally
   // instead of throwing or swallowing the rest of the bubble.
-  function renderMd(text) {
+  function renderMd(text, locations) {
     if (!text) return "";
 
     var source = String(text)
@@ -122,6 +122,15 @@
     var lines = source.split("\n");
     var html = "";
     var index = 0;
+    var locationMap = {};
+    if (Array.isArray(locations)) {
+      for (var locationIndex = 0; locationIndex < locations.length; locationIndex += 1) {
+        var configuredLocation = locations[locationIndex];
+        if (configuredLocation && typeof configuredLocation.id === "string") {
+          locationMap[configuredLocation.id] = configuredLocation;
+        }
+      }
+    }
 
     while (index < lines.length) {
       var line = lines[index];
@@ -148,7 +157,10 @@
 
       var heading = line.match(/^\s{0,3}#{1,6}\s+(.*?)\s*$/);
       if (heading) {
-        html += '<p class="zy-md-h">' + renderMdInline(heading[1]) + "</p>";
+        html +=
+          '<p class="zy-md-h">' +
+          renderMdInline(heading[1], locationMap) +
+          "</p>";
         index += 1;
         continue;
       }
@@ -164,7 +176,8 @@
         while (index < lines.length) {
           var bullet = lines[index].match(/^\s{0,6}[-*+]\s+(.*)$/);
           if (!bullet) break;
-          bullets += "<li>" + renderMdInline(bullet[1].trim()) + "</li>";
+          bullets +=
+            "<li>" + renderMdInline(bullet[1].trim(), locationMap) + "</li>";
           index += 1;
         }
         html += '<ul class="zy-md-list">' + bullets + "</ul>";
@@ -178,7 +191,10 @@
         while (index < lines.length) {
           var numbered = lines[index].match(/^\s{0,6}\d{1,3}[.)]\s+(.*)$/);
           if (!numbered) break;
-          numbers += "<li>" + renderMdInline(numbered[1].trim()) + "</li>";
+          numbers +=
+            "<li>" +
+            renderMdInline(numbered[1].trim(), locationMap) +
+            "</li>";
           index += 1;
         }
         html +=
@@ -200,7 +216,7 @@
         }
         html +=
           '<blockquote class="zy-md-quote">' +
-          renderMdInline(quotedLines.join("\n")) +
+          renderMdInline(quotedLines.join("\n"), locationMap) +
           "</blockquote>";
         continue;
       }
@@ -214,7 +230,8 @@
         paragraph.push(lines[index]);
         index += 1;
       }
-      html += "<p>" + renderMdInline(paragraph.join("\n")) + "</p>";
+      html +=
+        "<p>" + renderMdInline(paragraph.join("\n"), locationMap) + "</p>";
     }
 
     return html;
@@ -232,7 +249,7 @@
   }
 
   // Inline markdown. Escapes literal runs itself; recursive calls return HTML.
-  function renderMdInline(source) {
+  function renderMdInline(source, locationMap) {
     var html = "";
     var plain = "";
     var index = 0;
@@ -269,7 +286,9 @@
         if (strongClose !== -1 && strongClose > index + 2) {
           flushPlain();
           html +=
-            "<strong>" + renderMdInline(source.slice(index + 2, strongClose)) + "</strong>";
+            "<strong>" +
+            renderMdInline(source.slice(index + 2, strongClose), locationMap) +
+            "</strong>";
           index = strongClose + 2;
           continue;
         }
@@ -279,7 +298,10 @@
         var delClose = source.indexOf("~~", index + 2);
         if (delClose !== -1 && delClose > index + 2) {
           flushPlain();
-          html += "<del>" + renderMdInline(source.slice(index + 2, delClose)) + "</del>";
+          html +=
+            "<del>" +
+            renderMdInline(source.slice(index + 2, delClose), locationMap) +
+            "</del>";
           index = delClose + 2;
           continue;
         }
@@ -289,7 +311,10 @@
         var emClose = source.indexOf("*", index + 1);
         if (emClose !== -1 && emClose > index + 1) {
           flushPlain();
-          html += "<em>" + renderMdInline(source.slice(index + 1, emClose)) + "</em>";
+          html +=
+            "<em>" +
+            renderMdInline(source.slice(index + 1, emClose), locationMap) +
+            "</em>";
           index = emClose + 1;
           continue;
         }
@@ -305,7 +330,9 @@
         if (underscoreClose !== -1) {
           flushPlain();
           html +=
-            "<em>" + renderMdInline(source.slice(index + 1, underscoreClose)) + "</em>";
+            "<em>" +
+            renderMdInline(source.slice(index + 1, underscoreClose), locationMap) +
+            "</em>";
           index = underscoreClose + 1;
           continue;
         }
@@ -319,30 +346,42 @@
         );
         if (locationMatch) {
           flushPlain();
-          var locationPlace = locationMatch[1].trim();
-          if (
-            locationPlace &&
-            locationPlace.length <= MD_LOCATION_MAX_LENGTH
-          ) {
-            html +=
-              '<a href="' +
-              esc(mdLocationUrl(locationPlace)) +
-              '" target="_blank" rel="noopener noreferrer">' +
-              esc(locationPlace) +
-              "</a>";
-          } else if (locationPlace) {
-            html += esc(locationPlace.slice(0, MD_LOCATION_MAX_LENGTH));
+          var markerBody = locationMatch[1].trim();
+          var separator = markerBody.indexOf("|");
+          var locationId =
+            separator === -1 ? "" : markerBody.slice(0, separator).trim();
+          var markerLabel =
+            separator === -1 ? markerBody : markerBody.slice(separator + 1).trim();
+          var knownLocation =
+            locationId && locationMap[locationId]
+              ? locationMap[locationId]
+              : null;
+
+          if (knownLocation) {
+            var displayText =
+              knownLocation.address || knownLocation.label || markerLabel;
+            html += mdLocationAnchor(mdMapUrl(knownLocation), displayText);
+          } else if (separator === -1 && markerBody) {
+            // Backwards compatibility: the old marker held a place name.
+            if (markerBody.length <= MD_LOCATION_MAX_LENGTH) {
+              html += mdLocationAnchor(mdLocationUrl(markerBody), markerBody);
+            } else {
+              html += esc(markerBody.slice(0, MD_LOCATION_MAX_LENGTH));
+            }
+          } else if (markerLabel) {
+            // Unknown id: show the readable label without inventing a link.
+            html += esc(markerLabel.slice(0, MD_LOCATION_MAX_LENGTH));
           }
           index += locationMatch[0].length;
           continue;
         }
         if (lowerRemaining.indexOf(MD_LOCATION_PREFIX) === 0) {
-          var partialPlace = remaining.slice(MD_LOCATION_PREFIX.length);
-          if (partialPlace.indexOf("\n") === -1) {
+          var partialBody = remaining.slice(MD_LOCATION_PREFIX.length);
+          if (partialBody.indexOf("\n") === -1) {
             flushPlain();
-            var visiblePlace = partialPlace.trim();
-            if (visiblePlace) {
-              html += esc(visiblePlace.slice(0, MD_LOCATION_MAX_LENGTH));
+            var visibleText = mdPartialLocationText(partialBody);
+            if (visibleText) {
+              html += esc(visibleText.slice(0, MD_LOCATION_MAX_LENGTH));
             }
             index = source.length;
             continue;
@@ -363,7 +402,7 @@
             '<a href="' +
             esc(link[2]) +
             '" target="_blank" rel="noopener noreferrer">' +
-            renderMdInline(link[1]) +
+            renderMdInline(link[1], locationMap) +
             "</a>";
           index += link[0].length;
           continue;
@@ -409,6 +448,71 @@
       "https://www.google.com/maps/search/?api=1&query=" +
       encodeURIComponent(place)
     );
+  }
+
+  function mdLocationAnchor(url, text) {
+    return (
+      '<a href="' +
+      esc(url) +
+      '" target="_blank" rel="noopener noreferrer">' +
+      esc(text) +
+      "</a>"
+    );
+  }
+
+  function mdMapUrl(location) {
+    var latitude =
+      typeof location.latitude === "number" ? location.latitude : null;
+    var longitude =
+      typeof location.longitude === "number" ? location.longitude : null;
+
+    if (latitude !== null && longitude !== null) {
+      if (mdIsIos()) {
+        return "https://maps.apple.com/?daddr=" + latitude + "," + longitude;
+      }
+      var mapUrl =
+        "https://www.google.com/maps/dir/?api=1&destination=" +
+        encodeURIComponent(latitude + "," + longitude);
+      if (location.placeId) {
+        mapUrl +=
+          "&destination_place_id=" + encodeURIComponent(location.placeId);
+      }
+      return mapUrl;
+    }
+
+    if (location.placeId) {
+      return (
+        "https://www.google.com/maps/dir/?api=1&destination=" +
+        encodeURIComponent(location.address || location.label || "") +
+        "&destination_place_id=" +
+        encodeURIComponent(location.placeId)
+      );
+    }
+
+    if (
+      typeof location.mapsUrl === "string" &&
+      /^https:\/\//i.test(location.mapsUrl)
+    ) {
+      return location.mapsUrl;
+    }
+
+    return mdLocationUrl(location.address || location.label || "");
+  }
+
+  function mdIsIos() {
+    var userAgent = navigator.userAgent || "";
+    return (
+      /iPad|iPhone|iPod/.test(userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    );
+  }
+
+  function mdPartialLocationText(body) {
+    var pipe = body.indexOf("|");
+    if (pipe !== -1) return body.slice(pipe + 1).trim();
+    var text = body.trim();
+    // Hide the new id-only tag while it streams; the id is not visitor-facing.
+    return text.indexOf("loc_") === 0 || "loc_".indexOf(text) === 0 ? "" : text;
   }
 
   function isMdSafeUrl(url) {
@@ -3442,6 +3546,7 @@ registerTrigger("pill", {
       this._session
         .loadConfig()
         .then(function (data) {
+          if (data) self._configData = data;
           if (data && data.agent) {
             if (data.agent.name) self._titleEl.textContent = data.agent.name;
             if (data.agent.description)
@@ -3907,7 +4012,10 @@ registerTrigger("pill", {
       var node = document.createElement("div");
       node.className = "zy-msg zy-msg-" + kind;
       if (kind === "agent") {
-        node.innerHTML = renderMd(text);
+        node.innerHTML = renderMd(
+          text,
+          this._configData && this._configData.locations
+        );
       } else {
         node.textContent = text;
       }
@@ -4052,7 +4160,10 @@ registerTrigger("pill", {
             // text, otherwise drop the empty bubble entirely.
             if (self._turnHadProducts) {
               if (self._reply) {
-                typing.innerHTML = renderMd(self._reply);
+                typing.innerHTML = renderMd(
+                  self._reply,
+                  self._configData && self._configData.locations
+                );
               } else {
                 typing.remove();
               }
@@ -4097,12 +4208,18 @@ registerTrigger("pill", {
         // keep arriving while it animates out, and a snapshot taken here
         // would land on screen after the newer renders and undo them.
         handover.then(function () {
-          node.innerHTML = renderMd(self._reply);
+          node.innerHTML = renderMd(
+            self._reply,
+            self._configData && self._configData.locations
+          );
           self._scrollToBottom();
         });
         return;
       }
-      typingNode.innerHTML = renderMd(this._reply);
+      typingNode.innerHTML = renderMd(
+        this._reply,
+        this._configData && this._configData.locations
+      );
       this._scrollToBottom();
     }
 

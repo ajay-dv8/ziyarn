@@ -1,8 +1,9 @@
 # Widget Location Links Plan
 
-Status: implemented via the deterministic marker path (Phase 2). Model-built
-Maps URLs were skipped because the widget can build the URL itself, which
-removes the fragile URL-encoding step. See "Implementation notes".
+Status: implemented. Phase 2 (deterministic marker) shipped first; the verified
+location pin from Option 3 now supplies exact coordinates or a Place ID, with
+the owner's Google Maps link as fallback. See "Option 3" and "Implementation
+notes".
 
 ## Goal
 
@@ -19,7 +20,8 @@ places mentioned in passing.
   when it is naming a place, so it should mark it.
 - Route planning, "near me" search, or a map preview card.
 - Click analytics.
-- Multiple saved business addresses.
+- Opening hours, staff, or per-branch booking rules. A separate locations table
+  can own those when they are needed.
 
 ## Current state
 
@@ -47,6 +49,61 @@ random words or miss "Accra Mall" entirely, and adding an NER/geocoding API
 adds cost, latency, and ambiguity. The model already decides whether it is
 answering with a real place, so the cheapest reliable design is a prompt rule
 that makes the place a Maps link.
+
+## Option 3 — Verified Location Pin (implemented)
+
+The owner saves each visitable place on the domain instead of relying on the
+model to copy an address from knowledge or build a URL.
+
+### Data
+
+`domains.locations` is a JSONB array (MVP) validated by
+`domainLocationsSchema`:
+
+```json
+[
+  {
+    "id": "loc_osu",
+    "label": "Osu branch",
+    "address": "12 Oxford Street, Osu, Accra",
+    "notes": "Park at the rear",
+    "latitude": 5.5502,
+    "longitude": -0.2174,
+    "mapsUrl": "https://maps.app.goo.gl/...",
+    "placeId": null,
+    "isPrimary": true
+  }
+]
+```
+
+Exactly one location is primary. The column is additive and defaults to `[]`;
+a locations table is deferred until branches need hours or other per-place
+rules.
+
+### Owner flow
+
+**Dashboard → Domains → Settings → Locations** asks for a short name, the
+address visitors tap, optional notes, and a Google Maps link. **Read pin**
+parses a full link or follows a short `maps.app.goo.gl` share link on the
+server (Google hosts only, timeout and redirect limits), then shows the parsed
+coordinates or Place ID. The raw link is kept whether or not a pin was found.
+
+### Prompt and widget
+
+- `systemPromptFor` lists the saved places with exact tags such as
+  `[[location: loc_osu|12 Oxford Street, Osu, Accra]]`. Coordinates and URLs
+  stay out of the prompt.
+- Both widget parsers resolve the id against the public `/api/chat` config.
+  Known ids render the **stored** address and never trust a model-supplied
+  label; unknown ids render their readable label without inventing a link.
+- Old `[[location: place name]]` markers still render a Maps search for
+  existing conversations.
+- Directions links use coordinates when available:
+  - Google: `https://www.google.com/maps/dir/?api=1&destination=lat,lng`
+  - iOS: `https://maps.apple.com/?daddr=lat,lng`
+  - Place ID: `destination_place_id=...`, with the address as display text
+  - Raw owner link: last fallback
+- Dashboard conversation bubbles strip the marker to its readable label.
 
 ## Phase 1 — Prompt-only (recommended first)
 
@@ -172,16 +229,14 @@ link is not obviously tappable in the widget.
 
 ## Deferred / optional
 
-- **Business location field.** Add a nullable `locationAddress` to `domains`,
-  expose it in domain settings, and include it in `systemPromptFor`. This
-  guarantees the main address is known even if it is missing from knowledge.
-  It does not cover branches. Requires a migration, API schema, UI, and tests;
-  not needed for Phase 1.
-- **Device default maps.** Use `https://maps.apple.com/?q=...` on iOS (Apple
-  Maps) or `geo:` on Android (opens the default map app). The latter needs the
-  link allowlist extended and real-device testing. The Google Maps HTTPS link
-  already opens the Google Maps app when installed, so defer this until
-  requested.
+- **Locations table.** The JSONB array is enough for the MVP. Move to a table
+  when branches need opening hours, staff, booking rules, or more than 10
+  places.
+- **Android `geo:` links.** The Google Maps HTTPS link opens the Google Maps
+  app when installed and the browser otherwise. `geo:` would open the device's
+  default map app, but needs real-device testing and a broader link allowlist.
+- **Map picker or Places autocomplete.** Pasting a Google Maps link is the
+  zero-API-key path. A picker can come later if owners find links hard to copy.
 - **Richer location card.** Address, map preview, and a directions button, like
   the product card. More UI work on both surfaces; the link is enough for the
   requested behavior.
@@ -243,14 +298,26 @@ Implemented:
 - Widget e2e fake reply includes a marker, and both classic and glow assert the
   resulting link. `public/widget.js` was rebuilt.
 
-Verification:
+### Verified pin (Option 3) implementation notes
 
-- `@repo/api`: 174 passed, 11 skipped.
-- `web`: 54 passed.
-- Widget e2e: 31/31 checks, including the Maps link in classic and glow.
-- Live platform-model check: address, showroom, and visit questions emitted
-  `[[location: ...]]` with the correct address/venue.
+Implemented:
 
-Remaining: check app handoff on a real Android and iPhone. Apple Maps,
-device-default links, a business-location field, and a map card are still
-deferred.
+- `domains.locations` JSONB column, validation and prompt injection.
+- Locations card in domain settings: paste a Google Maps link, read the pin
+  (short links resolved server-side), confirm, save.
+- `[[location: id|label]]` support in both widget parsers, with exact
+  Google/Apple directions links and raw-link fallback.
+- Old `[[location: place]]` markers and existing conversations still render.
+- `public/widget.js` rebuilt.
+
+Verification after Option 3:
+
+- `@repo/api`: 191 passed, 11 skipped.
+- `web`: 57 passed.
+- Widget e2e: 32/32, including the exact directions link in classic, glow, and
+  restored history.
+- Typecheck, lint, and the production web build pass.
+
+Remaining: apply migration `0035_domain_locations.sql` to each deployed
+database; check app handoff on a real Android and iPhone. Map picking and
+Android `geo:` links are still deferred.

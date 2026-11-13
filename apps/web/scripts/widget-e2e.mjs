@@ -164,7 +164,7 @@ const server = createServer(async (req, res) => {
       {
         type: "text",
         delta:
-          "\n\nWe are at [[location: 12 Oxford Street, Osu, Accra]].",
+          "\n\nWe are at [[location: loc_e2e|12 Oxford Street, Osu, Accra]].",
       },
       { type: "done", conversationId, serverTime: new Date().toISOString() },
     ]);
@@ -179,7 +179,11 @@ const server = createServer(async (req, res) => {
         conversation: { id: conversationId, status: "escalated" },
         messages: [
           { role: "user", content: "HISTORY_USER_MESSAGE" },
-          { role: "assistant", content: "HISTORY_AGENT_MESSAGE" },
+          {
+            role: "assistant",
+            content:
+              "HISTORY_AGENT_MESSAGE\n\nWe are at [[location: loc_e2e|12 Oxford Street, Osu, Accra]].",
+          },
         ],
       }),
     );
@@ -198,6 +202,16 @@ const server = createServer(async (req, res) => {
       placeholders: ["E2E_PLACEHOLDER_PROMPT"],
       businessType: "retail",
       knowledgeSearch: true,
+      locations: [
+        {
+          id: "loc_e2e",
+          label: "E2E office",
+          address: "12 Oxford Street, Osu, Accra",
+          latitude: 5.5502,
+          longitude: -0.2174,
+          isPrimary: true,
+        },
+      ],
       widgetVariant: "classic",
       products: [{ name: "E2E Jersey", priceCents: 12000, currency: "ghs", imageUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' fill='%2310b981'/%3E%3C/svg%3E" }],
     }),
@@ -522,7 +536,7 @@ async function runVariant(variant) {
       shadow(`
         location: (() => {
           const link = root.querySelector(
-            '.zy-msg-agent a[href^="https://www.google.com/maps/search/"]',
+            '.zy-msg-agent a[href^="https://www.google.com/maps/dir/"]',
           );
           if (!link) return null;
           const message = link.closest('.zy-msg-agent');
@@ -541,9 +555,7 @@ async function runVariant(variant) {
     `${variant}: location marker rendered as a maps link`,
     Boolean(locationLink) &&
       locationLink.text.includes("12 Oxford Street, Osu, Accra") &&
-      locationLink.href.includes(
-        "12%20Oxford%20Street%2C%20Osu%2C%20Accra",
-      ) &&
+      locationLink.href.includes("destination=5.5502%2C-0.2174") &&
       locationLink.target === "_blank" &&
       locationLink.rel === "noopener noreferrer" &&
       locationLink.rawMarker === false,
@@ -628,10 +640,24 @@ try {
   );
   await new Promise((resolve) => setTimeout(resolve, 3000));
   const messages = JSON.parse(await restored.evaluate(textOf(".zy-messages"))).text ?? "";
+  const restoredLocation = JSON.parse(
+    await restored.evaluate(
+      shadow(
+        `location: (() => { const link = root.querySelector('.zy-msg-agent a[href^="https://www.google.com/maps/dir/"]'); return link ? { href: link.getAttribute("href"), text: link.textContent } : null; })()`,
+      ),
+    ),
+  ).location;
   check(
     "conversation restores after reload",
     messages.includes("HISTORY_USER_MESSAGE") && messages.includes("HISTORY_AGENT_MESSAGE"),
     messages.replace(/\s+/g, " ").slice(0, 80),
+  );
+  check(
+    "history location marker restores exact link",
+    Boolean(restoredLocation) &&
+      restoredLocation.text === "12 Oxford Street, Osu, Accra" &&
+      restoredLocation.href.includes("destination=5.5502%2C-0.2174"),
+    JSON.stringify(restoredLocation),
   );
 
   failed = results.filter((result) => !result.ok).length;

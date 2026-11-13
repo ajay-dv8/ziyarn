@@ -90,6 +90,40 @@ describe("systemPromptFor", () => {
     expect(prompt).toContain("never guess or invent a location");
   });
 
+  it("teaches exact saved-location tags when locations exist", () => {
+    const prompt = systemPromptFor(
+      {
+        slug: "urban-plus-2",
+        businessType: "ecommerce",
+        locations: [
+          {
+            id: "loc_osu",
+            label: "Osu branch",
+            address: "12 Oxford Street, Osu, Accra",
+            latitude: 5.5502,
+            longitude: -0.2174,
+            isPrimary: true,
+          },
+        ],
+      },
+      {
+        name: "Urban+",
+        description: null,
+        instructions: null,
+        systemPrompt: null,
+        tools: null,
+        filterQuestions: null,
+      },
+      [],
+    );
+
+    expect(prompt).toContain(
+      "[[location: loc_osu|12 Oxford Street, Osu, Accra]]",
+    );
+    expect(prompt).toContain("use that location's exact tag");
+    expect(prompt).not.toContain("5.5502");
+  });
+
   it("includes a product page URL in the catalog line", () => {
     const prompt = systemPromptFor(
       { slug: "urban-plus-2", businessType: "ecommerce" },

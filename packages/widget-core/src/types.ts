@@ -18,12 +18,28 @@ export interface AgentProduct {
   description?: string | null;
 }
 
+export interface AgentLocation {
+  id: string;
+  label: string;
+  address: string;
+  notes?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  /** Owner-pasted Google Maps link, used when no exact pin was parsed. */
+  mapsUrl?: string | null;
+  /** Google Place ID, when the pasted link carried one. */
+  placeId?: string | null;
+  isPrimary?: boolean;
+}
+
 export interface AgentConfig {
   domain?: { slug?: string | null; logoUrl?: string | null } | null;
   agent?: { name?: string | null; description?: string | null } | null;
   placeholders?: string[] | null;
   businessType?: string | null;
   knowledgeSearch?: boolean;
+  /** Saved business locations; the widget resolves `[[location: id|label]]`. */
+  locations?: AgentLocation[] | null;
   widgetVariant?: string;
   /** Which chat trigger opens the chat; ids live in @repo/api chat-triggers. */
   chatTrigger?: string;

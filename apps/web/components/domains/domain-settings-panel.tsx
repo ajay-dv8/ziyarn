@@ -6,11 +6,13 @@ import type {
   ChatTriggerId,
   ResolvedChatTriggerConfig,
 } from "@repo/api/domains/chat-triggers";
+import type { DomainLocation } from "@repo/api/domains/locations";
 import type { WidgetVariantId } from "@repo/api/domains/widget-variants";
 
 import { BusinessTypeEditor } from "@/components/domains/business-type-editor";
 import { ChatTriggerPicker } from "@/components/domains/chat-trigger-picker";
 import { CopySecretField } from "@/components/domains/copy-secret-field";
+import { DomainLocationsEditor } from "@/components/domains/domain-locations-editor";
 import { DomainLogoEditor } from "@/components/domains/domain-logo-editor";
 import { RenameDomainForm } from "@/components/domains/rename-domain-form";
 import { SlugEditor } from "@/components/domains/slug-editor";
@@ -40,6 +42,7 @@ export function DomainSettingsPanel({
   widgetVariant,
   chatTrigger,
   chatTriggerConfig,
+  locations,
   aiOverride,
   aiAccount,
   embedSecret,
@@ -53,6 +56,7 @@ export function DomainSettingsPanel({
   widgetVariant: WidgetVariantId;
   chatTrigger: ChatTriggerId;
   chatTriggerConfig: ResolvedChatTriggerConfig;
+  locations: DomainLocation[];
   aiOverride: AiConfigView | null;
   aiAccount: AiConfigView;
   embedSecret: string | null;
@@ -99,6 +103,23 @@ export function DomainSettingsPanel({
           <BusinessTypeEditor
             domainId={domainId}
             currentType={businessType}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-lg border p-4">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Locations
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Add the places customers can visit. The agent tags their addresses,
+          and visitors tap for exact directions — no knowledge-base entry
+          needed.
+        </p>
+        <div className="mt-3">
+          <DomainLocationsEditor
+            domainId={domainId}
+            initialLocations={locations}
           />
         </div>
       </div>

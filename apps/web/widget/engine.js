@@ -324,6 +324,7 @@
       this._session
         .loadConfig()
         .then(function (data) {
+          if (data) self._configData = data;
           if (data && data.agent) {
             if (data.agent.name) self._titleEl.textContent = data.agent.name;
             if (data.agent.description)
@@ -789,7 +790,10 @@
       var node = document.createElement("div");
       node.className = "zy-msg zy-msg-" + kind;
       if (kind === "agent") {
-        node.innerHTML = renderMd(text);
+        node.innerHTML = renderMd(
+          text,
+          this._configData && this._configData.locations
+        );
       } else {
         node.textContent = text;
       }
@@ -934,7 +938,10 @@
             // text, otherwise drop the empty bubble entirely.
             if (self._turnHadProducts) {
               if (self._reply) {
-                typing.innerHTML = renderMd(self._reply);
+                typing.innerHTML = renderMd(
+                  self._reply,
+                  self._configData && self._configData.locations
+                );
               } else {
                 typing.remove();
               }
@@ -979,12 +986,18 @@
         // keep arriving while it animates out, and a snapshot taken here
         // would land on screen after the newer renders and undo them.
         handover.then(function () {
-          node.innerHTML = renderMd(self._reply);
+          node.innerHTML = renderMd(
+            self._reply,
+            self._configData && self._configData.locations
+          );
           self._scrollToBottom();
         });
         return;
       }
-      typingNode.innerHTML = renderMd(this._reply);
+      typingNode.innerHTML = renderMd(
+        this._reply,
+        this._configData && this._configData.locations
+      );
       this._scrollToBottom();
     }
 

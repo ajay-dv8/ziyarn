@@ -33,6 +33,7 @@ import { formatMoney } from "@repo/money";
 import { CHAT_ESCALATE_PATH } from "@repo/routes";
 import {
   createSession,
+  type AgentLocation,
   type AgentProduct,
   type HistoryResponse,
   type OwnerReply,
@@ -116,6 +117,7 @@ export function ChatWidget({
   const [domainLogoUrl, setDomainLogoUrl] = useState<string | null>(null);
   const [escalated, setEscalated] = useState(false);
   const [products, setProducts] = useState<AgentProduct[]>([]);
+  const [locations, setLocations] = useState<AgentLocation[]>([]);
   const [viewerProduct, setViewerProduct] = useState<AgentProduct | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -184,6 +186,7 @@ export function ChatWidget({
         );
         if (configuredPlaceholder) setPlaceholder(configuredPlaceholder);
         setProducts(config.products ?? []);
+        setLocations(config.locations ?? []);
 
         if (enforcePlan && config.widgetVariant !== "sleek") {
           setStatus("unavailable");
@@ -540,6 +543,7 @@ export function ChatWidget({
                     message={message}
                     running={message.id === activeId}
                     logoUrl={domainLogoUrl}
+                    locations={locations}
                     onOpenProduct={openProduct}
                     onEscalate={escalateToHuman}
                   />
@@ -750,12 +754,14 @@ function AssistantMessage({
   message,
   running,
   logoUrl,
+  locations,
   onOpenProduct,
   onEscalate,
 }: {
   message: ChatMessage;
   running: boolean;
   logoUrl?: string | null;
+  locations: AgentLocation[];
   onOpenProduct: (product: AgentProduct) => void;
   onEscalate?: (reason?: string) => void;
 }) {
@@ -766,7 +772,7 @@ function AssistantMessage({
         <div className="min-w-0 pt-0.5">
           {message.text ? (
             message.role === "assistant" ? (
-              <WidgetMarkdown text={message.text} />
+              <WidgetMarkdown text={message.text} locations={locations} />
             ) : (
               <p className="text-[13px] leading-[1.55] whitespace-pre-line text-[#1a1920]">
                 {message.text}

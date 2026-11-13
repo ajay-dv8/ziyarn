@@ -80,6 +80,7 @@ export default async function DomainsPage({
             widgetVariant={domain.widgetVariant}
             chatTrigger={domain.chatTrigger}
             chatTriggerConfig={domain.chatTriggerConfig}
+            locations={domain.locations}
             aiOverride={aiOverride}
             aiAccount={aiAccount}
             embedSecret={embedConfig?.secret ?? null}

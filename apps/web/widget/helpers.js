@@ -42,7 +42,7 @@
   // from the model cannot survive into innerHTML. It runs on every streaming
   // token, so partial syntax ("**bold" without a close) must render literally
   // instead of throwing or swallowing the rest of the bubble.
-  function renderMd(text) {
+  function renderMd(text, locations) {
     if (!text) return "";
 
     var source = String(text)
@@ -55,6 +55,15 @@
     var lines = source.split("\n");
     var html = "";
     var index = 0;
+    var locationMap = {};
+    if (Array.isArray(locations)) {
+      for (var locationIndex = 0; locationIndex < locations.length; locationIndex += 1) {
+        var configuredLocation = locations[locationIndex];
+        if (configuredLocation && typeof configuredLocation.id === "string") {
+          locationMap[configuredLocation.id] = configuredLocation;
+        }
+      }
+    }
 
     while (index < lines.length) {
       var line = lines[index];
@@ -81,7 +90,10 @@
 
       var heading = line.match(/^\s{0,3}#{1,6}\s+(.*?)\s*$/);
       if (heading) {
-        html += '<p class="zy-md-h">' + renderMdInline(heading[1]) + "</p>";
+        html +=
+          '<p class="zy-md-h">' +
+          renderMdInline(heading[1], locationMap) +
+          "</p>";
         index += 1;
         continue;
       }
@@ -97,7 +109,8 @@
         while (index < lines.length) {
           var bullet = lines[index].match(/^\s{0,6}[-*+]\s+(.*)$/);
           if (!bullet) break;
-          bullets += "<li>" + renderMdInline(bullet[1].trim()) + "</li>";
+          bullets +=
+            "<li>" + renderMdInline(bullet[1].trim(), locationMap) + "</li>";
           index += 1;
         }
         html += '<ul class="zy-md-list">' + bullets + "</ul>";
@@ -111,7 +124,10 @@
         while (index < lines.length) {
           var numbered = lines[index].match(/^\s{0,6}\d{1,3}[.)]\s+(.*)$/);
           if (!numbered) break;
-          numbers += "<li>" + renderMdInline(numbered[1].trim()) + "</li>";
+          numbers +=
+            "<li>" +
+            renderMdInline(numbered[1].trim(), locationMap) +
+            "</li>";
           index += 1;
         }
         html +=
@@ -133,7 +149,7 @@
         }
         html +=
           '<blockquote class="zy-md-quote">' +
-          renderMdInline(quotedLines.join("\n")) +
+          renderMdInline(quotedLines.join("\n"), locationMap) +
           "</blockquote>";
         continue;
       }
@@ -147,7 +163,8 @@
         paragraph.push(lines[index]);
         index += 1;
       }
-      html += "<p>" + renderMdInline(paragraph.join("\n")) + "</p>";
+      html +=
+        "<p>" + renderMdInline(paragraph.join("\n"), locationMap) + "</p>";
     }
 
     return html;
@@ -165,7 +182,7 @@
   }
 
   // Inline markdown. Escapes literal runs itself; recursive calls return HTML.
-  function renderMdInline(source) {
+  function renderMdInline(source, locationMap) {
     var html = "";
     var plain = "";
     var index = 0;
@@ -202,7 +219,9 @@
         if (strongClose !== -1 && strongClose > index + 2) {
           flushPlain();
           html +=
-            "<strong>" + renderMdInline(source.slice(index + 2, strongClose)) + "</strong>";
+            "<strong>" +
+            renderMdInline(source.slice(index + 2, strongClose), locationMap) +
+            "</strong>";
           index = strongClose + 2;
           continue;
         }
@@ -212,7 +231,10 @@
         var delClose = source.indexOf("~~", index + 2);
         if (delClose !== -1 && delClose > index + 2) {
           flushPlain();
-          html += "<del>" + renderMdInline(source.slice(index + 2, delClose)) + "</del>";
+          html +=
+            "<del>" +
+            renderMdInline(source.slice(index + 2, delClose), locationMap) +
+            "</del>";
           index = delClose + 2;
           continue;
         }
@@ -222,7 +244,10 @@
         var emClose = source.indexOf("*", index + 1);
         if (emClose !== -1 && emClose > index + 1) {
           flushPlain();
-          html += "<em>" + renderMdInline(source.slice(index + 1, emClose)) + "</em>";
+          html +=
+            "<em>" +
+            renderMdInline(source.slice(index + 1, emClose), locationMap) +
+            "</em>";
           index = emClose + 1;
           continue;
         }
@@ -238,7 +263,9 @@
         if (underscoreClose !== -1) {
           flushPlain();
           html +=
-            "<em>" + renderMdInline(source.slice(index + 1, underscoreClose)) + "</em>";
+            "<em>" +
+            renderMdInline(source.slice(index + 1, underscoreClose), locationMap) +
+            "</em>";
           index = underscoreClose + 1;
           continue;
         }
@@ -252,30 +279,42 @@
         );
         if (locationMatch) {
           flushPlain();
-          var locationPlace = locationMatch[1].trim();
-          if (
-            locationPlace &&
-            locationPlace.length <= MD_LOCATION_MAX_LENGTH
-          ) {
-            html +=
-              '<a href="' +
-              esc(mdLocationUrl(locationPlace)) +
-              '" target="_blank" rel="noopener noreferrer">' +
-              esc(locationPlace) +
-              "</a>";
-          } else if (locationPlace) {
-            html += esc(locationPlace.slice(0, MD_LOCATION_MAX_LENGTH));
+          var markerBody = locationMatch[1].trim();
+          var separator = markerBody.indexOf("|");
+          var locationId =
+            separator === -1 ? "" : markerBody.slice(0, separator).trim();
+          var markerLabel =
+            separator === -1 ? markerBody : markerBody.slice(separator + 1).trim();
+          var knownLocation =
+            locationId && locationMap[locationId]
+              ? locationMap[locationId]
+              : null;
+
+          if (knownLocation) {
+            var displayText =
+              knownLocation.address || knownLocation.label || markerLabel;
+            html += mdLocationAnchor(mdMapUrl(knownLocation), displayText);
+          } else if (separator === -1 && markerBody) {
+            // Backwards compatibility: the old marker held a place name.
+            if (markerBody.length <= MD_LOCATION_MAX_LENGTH) {
+              html += mdLocationAnchor(mdLocationUrl(markerBody), markerBody);
+            } else {
+              html += esc(markerBody.slice(0, MD_LOCATION_MAX_LENGTH));
+            }
+          } else if (markerLabel) {
+            // Unknown id: show the readable label without inventing a link.
+            html += esc(markerLabel.slice(0, MD_LOCATION_MAX_LENGTH));
           }
           index += locationMatch[0].length;
           continue;
         }
         if (lowerRemaining.indexOf(MD_LOCATION_PREFIX) === 0) {
-          var partialPlace = remaining.slice(MD_LOCATION_PREFIX.length);
-          if (partialPlace.indexOf("\n") === -1) {
+          var partialBody = remaining.slice(MD_LOCATION_PREFIX.length);
+          if (partialBody.indexOf("\n") === -1) {
             flushPlain();
-            var visiblePlace = partialPlace.trim();
-            if (visiblePlace) {
-              html += esc(visiblePlace.slice(0, MD_LOCATION_MAX_LENGTH));
+            var visibleText = mdPartialLocationText(partialBody);
+            if (visibleText) {
+              html += esc(visibleText.slice(0, MD_LOCATION_MAX_LENGTH));
             }
             index = source.length;
             continue;
@@ -296,7 +335,7 @@
             '<a href="' +
             esc(link[2]) +
             '" target="_blank" rel="noopener noreferrer">' +
-            renderMdInline(link[1]) +
+            renderMdInline(link[1], locationMap) +
             "</a>";
           index += link[0].length;
           continue;
@@ -342,6 +381,71 @@
       "https://www.google.com/maps/search/?api=1&query=" +
       encodeURIComponent(place)
     );
+  }
+
+  function mdLocationAnchor(url, text) {
+    return (
+      '<a href="' +
+      esc(url) +
+      '" target="_blank" rel="noopener noreferrer">' +
+      esc(text) +
+      "</a>"
+    );
+  }
+
+  function mdMapUrl(location) {
+    var latitude =
+      typeof location.latitude === "number" ? location.latitude : null;
+    var longitude =
+      typeof location.longitude === "number" ? location.longitude : null;
+
+    if (latitude !== null && longitude !== null) {
+      if (mdIsIos()) {
+        return "https://maps.apple.com/?daddr=" + latitude + "," + longitude;
+      }
+      var mapUrl =
+        "https://www.google.com/maps/dir/?api=1&destination=" +
+        encodeURIComponent(latitude + "," + longitude);
+      if (location.placeId) {
+        mapUrl +=
+          "&destination_place_id=" + encodeURIComponent(location.placeId);
+      }
+      return mapUrl;
+    }
+
+    if (location.placeId) {
+      return (
+        "https://www.google.com/maps/dir/?api=1&destination=" +
+        encodeURIComponent(location.address || location.label || "") +
+        "&destination_place_id=" +
+        encodeURIComponent(location.placeId)
+      );
+    }
+
+    if (
+      typeof location.mapsUrl === "string" &&
+      /^https:\/\//i.test(location.mapsUrl)
+    ) {
+      return location.mapsUrl;
+    }
+
+    return mdLocationUrl(location.address || location.label || "");
+  }
+
+  function mdIsIos() {
+    var userAgent = navigator.userAgent || "";
+    return (
+      /iPad|iPhone|iPod/.test(userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    );
+  }
+
+  function mdPartialLocationText(body) {
+    var pipe = body.indexOf("|");
+    if (pipe !== -1) return body.slice(pipe + 1).trim();
+    var text = body.trim();
+    // Hide the new id-only tag while it streams; the id is not visitor-facing.
+    return text.indexOf("loc_") === 0 || "loc_".indexOf(text) === 0 ? "" : text;
   }
 
   function isMdSafeUrl(url) {

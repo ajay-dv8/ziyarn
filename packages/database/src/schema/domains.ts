@@ -57,6 +57,17 @@ export const domains = pgTable(
       .$type<Record<string, unknown>>()
       .notNull()
       .default({}),
+    /**
+     * Saved places visitors can ask about. Validated by
+     * domainLocationsSchema in @repo/api before writes; reads fail open to []
+     * so a stale row cannot break the widget. Kept as one JSONB column for
+     * the MVP — move to a table when branches need hours or per-location
+     * staff.
+     */
+    locations: jsonb("locations")
+      .$type<unknown[]>()
+      .notNull()
+      .default([]),
     plan: text("plan", {
       enum: ["free", "standard", "pro", "ultimate", "custom"],
     })

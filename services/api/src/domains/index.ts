@@ -52,3 +52,19 @@ export {
   type ResolvedChatTriggerConfig,
   type TooltipVisibility,
 } from "@repo/api/domains/chat-triggers";
+
+export {
+  DOMAIN_LOCATION_LIMIT,
+  domainLocationSchema,
+  domainLocationsPrompt,
+  domainLocationsSchema,
+  isGoogleMapsUrl,
+  locationDirectionsUrl,
+  locationMarkerLabel,
+  parseDomainLocations,
+  resolveDomainLocations,
+  type DomainLocation,
+  type DomainLocations,
+  type MapLocation,
+  type MapPlatform,
+} from "@repo/api/domains/locations";
