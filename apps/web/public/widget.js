@@ -102,7 +102,8 @@
   // two in sync. Supported: paragraphs, hard line breaks, bullet lists,
   // numbered lists, headings, fenced code, blockquotes, horizontal rules,
   // **bold**, *italic*, _italic_, `code`, ~~strikethrough~~, markdown links,
-  // bare https:// links, and em/en-dash spacing.
+  // bare https:// links, email/phone autolinks, tel:/mailto: links, and
+  // em/en-dash spacing.
   //
   // Safety: every literal text run passes through esc() before it reaches the
   // string, and only the tags this file emits are ever produced, so raw HTML
@@ -249,7 +250,8 @@
   }
 
   // Inline markdown. Escapes literal runs itself; recursive calls return HTML.
-  function renderMdInline(source, locationMap) {
+  function renderMdInline(source, locationMap, allowAutolinks) {
+    if (allowAutolinks === undefined) allowAutolinks = true;
     var html = "";
     var plain = "";
     var index = 0;
@@ -287,7 +289,11 @@
           flushPlain();
           html +=
             "<strong>" +
-            renderMdInline(source.slice(index + 2, strongClose), locationMap) +
+            renderMdInline(
+              source.slice(index + 2, strongClose),
+              locationMap,
+              allowAutolinks
+            ) +
             "</strong>";
           index = strongClose + 2;
           continue;
@@ -300,7 +306,11 @@
           flushPlain();
           html +=
             "<del>" +
-            renderMdInline(source.slice(index + 2, delClose), locationMap) +
+            renderMdInline(
+              source.slice(index + 2, delClose),
+              locationMap,
+              allowAutolinks
+            ) +
             "</del>";
           index = delClose + 2;
           continue;
@@ -313,7 +323,11 @@
           flushPlain();
           html +=
             "<em>" +
-            renderMdInline(source.slice(index + 1, emClose), locationMap) +
+            renderMdInline(
+              source.slice(index + 1, emClose),
+              locationMap,
+              allowAutolinks
+            ) +
             "</em>";
           index = emClose + 1;
           continue;
@@ -331,7 +345,11 @@
           flushPlain();
           html +=
             "<em>" +
-            renderMdInline(source.slice(index + 1, underscoreClose), locationMap) +
+            renderMdInline(
+              source.slice(index + 1, underscoreClose),
+              locationMap,
+              allowAutolinks
+            ) +
             "</em>";
           index = underscoreClose + 1;
           continue;
@@ -401,8 +419,10 @@
           html +=
             '<a href="' +
             esc(link[2]) +
-            '" target="_blank" rel="noopener noreferrer">' +
-            renderMdInline(link[1], locationMap) +
+            '"' +
+            mdLinkTarget(link[2]) +
+            ">" +
+            renderMdInline(link[1], locationMap, false) +
             "</a>";
           index += link[0].length;
           continue;
@@ -411,6 +431,7 @@
 
       // Bare URLs, only at a word boundary so "xhttps://…" stays text.
       if (
+        allowAutolinks &&
         (character === "h" || character === "H") &&
         (index === 0 || /[\s([<]/.test(source[index - 1])) &&
         /^https?:\/\//i.test(source.slice(index))
@@ -423,12 +444,31 @@
             html +=
               '<a href="' +
               esc(url) +
-              '" target="_blank" rel="noopener noreferrer">' +
+              '"' +
+              mdLinkTarget(url) +
+              ">" +
               esc(url) +
               "</a>";
             index += url.length;
             continue;
           }
+        }
+      }
+
+      if (allowAutolinks) {
+        var contact = mdContactAt(source, index);
+        if (contact) {
+          flushPlain();
+          html +=
+            '<a href="' +
+            esc(contact.href) +
+            '"' +
+            mdLinkTarget(contact.href) +
+            ">" +
+            esc(contact.text) +
+            "</a>";
+          index += contact.text.length;
+          continue;
         }
       }
 
@@ -515,8 +555,105 @@
     return text.indexOf("loc_") === 0 || "loc_".indexOf(text) === 0 ? "" : text;
   }
 
+  var MD_EMAIL_PATTERN =
+    /^[A-Za-z0-9._%+-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+/;
+  var MD_PHONE_PATTERN = /^\(?\+?\(?\d[\d() .-]{5,}\d/;
+
   function isMdSafeUrl(url) {
-    return /^(?:https?:\/\/|mailto:)/i.test(url);
+    return (
+      /^(?:https?:\/\/|mailto:)/i.test(url) ||
+      /^tel:\+?\d[\d().\s-]*$/i.test(url)
+    );
+  }
+
+  function mdIsContactUrl(url) {
+    return /^(?:mailto:|tel:)/i.test(url);
+  }
+
+  function mdLinkTarget(url) {
+    return mdIsContactUrl(url)
+      ? ""
+      : ' target="_blank" rel="noopener noreferrer"';
+  }
+
+  function mdEmailAt(source, index) {
+    var previous = source[index - 1] || "";
+    if (previous && /[A-Za-z0-9._%+-]/.test(previous)) return null;
+
+    var match = MD_EMAIL_PATTERN.exec(source.slice(index));
+    if (!match) return null;
+    var text = match[0];
+    if (text.length > 254) return null;
+
+    var next = source[index + text.length] || "";
+    if (next && /[A-Za-z0-9_-]/.test(next)) return null;
+    return { text: text, href: "mailto:" + text };
+  }
+
+  function mdHasPhoneContext(source, index) {
+    var before = source.slice(Math.max(0, index - 32), index);
+    return /\b(?:call|phone|tel|telephone|mobile|cell|whatsapp|contact|dial|reach)\b[^\n]{0,24}$/i.test(
+      before
+    );
+  }
+
+  function mdPhoneAt(source, index) {
+    var previous = source[index - 1] || "";
+    if (/[0-9]/.test(previous)) return null;
+
+    var match = MD_PHONE_PATTERN.exec(source.slice(index));
+    if (!match) return null;
+
+    var text = match[0];
+    if (text.length > 40) return null;
+    var digits = text.replace(/\D/g, "");
+    if (digits.length < 7 || digits.length > 15) return null;
+
+    var next = source[index + text.length] || "";
+    if (/[A-Za-z0-9_@#/$%-]/.test(previous)) return null;
+    if (/[A-Za-z0-9_%-]/.test(next)) return null;
+
+    var hasPlus = /^\(?\+/.test(text);
+    if (
+      /^(?:\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{4}\s+\d{1,2}\s+\d{1,2}|\d{1,2}\s+\d{1,2}\s+\d{4})$/.test(
+        text
+      ) ||
+      /^\d{4}(?:\s*[-/.]\s*|\s+)\d{4}$/.test(text) ||
+      /^\d{1,3}(?:\.\d{1,3}){3}$/.test(text) ||
+      /^\d{1,3}(?:[ .-]\d{3})+$/.test(text) ||
+      /^\d+\.\d+$/.test(text)
+    ) {
+      return null;
+    }
+    if (countMdCharacter(text, "(") !== countMdCharacter(text, ")")) {
+      return null;
+    }
+
+    if (!hasPlus && !/[()]/.test(text)) {
+      var groups = text.split(/[ .-]+/);
+      if (!groups.some(function (group) { return group.length >= 3; })) {
+        return null;
+      }
+    }
+
+    var hasFormatting = /[() .-]/.test(text);
+    if (!hasPlus && !hasFormatting && !mdHasPhoneContext(source, index)) {
+      return null;
+    }
+
+    return { text: text, href: "tel:" + (hasPlus ? "+" : "") + digits };
+  }
+
+  function mdContactAt(source, index) {
+    var character = source[index] || "";
+    if (/[A-Za-z0-9._%+-]/.test(character)) {
+      var email = mdEmailAt(source, index);
+      if (email) return email;
+    }
+    if (/[+(\d]/.test(character)) {
+      return mdPhoneAt(source, index);
+    }
+    return null;
   }
 
   function findMdUnderscoreClose(source, from) {
