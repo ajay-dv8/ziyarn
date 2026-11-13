@@ -119,6 +119,15 @@ describe("parseWidgetMarkdown", () => {
       true,
     );
     expect(inlineText(unsafeParagraph.children)).toBe("[x](javascript:alert(1))");
+
+    const unsafeTel = parseWidgetMarkdown("[x](tel:javascript:alert(1))");
+    const unsafeTelParagraph = onlyBlock(unsafeTel);
+    if (unsafeTelParagraph.kind !== "paragraph") {
+      throw new Error("unreachable");
+    }
+    expect(
+      unsafeTelParagraph.children.some((node) => node.kind === "link"),
+    ).toBe(false);
   });
 
   it("autolinks bare URLs and trims sentence punctuation", () => {
@@ -129,6 +138,91 @@ describe("parseWidgetMarkdown", () => {
     expect(link).toMatchObject({
       kind: "link",
       href: "https://example.com/track?order=1",
+    });
+  });
+
+  it("autolinks phone numbers and email addresses", () => {
+    const blocks = parseWidgetMarkdown(
+      "Call +233 20 123 4567 or email hello@example.com.",
+    );
+    const paragraph = onlyBlock(blocks);
+    if (paragraph.kind !== "paragraph") throw new Error("unreachable");
+
+    expect(paragraph.children).toContainEqual({
+      kind: "link",
+      href: "tel:+233201234567",
+      children: [{ kind: "text", value: "+233 20 123 4567" }],
+    });
+    expect(paragraph.children).toContainEqual({
+      kind: "link",
+      href: "mailto:hello@example.com",
+      children: [{ kind: "text", value: "hello@example.com" }],
+    });
+    expect(inlineText(paragraph.children)).toBe(
+      "Call +233 20 123 4567 or email hello@example.com.",
+    );
+  });
+
+  it("links bare phone numbers only when the wording says it is a phone", () => {
+    const call = parseWidgetMarkdown("Call 0201234567 now");
+    const callParagraph = onlyBlock(call);
+    if (callParagraph.kind !== "paragraph") throw new Error("unreachable");
+    expect(callParagraph.children).toContainEqual({
+      kind: "link",
+      href: "tel:0201234567",
+      children: [{ kind: "text", value: "0201234567" }],
+    });
+
+    const eightDigit = parseWidgetMarkdown("Phone: 12345678");
+    const eightDigitParagraph = onlyBlock(eightDigit);
+    if (eightDigitParagraph.kind !== "paragraph") {
+      throw new Error("unreachable");
+    }
+    expect(eightDigitParagraph.children).toContainEqual({
+      kind: "link",
+      href: "tel:12345678",
+      children: [{ kind: "text", value: "12345678" }],
+    });
+
+    const order = parseWidgetMarkdown("Order 1234567890 is ready");
+    const orderParagraph = onlyBlock(order);
+    if (orderParagraph.kind !== "paragraph") throw new Error("unreachable");
+    expect(orderParagraph.children.some((node) => node.kind === "link")).toBe(
+      false,
+    );
+
+    const date = parseWidgetMarkdown("Delivered on 2026-11-13");
+    const dateParagraph = onlyBlock(date);
+    if (dateParagraph.kind !== "paragraph") throw new Error("unreachable");
+    expect(dateParagraph.children.some((node) => node.kind === "link")).toBe(
+      false,
+    );
+
+    const sequence = parseWidgetMarkdown(
+      "Sizes 10 20 30 40 50 arrive in 2026-2027.",
+    );
+    const sequenceParagraph = onlyBlock(sequence);
+    if (sequenceParagraph.kind !== "paragraph") throw new Error("unreachable");
+    expect(
+      sequenceParagraph.children.some((node) => node.kind === "link"),
+    ).toBe(false);
+  });
+
+  it("keeps tel and mailto link text from nesting another contact link", () => {
+    const blocks = parseWidgetMarkdown(
+      "[Call +233 20 123 4567](tel:+233201234567) or [email hello@example.com](mailto:hello@example.com)",
+    );
+    const paragraph = onlyBlock(blocks);
+    if (paragraph.kind !== "paragraph") throw new Error("unreachable");
+    const links = paragraph.children.filter((node) => node.kind === "link");
+    expect(links).toHaveLength(2);
+    expect(links[0]).toMatchObject({
+      href: "tel:+233201234567",
+      children: [{ kind: "text", value: "Call +233 20 123 4567" }],
+    });
+    expect(links[1]).toMatchObject({
+      href: "mailto:hello@example.com",
+      children: [{ kind: "text", value: "email hello@example.com" }],
     });
   });
 
