@@ -36,4 +36,7 @@ export {
   createKnowledgeService,
   KnowledgeServiceError,
   type KnowledgeService,
+  type ReadKnowledgeService,
+  type UploadKnowledgeService,
+  type CrawlKnowledgeService,
 } from "@repo/api/knowledge/server";
