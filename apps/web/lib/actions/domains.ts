@@ -4,12 +4,13 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
 import {
+  DomainServiceError,
   createDomainSchema,
   updateDomainSchema,
   type CreateDomainInput,
   type UpdateDomainInput,
 } from "@repo/api/domains";
-import { DomainServiceError, PlanLimitError } from "@repo/api";
+import { PlanLimitError } from "@repo/api/plans";
 import {
   MapsLinkError,
   resolveGoogleMapsLink,
