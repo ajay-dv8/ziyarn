@@ -62,7 +62,7 @@ The platform is architecturally sound (P1–P13 complete): Better Auth + Drizzle
 
 | # | Issue | Location | Impact | Fix |
 |---|-------|----------|--------|-----|
-| PERF-1 | Large function traces (39–43 MB) | `/api/chat`, `/api/knowledge/*` | Vercel function cold starts, higher memory, possible timeout at 40 MB+ | Split knowledge service into read/ingest so chat + read routes don't trace the PDF/XLSX/DOCX stack. Tracked in `todo/function-size-and-storage.md` Item A. Already reduced dashboard pages 42→9 MB and total traced 1.27→0.71 GB. |
+| PERF-1 | ✅ Done — Large function traces (39–43 MB) | `/api/chat`, `/api/knowledge/*` | Split knowledge service into read/upload/crawl so chat + read routes no longer trace the PDF/XLSX/DOCX extraction stack (~30 MB `@napi-rs/canvas`). New files: `errors.ts`, `read-server.ts`, `ingest.ts`, `upload-server.ts`, `crawl-server.ts`. Read routes import from `@repo/api/knowledge/read-server` (no heavy imports). Upload/crawl routes use the full service. Typecheck/lint/tests pass on `@repo/api` and `web`. |
 | PERF-2 | SSE delta polling every 1s (up to 8s) | `services/api/src/chat/server.ts:157-160, 183-205` | Every open owner-messenger tab polls Neon every second. At scale this is many DB reads. | Increase `DELTA_INTERVAL_MS`, or switch to LISTEN/NOTIFY + short poll. |
 | PERF-3 | Rate limit = DB write per message | `apps/web/lib/rate-limit-db.ts:17-31` | Atomic upsert on every chat message; write amplification under load. | Move to Redis/in-memory store with periodic flush, or batch increments. |
 | PERF-4 | `listConversationsForOwner` fetches ALL messages | `services/api/src/chat/server.ts:360-426` | No pagination; slow for owners with many conversations/long histories. | Add `limit`/`offset` pagination and only fetch recent messages. |
@@ -124,7 +124,7 @@ The platform is architecturally sound (P1–P13 complete): Better Auth + Drizzle
 4. **CSP enforcement** (SEC-2 / P0-4) — after clean report window.
 5. **Payment rail decision** (P0-5) — decide Stripe vs Paystack for product checkout.
 6. **Admin auth manual checks** (P0-3) — hand-test lockout + idle timeout.
-7. **Function size split** (PERF-1 / Item A) — reduce 39–43 MB functions before production traffic grows.
+7. **Function size split** (PERF-1) — ✅ Done (knowledge service split into read/upload/crawl; chat/knowledge read routes no longer trace the ~30 MB extraction stack).
 8. **SSRF hardening** (SEC-5) — ✅ Done (private/resolved IP blocking in crawler; tests added).
 
 ---
