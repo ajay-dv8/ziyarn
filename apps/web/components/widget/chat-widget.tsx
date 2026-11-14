@@ -489,6 +489,10 @@ export function ChatWidget({
           </button>
         ) : null}
 
+        {agentName || slug ? (
+          <BrandPill logoUrl={domainLogoUrl} label={agentName ?? slug ?? ""} />
+        ) : null}
+
         {!isPreview ? (
           <TooltipProvider delay={300}>
             <Tooltip>
@@ -842,6 +846,48 @@ function UserMessage({ text }: { text: string }) {
       </div>
       <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#0d0d10] text-white ring-1 ring-black/10">
         <User className="size-3.75" strokeWidth={2} />
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Brand identity pill: the domain's logo next to the agent name, same height
+ * as the round header buttons (size-8). Centered at the top on desktop;
+ * parked in the top-left corner on phones, where the full-screen button is
+ * hidden and the corner is free.
+ */
+function BrandPill({
+  logoUrl,
+  label,
+}: {
+  logoUrl?: string | null;
+  label: string;
+}) {
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+  const showLogo = Boolean(logoUrl) && failedLogoUrl !== logoUrl;
+
+  return (
+    <div
+      className={cn(
+        "absolute top-3 left-1/2 z-20 flex h-8 max-w-[240px] -translate-x-1/2 items-center gap-1.5 overflow-hidden rounded-full bg-white/75 py-1 pr-3 shadow-[0_6px_18px_-6px_rgba(23,22,27,0.3)] backdrop-blur",
+        showLogo && logoUrl ? "pl-1" : "pl-3",
+        "max-[480px]:left-3 max-[480px]:translate-x-0",
+      )}
+    >
+      {showLogo && logoUrl ? (
+        <span className="grid size-6 shrink-0 place-items-center overflow-hidden rounded-full bg-white ring-1 ring-black/10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={logoUrl}
+            alt=""
+            className="size-full object-contain"
+            onError={() => setFailedLogoUrl(logoUrl)}
+          />
+        </span>
+      ) : null}
+      <span className="min-w-0 truncate text-xs font-semibold text-[#494652]">
+        {label}
       </span>
     </div>
   );
