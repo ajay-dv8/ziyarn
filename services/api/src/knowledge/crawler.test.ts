@@ -134,7 +134,8 @@ describe("createDefaultFetchPage", () => {
     );
     vi.stubGlobal("fetch", fetchSpy);
 
-    await fetchPage("https://example.com/");
+    // Use a literal public IP so isBlockedHost doesn't need DNS resolution.
+    await fetchPage("http://1.1.1.1/");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });
