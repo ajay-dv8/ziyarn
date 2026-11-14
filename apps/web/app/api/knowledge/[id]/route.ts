@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { KnowledgeServiceError } from "@repo/api/knowledge";
 
 import { authService } from "@/services/auth-service";
-import { knowledgeService } from "@/services/knowledge-service";
+import { readKnowledgeService } from "@/services/knowledge-service";
 
 export const runtime = "nodejs";
 
@@ -29,7 +29,7 @@ export async function DELETE(
         { status: 400 },
       );
     }
-    await knowledgeService.deleteDocument(
+    await readKnowledgeService.deleteDocument(
       { domainId, documentId: id },
       request.headers,
     );

@@ -20,7 +20,7 @@ import { API_ROUTES, APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 import { agentsService } from "@/services/agents-service";
 import { domainsService } from "@/services/domains-service";
-import { knowledgeService } from "@/services/knowledge-service";
+import { readKnowledgeService } from "@/services/knowledge-service";
 
 export const metadata: Metadata = {
   title: "Knowledge Base",
@@ -98,7 +98,7 @@ export default async function KnowledgePage({
     agents.find((agent) => agent.id === agentId) ?? agents[0];
   const documents =
     selectedDomain && selectedAgent
-      ? await knowledgeService.listDocuments(
+      ? await readKnowledgeService.listDocuments(
           { domainId: selectedDomain.id, agentId: selectedAgent.id },
           requestHeaders,
         )
