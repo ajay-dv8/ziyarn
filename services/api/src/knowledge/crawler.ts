@@ -1,3 +1,6 @@
+import { isIP } from "node:net";
+import { lookup } from "node:dns/promises";
+
 import {
   MAX_DOCUMENT_CHARS,
   MAX_CRAWL_PAGES,
@@ -118,6 +121,78 @@ function isSkippable(url: string): boolean {
   return false;
 }
 
+/** IPv4 literal address is private or reserved (RFC 1918, loopback, link-local, multicast, …). */
+function ipv4IsPrivateOrReserved(address: string): boolean {
+  const parts = address.split(".");
+  if (parts.length !== 4) return false;
+  const nums = parts.map((part) => Number(part));
+  if (nums.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return false;
+  const a = nums[0]!;
+  const b = nums[1]!;
+  const c = nums[2]!;
+  if (a === 0) return true; // 0.0.0.0/8
+  if (a === 10) return true; // 10.0.0.0/8
+  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 (CGNAT)
+  if (a === 127) return true; // 127.0.0.0/8 loopback
+  if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local
+  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+  if (a === 192 && b === 0 && (c === 0 || c === 2)) return true; // 192.0.0.0/24, 192.0.2.0/24
+  if (a === 192 && b === 88 && c === 99) return true; // 192.88.99.0/24 (6to4 relay)
+  if (a === 192 && b === 168) return true; // 192.168.0.0/16
+  if (a === 198 && (b === 18 || b === 19)) return true; // 198.18.0.0/15
+  if (a === 198 && b === 51 && c === 100) return true; // 198.51.100.0/24
+  if (a === 203 && b === 0 && c === 113) return true; // 203.0.113.0/24
+  if (a >= 224) return true; // 224.0.0.0/4 multicast + reserved
+  return false;
+}
+
+/** IPv6 literal address is private or reserved (loopback, unique-local, link-local, multicast, …). */
+function ipv6IsPrivateOrReserved(address: string): boolean {
+  const lower = address.toLowerCase();
+  if (lower === "::" || lower === "::1") return true; // unspecified / loopback
+  if (lower.startsWith("::ffff:")) return true; // IPv4-mapped (embedded IPv4 may be private)
+  if (lower.startsWith("64:ff9b:")) return true; // IPv4/IPv6 translation
+  if (lower.startsWith("100:")) return true; // 100::/64 discard
+  if (lower.startsWith("2001:db8:")) return true; // documentation
+  if (lower.startsWith("fc") || lower.startsWith("fd")) return true; // fc00::/7 unique-local
+  if (
+    lower.startsWith("fe80:") ||
+    lower.startsWith("fe90:") ||
+    lower.startsWith("fea0:") ||
+    lower.startsWith("feb0:")
+  )
+    return true; // fe80::/10 link-local
+  if (lower.startsWith("ff")) return true; // ff00::/8 multicast
+  return false;
+}
+
+/**
+ * Returns true when a hostname (literal IP or DNS-resolvable name) must not be
+ * fetched because it resolves to a private or reserved address. DNS resolution
+ * failure is treated as blocked so the crawler never silently reaches an
+ * unintended host.
+ */
+export async function isBlockedHost(hostname: string): Promise<boolean> {
+  const lower = hostname.toLowerCase();
+  if (lower === "localhost" || lower === "localhost.localdomain") return true;
+
+  const family = isIP(hostname);
+  if (family === 4) return ipv4IsPrivateOrReserved(hostname);
+  if (family === 6) return ipv6IsPrivateOrReserved(hostname);
+
+  // Hostname: resolve and check every returned address.
+  try {
+    const addresses = await lookup(hostname, { all: true });
+    for (const { address, family: addrFamily } of addresses) {
+      if (addrFamily === 4 && ipv4IsPrivateOrReserved(address)) return true;
+      if (addrFamily === 6 && ipv6IsPrivateOrReserved(address)) return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 const HREF_RE = /<a\b[^>]*?\bhref\s*=\s*["']([^"'#]+)["']/gi;
 
 /** Extracts internal links from an HTML document. */
@@ -169,6 +244,16 @@ export async function crawlWebsite(
 
     let html: string | null = null;
     try {
+      // SSRF guard: never fetch a literal private/resolved IP address.
+      const urlObj = new URL(url);
+      const hostnameFamily = isIP(urlObj.hostname);
+      if (
+        (hostnameFamily === 4 || hostnameFamily === 6) &&
+        (await isBlockedHost(urlObj.hostname))
+      ) {
+        errors.push(`${url}: blocked private or reserved host`);
+        continue;
+      }
       html = await deps.fetchPage(url);
     } catch (error) {
       errors.push(`${url}: ${error instanceof Error ? error.message : "fetch failed"}`);
@@ -211,6 +296,10 @@ export async function crawlWebsite(
 /** Default fetchPage implementation using global fetch. */
 export function createDefaultFetchPage(): (url: string) => Promise<string | null> {
   return async (url) => {
+    const parsed = new URL(url);
+    if (await isBlockedHost(parsed.hostname)) {
+      throw new Error(`SSRF: private or resolved-to-private host blocked: ${parsed.hostname}`);
+    }
     const response = await fetch(url, {
       redirect: "follow",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
