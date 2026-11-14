@@ -17,9 +17,9 @@ import { Label } from "@repo/ui/components/label";
 import { toast } from "sonner";
 
 import {
-  createTeamAction,
-  renameTeamAction,
-  type TeamActionResult,
+  createWorkspaceAction,
+  renameWorkspaceAction,
+  type WorkspaceActionResult,
 } from "@/lib/actions/workspaces";
 import { APP_ROUTES } from "@/constants/routes";
 
@@ -72,9 +72,9 @@ export function TeamNameDialog({
 
     const result = (
       isCreate
-        ? await createTeamAction({ name: trimmed })
-        : await renameTeamAction({ workspaceId: workspaceId ?? "", name: trimmed })
-    ) as TeamActionResult;
+        ? await createWorkspaceAction({ name: trimmed })
+        : await renameWorkspaceAction({ workspaceId: workspaceId ?? "", name: trimmed })
+    ) as WorkspaceActionResult;
 
     setPending(false);
 
@@ -85,15 +85,15 @@ export function TeamNameDialog({
 
     onOpenChange(false);
     if (isCreate) {
-      toast.success("Team created");
-      // Land on the team just created, not on whatever was selected before.
+      toast.success("Workspace created");
+      // Land on the workspace just created, not on whatever was selected before.
       router.push(
         result.workspaceId
-          ? `${APP_ROUTES.DASHBOARD_TEAM}?workspace=${result.workspaceId}`
-          : APP_ROUTES.DASHBOARD_TEAM,
+          ? `${APP_ROUTES.DASHBOARD_WORKSPACES}?workspace=${result.workspaceId}`
+          : APP_ROUTES.DASHBOARD_WORKSPACES,
       );
     } else {
-      toast.success("Team renamed");
+      toast.success("Workspace renamed");
     }
     router.refresh();
   };
@@ -104,20 +104,20 @@ export function TeamNameDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isCreate ? "Create a team" : "Rename team"}</DialogTitle>
+          <DialogTitle>{isCreate ? "Create a workspace" : "Rename workspace"}</DialogTitle>
           <DialogDescription>
             {isCreate
-              ? "A team groups the agents, domains and knowledge bases your people work on. You become its owner."
-              : "Pick a name your team will recognise. Embed snippets and domains are not affected."}
+              ? "A workspace is your organization. Teams live inside it. You become its owner."
+              : "Pick a name your organization will recognise. Domains and teams are not affected."}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={submit} noValidate className="space-y-2">
-          <Label htmlFor="team-dialog-name">Team name</Label>
+          <Label htmlFor="workspace-dialog-name">Workspace name</Label>
           <Input
-            id="team-dialog-name"
+            id="workspace-dialog-name"
             name="name"
-            placeholder="Acme Support"
+            placeholder="Acme Corp"
             value={name}
             onChange={(event) => setName(event.target.value)}
             maxLength={100}
@@ -128,7 +128,7 @@ export function TeamNameDialog({
 
           {blockedByPlan && (
             <p className="text-sm text-muted-foreground">
-              Your plan allows {maxTeams} team{maxTeams === 1 ? "" : "s"}. Upgrade
+              Your plan allows {maxTeams} workspace{maxTeams === 1 ? "" : "s"}. Upgrade
               to create another.
             </p>
           )}
@@ -153,7 +153,7 @@ export function TeamNameDialog({
                   ? "Creating…"
                   : "Saving…"
                 : isCreate
-                  ? "Create team"
+                  ? "Create workspace"
                   : "Save name"}
             </Button>
           </DialogFooter>

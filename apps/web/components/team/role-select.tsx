@@ -12,7 +12,7 @@ import {
 } from "@repo/api/workspaces/roles";
 import { toast } from "sonner";
 
-import { updateMemberRoleAction } from "@/lib/actions/workspaces";
+import { updateWorkspaceMemberRoleAction } from "@/lib/actions/workspaces";
 
 /**
  * Role picker for one member. The owner row renders a static label instead:
@@ -44,7 +44,7 @@ export function RoleSelect({
   const onChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
     const nextRole = event.target.value as AssignableWorkspaceRole;
     setPending(true);
-    const result = await updateMemberRoleAction({
+    const result = await updateWorkspaceMemberRoleAction({
       workspaceId,
       memberId,
       role: nextRole,

@@ -18,31 +18,31 @@ import { APP_ROUTES } from "@/constants/routes";
 import { sendWorkspaceInviteEmail } from "@/lib/workspace-invite-email";
 import { workspaceService } from "@/services/workspace-service";
 
-export type TeamActionResult =
+export type WorkspaceActionResult =
   | { ok: true; workspaceId?: string; inviteUrl?: string; emailed?: boolean }
   | { ok: false; error: string; fieldErrors?: Record<string, string[] | undefined> };
 
-/** Every mutation on the team page revalidates the same path and reports
+/** Every mutation on the workspace page revalidates the same path and reports
  * failures in the same shape. */
-function revalidateTeam() {
-  revalidatePath(APP_ROUTES.DASHBOARD_TEAM);
+function revalidateWorkspace() {
+  revalidatePath(APP_ROUTES.DASHBOARD_WORKSPACES);
 }
 
-function errorResult(error: unknown): Extract<TeamActionResult, { ok: false }> {
+function errorResult(error: unknown): Extract<WorkspaceActionResult, { ok: false }> {
   if (
     error instanceof WorkspaceServiceError ||
     error instanceof PlanLimitError
   ) {
     return { ok: false, error: error.message };
   }
-  console.error("Unexpected team action error:", error);
+  console.error("Unexpected workspace action error:", error);
   return { ok: false, error: "Something went wrong, please try again" };
 }
 
-/** Creates a team (workspace) with the caller as its owner. */
-export async function createTeamAction(input: {
+/** Creates a workspace with the caller as its owner. Plan limits apply. */
+export async function createWorkspaceAction(input: {
   name: string;
-}): Promise<TeamActionResult> {
+}): Promise<WorkspaceActionResult> {
   const parsed = createWorkspaceSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -57,18 +57,18 @@ export async function createTeamAction(input: {
       parsed.data,
       await headers(),
     );
-    revalidateTeam();
+    revalidateWorkspace();
     return { ok: true, workspaceId: workspace.id };
   } catch (error) {
     return errorResult(error);
   }
 }
 
-/** Renames a team. Owners and admins may. */
-export async function renameTeamAction(input: {
+/** Renames a workspace. Owners and admins may. */
+export async function renameWorkspaceAction(input: {
   workspaceId: string;
   name: string;
-}): Promise<TeamActionResult> {
+}): Promise<WorkspaceActionResult> {
   const parsed = renameWorkspaceSchema.safeParse({ name: input.name });
   if (!parsed.success) {
     return {
@@ -84,7 +84,7 @@ export async function renameTeamAction(input: {
       parsed.data,
       await headers(),
     );
-    revalidateTeam();
+    revalidateWorkspace();
     return { ok: true, workspaceId: input.workspaceId };
   } catch (error) {
     return errorResult(error);
@@ -92,30 +92,30 @@ export async function renameTeamAction(input: {
 }
 
 /**
- * Deletes a team and everyone's access to it. The caller is left signed in
- * with whatever teams they still belong to, so the page must be re-read rather
- * than assumed — hence no workspaceId in the result.
+ * Deletes a workspace and everyone's access to it. The caller is left signed in
+ * with whatever workspaces they still belong to, so the page must be re-read
+ * rather than assumed — hence no workspaceId in the result.
  */
-export async function deleteTeamAction(input: {
+export async function deleteWorkspaceAction(input: {
   workspaceId: string;
-}): Promise<TeamActionResult> {
+}): Promise<WorkspaceActionResult> {
   try {
     await workspaceService.deleteWorkspace(input.workspaceId, await headers());
-    revalidateTeam();
+    revalidateWorkspace();
     return { ok: true };
   } catch (error) {
     return errorResult(error);
   }
 }
 
-/** Invites anyone by email. Delivery is best-effort: when SMTP is not
- * configured the invite still exists and the caller gets its link back to
- * share by hand. */
-export async function inviteMemberAction(input: {
+/** Invites anyone by email to a workspace. Delivery is best-effort: when SMTP
+ * is not configured the invite still exists and the caller gets its link back
+ * to share by hand. */
+export async function inviteWorkspaceMemberAction(input: {
   workspaceId: string;
   email: string;
   role: AssignableWorkspaceRole;
-}): Promise<TeamActionResult> {
+}): Promise<WorkspaceActionResult> {
   const parsed = inviteMemberSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -140,23 +140,24 @@ export async function inviteMemberAction(input: {
       expiresAt: result.invite.expiresAt,
     });
 
-    revalidateTeam();
+    revalidateWorkspace();
     return {
       ok: true,
       workspaceId: input.workspaceId,
       inviteUrl: result.inviteUrl,
       emailed: delivery.emailed,
-    };  } catch (error) {
+    };
+  } catch (error) {
     return errorResult(error);
   }
 }
 
-/** Changes a member's role. Owners are rejected by the service. */
-export async function updateMemberRoleAction(input: {
+/** Changes a workspace member's role. Owners are rejected by the service. */
+export async function updateWorkspaceMemberRoleAction(input: {
   workspaceId: string;
   memberId: string;
   role: AssignableWorkspaceRole;
-}): Promise<TeamActionResult> {
+}): Promise<WorkspaceActionResult> {
   const parsed = updateMemberRoleSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "That role is not valid" };
@@ -168,43 +169,43 @@ export async function updateMemberRoleAction(input: {
       parsed.data,
       await headers(),
     );
-    revalidateTeam();
+    revalidateWorkspace();
     return { ok: true };
   } catch (error) {
     return errorResult(error);
   }
 }
 
-/** Removes a member from the team. */
-export async function removeMemberAction(input: {
+/** Removes a member from a workspace. */
+export async function removeWorkspaceMemberAction(input: {
   workspaceId: string;
   memberId: string;
-}): Promise<TeamActionResult> {
+}): Promise<WorkspaceActionResult> {
   try {
     await workspaceService.removeMember(
       input.workspaceId,
       input.memberId,
       await headers(),
     );
-    revalidateTeam();
+    revalidateWorkspace();
     return { ok: true };
   } catch (error) {
     return errorResult(error);
   }
 }
 
-/** Cancels a pending invite and frees its seat. */
-export async function revokeInviteAction(input: {
+/** Cancels a pending workspace invite and frees its seat. */
+export async function revokeWorkspaceInviteAction(input: {
   workspaceId: string;
   inviteId: string;
-}): Promise<TeamActionResult> {
+}): Promise<WorkspaceActionResult> {
   try {
     await workspaceService.revokeInvite(
       input.workspaceId,
       input.inviteId,
       await headers(),
     );
-    revalidateTeam();
+    revalidateWorkspace();
     return { ok: true };
   } catch (error) {
     return errorResult(error);
@@ -212,6 +213,6 @@ export async function revokeInviteAction(input: {
 }
 
 /**
- * How many teams the signed-in user may still create, for the create form to
- * disable itself instead of failing on submit.
+ * How many workspaces the signed-in user may still create, for the create form
+ * to disable itself instead of failing on submit.
  */

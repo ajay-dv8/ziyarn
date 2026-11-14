@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 
 import { CopyLinkButton } from "@/components/team/copy-link-button";
-import { revokeInviteAction } from "@/lib/actions/workspaces";
+import { revokeWorkspaceInviteAction } from "@/lib/actions/workspaces";
 
 export type TeamInvite = {
   inviteId: string;
@@ -40,7 +40,7 @@ export function PendingInviteList({
 
   const revoke = async (inviteId: string) => {
     setRevokingId(inviteId);
-    const result = await revokeInviteAction({ workspaceId, inviteId });
+    const result = await revokeWorkspaceInviteAction({ workspaceId, inviteId });
     setRevokingId(null);
 
     if (!result.ok) {

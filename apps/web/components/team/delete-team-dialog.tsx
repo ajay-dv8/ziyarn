@@ -15,7 +15,7 @@ import {
 import { Input } from "@repo/ui/components/input";
 import { toast } from "sonner";
 
-import { deleteTeamAction, type TeamActionResult } from "@/lib/actions/workspaces";
+import { deleteWorkspaceAction, type WorkspaceActionResult } from "@/lib/actions/workspaces";
 import { APP_ROUTES } from "@/constants/routes";
 
 /**
@@ -50,9 +50,9 @@ export function DeleteTeamDialog({
     setPending(true);
     setError(null);
 
-    const result = (await deleteTeamAction({
+    const result = (await deleteWorkspaceAction({
       workspaceId,
-    })) as TeamActionResult;
+    })) as WorkspaceActionResult;
 
     setPending(false);
 

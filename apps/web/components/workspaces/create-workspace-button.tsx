@@ -16,7 +16,7 @@ import { Label } from "@repo/ui/components/label";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
-import { createTeamAction } from "@/lib/actions/workspaces";
+import { createWorkspaceAction } from "@/lib/actions/workspaces";
 
 export function CreateWorkspaceButton() {
   const [open, setOpen] = useState(false);
@@ -32,7 +32,7 @@ export function CreateWorkspaceButton() {
     setPending(true);
     setError(null);
 
-    const result = await createTeamAction({ name: trimmed });
+    const result = await createWorkspaceAction({ name: trimmed });
 
     setPending(false);
 

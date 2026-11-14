@@ -11,7 +11,7 @@ import { workspaceService } from "@/services/workspace-service";
 
 export const runtime = "nodejs";
 
-/** Lists the teams the caller belongs to, with their role in each. */
+/** Lists the workspaces the caller belongs to, with their role in each. */
 export async function GET() {
   try {
     const workspaces = await workspaceService.listWorkspaces(await headers());
@@ -31,7 +31,7 @@ export async function GET() {
   }
 }
 
-/** Creates a team with the caller as its owner. Plan limits apply. */
+/** Creates a workspace with the caller as its owner. Plan limits apply. */
 export async function POST(request: Request) {
   try {
     const body = await request.json();

@@ -29,7 +29,7 @@ import {
 import { toast } from "sonner";
 
 import { RoleSelect } from "@/components/team/role-select";
-import { removeMemberAction } from "@/lib/actions/workspaces";
+import { removeWorkspaceMemberAction } from "@/lib/actions/workspaces";
 
 export type TeamMember = {
   memberId: string;
@@ -115,7 +115,7 @@ function MemberRow({
 
   const remove = async () => {
     setPending(true);
-    const result = await removeMemberAction({
+    const result = await removeWorkspaceMemberAction({
       workspaceId,
       memberId: member.memberId,
     });

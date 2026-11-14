@@ -23,8 +23,8 @@ import { toast } from "sonner";
 
 import { CopyLinkButton } from "@/components/team/copy-link-button";
 import {
-  inviteMemberAction,
-  type TeamActionResult,
+  inviteWorkspaceMemberAction,
+  type WorkspaceActionResult,
 } from "@/lib/actions/workspaces";
 
 export function InviteMemberForm({
@@ -54,11 +54,11 @@ export function InviteMemberForm({
     setPending(true);
     setError(null);
 
-    const result = (await inviteMemberAction({
+    const result = (await inviteWorkspaceMemberAction({
       workspaceId,
       email,
       role,
-    })) as TeamActionResult;
+    })) as WorkspaceActionResult;
 
     setPending(false);
 
