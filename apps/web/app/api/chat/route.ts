@@ -10,7 +10,7 @@ import {
   platformEmbedConfig,
 } from "@/services/chat-service";
 import { authService } from "@/services/auth-service";
-import { knowledgeService } from "@/services/knowledge-service";
+import { readKnowledgeService } from "@/services/knowledge-service";
 import { portalService } from "@/services/portal-service";
 import { chatRateLimiter } from "@/lib/rate-limit-db";
 
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     aiService,
     resolveAiService,
     portalService,
-    knowledgeService,
+    knowledgeService: readKnowledgeService,
     chatRateLimiter,
     logger,
   });

@@ -35,7 +35,7 @@ import {
   type SendMessageInput,
 } from "@repo/api/chat/schemas";
 import type { PortalService } from "@repo/api/portal/server";
-import type { KnowledgeService } from "@repo/api/knowledge/server";
+import type { ReadKnowledgeService } from "@repo/api/knowledge/read-server";
 import { isProductPageUrl } from "@repo/api/products/url";
 import { createToolExecutor } from "@repo/api/chat/tool-executor";
 import {
@@ -847,7 +847,7 @@ export async function handleChatPost(
       ownerId: string;
     }) => Promise<AiService | null>;
     portalService: PortalService;
-    knowledgeService: KnowledgeService;
+    knowledgeService: ReadKnowledgeService;
     chatRateLimiter: { check: (key: string) => boolean | Promise<boolean> };
     logger: Logger;
   },
