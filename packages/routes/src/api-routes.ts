@@ -162,4 +162,11 @@ export const API_ROUTES = {
     memberById: (workspaceId: string, memberId: string) =>
       `/api/workspace/${workspaceId}/members/${memberId}`,
   },
+  teams: {
+    root: "/api/teams",
+    byId: (teamId: string) => `/api/teams/${teamId}`,
+    members: (teamId: string) => `/api/teams/${teamId}/members`,
+    invites: (teamId: string) => `/api/teams/${teamId}/invites`,
+    acceptInvite: "/api/teams/invites/accept",
+  },
 } as const;

@@ -43,6 +43,8 @@ export const APP_ROUTES = {
   DASHBOARD_ORDERS: "/dashboard/orders",
   DASHBOARD_INTEGRATIONS: "/dashboard/integrations",
   DASHBOARD_TEAM: "/dashboard/team",
+  DASHBOARD_WORKSPACES: "/dashboard/workspaces",
+  DASHBOARD_WORKSPACE_TEAMS: "/dashboard/workspaces/[workspaceId]/teams",
   DASHBOARD_PRODUCTS: "/dashboard/products",
   DASHBOARD_AGENTS: "/dashboard/agents",
   DASHBOARD_KNOWLEDGE: "/dashboard/knowledge",
