@@ -30,7 +30,7 @@ The platform is architecturally sound (P1–P13 complete): Better Auth + Drizzle
 | # | Issue | Location | Risk | Fix |
 |---|-------|----------|------|-----|
 | SEC-4 | Session cookie: 7-day expiry, SameSite=Lax | `apps/web/lib/auth.ts:48-51` | Long-lived session; Lax does not block all CSRF. Better Auth trusted origins help, but state-changing actions lack explicit CSRF tokens. | Consider `sameSite: "strict"` for high-risk actions (password change, billing), shorter absolute session, or CSRF double-submit tokens on mutations. |
-| SEC-5 | Crawl endpoint: potential SSRF | `services/api/src/knowledge/crawler.ts` | Server fetches any owner-supplied URL. `normalizeUrl` allows http/https and same-host only — does **not** block private IP ranges (localhost, `169.254.169.254`, `10.x`, `192.168.x`). Could probe internal services or cloud metadata. | Add private-IP / loopback / link-local blocking in `createDefaultFetchPage` before `fetch()`. |
+| SEC-5 | ✅ Done — Crawl endpoint: potential SSRF | `services/api/src/knowledge/crawler.ts` | Server fetches any owner-supplied URL. `normalizeUrl` allows http/https and same-host only — did not block private IP ranges. | Fixed: `isBlockedHost()` resolves + denies private/reserved IPv4/IPv6 (RFC 1918, loopback, link-local, multicast, TEST-NET, …); enforced in `crawlWebsite` for literal IPs and in `createDefaultFetchPage` for all hostnames. 14 tests added; typecheck/lint/tests pass. |
 | SEC-6 | Public booking/slot endpoints: no rate limiting | `apps/web/app/api/public/bookings/route.ts`, `booking-slots/route.ts` | Open to spam/booking abuse and slot-scraping. | Add per-IP + per-domain rate limiting (Drizzle-backed like chat). |
 | SEC-7 | Embed secret is static, no rotation | `services/api/src/chat/server.ts:260-268` | If the widget embed secret leaks, anyone can chat on that domain and burn AI credits. | Allow secret regeneration in the dashboard; display secret only once on creation. |
 | SEC-8 | SVG upload without sanitization | `apps/web/app/api/uploads/logo/route.ts:17-22` | SVG can contain JS/XSS if served inline to other users. | Reject SVG or sanitize (DOMPurify) before storage; serve with `Content-Disposition: attachment`. |
@@ -125,7 +125,7 @@ The platform is architecturally sound (P1–P13 complete): Better Auth + Drizzle
 5. **Payment rail decision** (P0-5) — decide Stripe vs Paystack for product checkout.
 6. **Admin auth manual checks** (P0-3) — hand-test lockout + idle timeout.
 7. **Function size split** (PERF-1 / Item A) — reduce 39–43 MB functions before production traffic grows.
-8. **SSRF hardening** (SEC-5) — before enabling crawl in production.
+8. **SSRF hardening** (SEC-5) — ✅ Done (private/resolved IP blocking in crawler; tests added).
 
 ---
 
