@@ -11,7 +11,7 @@ import {
 import { checkSlotAvailable } from "@repo/api/portal/availability";
 import { PortalServiceError } from "@repo/api/portal";
 import type { PortalService } from "@repo/api/portal/server";
-import type { KnowledgeService } from "@repo/api/knowledge/server";
+import type { ReadKnowledgeService } from "@repo/api/knowledge/read-server";
 import { escalateConversationToHuman, type ChatService } from "@repo/api/chat/server";
 import { formatKnowledgeHits } from "@repo/api/chat/knowledge-result";
 import { upsertCustomers } from "@repo/api/customers/server";
@@ -23,7 +23,7 @@ type ToolExecutorDeps = {
   conversationId: string;
   chatService: ChatService;
   portalService: PortalService;
-  knowledgeService: KnowledgeService;
+  knowledgeService: ReadKnowledgeService;
   logger: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void };
 };
 
