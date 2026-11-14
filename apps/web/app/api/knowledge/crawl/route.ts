@@ -8,7 +8,7 @@ import {
 } from "@repo/api/knowledge/schemas";
 
 import { authService } from "@/services/auth-service";
-import { knowledgeService } from "@/services/knowledge-service";
+import { knowledgeService, readKnowledgeService } from "@/services/knowledge-service";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
         { status: 400 },
       );
     }
-    const status = await knowledgeService.getCrawlStatus(
+    const status = await readKnowledgeService.getCrawlStatus(
       parsed.data,
       request.headers,
     );
