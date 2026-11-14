@@ -50,8 +50,6 @@ import {
   type BusinessType,
 } from "@repo/api/domains/business-types";
 
-const COMING_SOON: { title: string; icon: typeof Settings }[] = [];
-
 /**
  * Routes that live INSIDE a domain. They are reached from the domain page's tab
  * bar rather than from here, but the Domains group must still read as open and
@@ -299,27 +297,6 @@ export function AppSidebar({
                 <span>Settings</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Coming soon</SidebarGroupLabel>
-          <SidebarMenu>
-            {COMING_SOON.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton
-                  disabled
-                  tooltip={`${item.title} — coming soon`}
-                  className="cursor-not-allowed text-muted-foreground"
-                >
-                  <item.icon />
-                  <span>{item.title}</span>
-                  <SidebarMenuBadge className="bg-secondary text-muted-foreground">
-                    Soon
-                  </SidebarMenuBadge>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
