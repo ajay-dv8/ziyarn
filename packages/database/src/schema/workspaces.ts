@@ -90,3 +90,89 @@ export type WorkspaceMember = typeof workspaceMembers.$inferSelect;
 export type NewWorkspaceMember = typeof workspaceMembers.$inferInsert;
 export type WorkspaceInvite = typeof workspaceInvites.$inferSelect;
 export type NewWorkspaceInvite = typeof workspaceInvites.$inferInsert;
+
+/** A team lives inside a workspace and groups people, agents and domains. */
+export const teams = pgTable(
+  "teams",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("teams_workspace_id_idx").on(table.workspaceId)],
+);
+
+/** Membership inside a team (separate from workspace-level membership). */
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: text("role", {
+      enum: ["owner", "admin", "member", "viewer"],
+    })
+      .notNull()
+      .default("member"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("team_members_team_user_idx").on(table.teamId, table.userId),
+    index("team_members_user_id_idx").on(table.userId),
+  ],
+);
+
+/** Invites to join a specific team inside a workspace. */
+export const teamInvites = pgTable(
+  "team_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role", {
+      enum: ["admin", "member", "viewer"],
+    })
+      .notNull()
+      .default("member"),
+    token: text("token").notNull(),
+    invitedBy: text("invited_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("team_invites_token_idx").on(table.token),
+    index("team_invites_team_id_idx").on(table.teamId),
+    index("team_invites_email_idx").on(table.email),
+  ],
+);
+
+export type Team = typeof teams.$inferSelect;
+export type NewTeam = typeof teams.$inferInsert;
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type NewTeamMember = typeof teamMembers.$inferInsert;
+export type TeamInvite = typeof teamInvites.$inferSelect;
+export type NewTeamInvite = typeof teamInvites.$inferInsert;

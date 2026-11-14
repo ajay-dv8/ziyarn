@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "@repo/database/schema/auth";
+import { workspaces } from "@repo/database/schema/workspaces";
 
 export const domains = pgTable(
   "domains",
@@ -17,6 +18,9 @@ export const domains = pgTable(
     ownerId: text("owner_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, {
+      onDelete: "set null",
+    }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     logoUrl: text("logo_url"),
