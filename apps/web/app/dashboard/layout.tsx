@@ -36,8 +36,17 @@ export default async function DashboardLayout({
     redirect(APP_ROUTES.SIGN_IN);
   }
 
-  // Check for pending invite — redirect to accept it
+  // Check for pending invites — redirect to accept them
   const cookieStore = await cookies();
+  const pendingTeamInviteToken = cookieStore.get(
+    "pending_team_invite_token",
+  )?.value;
+  if (pendingTeamInviteToken) {
+    redirect(
+      `${APP_ROUTES.ACCEPT_TEAM_INVITE}?token=${pendingTeamInviteToken}`,
+    );
+  }
+
   const pendingInviteToken = cookieStore.get("pending_invite_token")?.value;
   if (pendingInviteToken) {
     redirect(`${APP_ROUTES.ACCEPT_INVITE}?token=${pendingInviteToken}`);
