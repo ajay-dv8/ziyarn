@@ -4,14 +4,21 @@ import { and, count, eq, inArray } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import {
+  teams,
+  teamMembers,
   workspaces,
   workspaceMembers,
   workspaceInvites,
 } from "@repo/database/schema/workspaces";
 import { user } from "@repo/database/schema/auth";
 import { domains } from "@repo/database/schema/domains";
-import { getPlanLimits, highestPlan } from "@repo/api/plans";
-import { assertCanCreateWorkspace } from "@repo/api/plans/server";
+import {
+  assertCanAddMember,
+  assertCanCreateWorkspace,
+  getPlanLimits,
+  highestPlan,
+} from "@repo/api/plans";
+import { resolveWorkspacePlan } from "@repo/api/workspaces/plan";
 import { APP_ROUTES, absoluteUrl } from "@repo/routes";
 import type { Plan } from "@repo/api/plans/schemas";
 import {
@@ -168,42 +175,6 @@ export function createWorkspaceService(deps: {
     return workspace;
   };
 
-  /** Checks if a user can add more members based on plan limits. */
-  const assertCanAddMember = (plan: Plan, currentCount: number) => {
-    const limits = getPlanLimits(plan);
-    if (currentCount >= limits.maxMembers) {
-      throw new WorkspaceServiceError(
-        429,
-        "MEMBER_LIMIT_EXCEEDED",
-        `Your plan allows at most ${limits.maxMembers} team members`,
-      );
-    }
-  };
-
-  /**
-   * The plan a workspace's limits are read from: the highest plan among the
-   * domains owned by anyone in it. A workspace with no domains yet is "free",
-   * which is what an owner sees before their first domain exists.
-   */
-  const resolveWorkspacePlan = async (workspaceId: string): Promise<Plan> => {
-    // Two queries rather than a sub-select: passing a drizzle sub-query to
-    // inArray() serialises as "[object Object]" on this driver.
-    const memberRows = await db
-      .select({ userId: workspaceMembers.userId })
-      .from(workspaceMembers)
-      .where(eq(workspaceMembers.workspaceId, workspaceId));
-
-    const memberUserIds = memberRows.map((row) => row.userId);
-    if (memberUserIds.length === 0) return "free";
-
-    const ownedDomains = await db
-      .select({ plan: domains.plan })
-      .from(domains)
-      .where(inArray(domains.ownerId, memberUserIds));
-
-    return highestPlan(ownedDomains.map((row) => row.plan));
-  };
-
   /**
    * The plan that applies to a person: the highest plan among their domains.
    * Used for the per-user workspace limit, which is not tied to any one
@@ -239,12 +210,16 @@ export function createWorkspaceService(deps: {
       }));
     },
 
-    /** Returns a workspace if the user is a member. */
+    /** Returns a workspace and the caller's role if they are a member. */
     getWorkspace: async (workspaceId: string, headers: Headers) => {
       const session = await getSession(headers);
       if (!session) throw unauthorized();
-      await requireWorkspaceMembership(workspaceId, session.user.id);
-      return requireWorkspace(workspaceId);
+      const membership = await requireWorkspaceMembership(
+        workspaceId,
+        session.user.id,
+      );
+      const workspace = await requireWorkspace(workspaceId);
+      return { ...workspace, role: membership.role };
     },
 
     /** Creates a workspace and makes the creator the owner. */
@@ -369,7 +344,7 @@ export function createWorkspaceService(deps: {
       // Seats are consumed by members AND pending invites, so both are counted
       // against the plan limit.
       const [plan, memberCountRow, inviteCountRow] = await Promise.all([
-        resolveWorkspacePlan(workspaceId),
+        resolveWorkspacePlan(db, workspaceId),
         db
           .select({ memberCount: count() })
           .from(workspaceMembers)
@@ -381,7 +356,7 @@ export function createWorkspaceService(deps: {
       ]);
 
       assertCanAddMember(
-        plan,
+        getPlanLimits(plan),
         (memberCountRow[0]?.memberCount ?? 0) + (inviteCountRow[0]?.inviteCount ?? 0),
       );
 
@@ -590,6 +565,70 @@ export function createWorkspaceService(deps: {
       // offered here — leaving is a separate, deliberate action.
       if (member.role === "admin" && actor.role !== "owner") {
         throw ownerRequired("remove another admin");
+      }
+
+      // Team access is nested inside workspace access. Remove the person from
+      // every team here, and hand any team they owned to the workspace owner
+      // so the team cannot be left with an owner who has no access.
+      const workspace = await requireWorkspace(workspaceId);
+      const workspaceTeams = await db
+        .select({ id: teams.id })
+        .from(teams)
+        .where(eq(teams.workspaceId, workspaceId));
+
+      if (workspaceTeams.length > 0) {
+        const ownedTeams = await db
+          .select({ id: teams.id })
+          .from(teams)
+          .where(
+            and(
+              eq(teams.workspaceId, workspaceId),
+              eq(teams.ownerId, member.userId),
+            ),
+          );
+
+        for (const ownedTeam of ownedTeams) {
+          await db
+            .update(teams)
+            .set({ ownerId: workspace.ownerId, updatedAt: new Date() })
+            .where(eq(teams.id, ownedTeam.id));
+
+          const [ownerMembership] = await db
+            .select()
+            .from(teamMembers)
+            .where(
+              and(
+                eq(teamMembers.teamId, ownedTeam.id),
+                eq(teamMembers.userId, workspace.ownerId),
+              ),
+            )
+            .limit(1);
+
+          if (ownerMembership) {
+            await db
+              .update(teamMembers)
+              .set({ role: "owner" })
+              .where(eq(teamMembers.id, ownerMembership.id));
+          } else {
+            await db.insert(teamMembers).values({
+              teamId: ownedTeam.id,
+              userId: workspace.ownerId,
+              role: "owner",
+            });
+          }
+        }
+
+        await db
+          .delete(teamMembers)
+          .where(
+            and(
+              eq(teamMembers.userId, member.userId),
+              inArray(
+                teamMembers.teamId,
+                workspaceTeams.map((team) => team.id),
+              ),
+            ),
+          );
       }
 
       await db

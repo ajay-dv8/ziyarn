@@ -161,6 +161,7 @@ describe("workspace service permissions", () => {
         [membership("admin")],
         [membership("member", MEMBER_ID)],
       ],
+      workspaces: [[{ id: "ws-1", name: "Acme", ownerId: OWNER_ID }]],
     })
 
     await expect(
@@ -189,6 +190,7 @@ describe("workspace service permissions", () => {
         [membership("owner")],
         [membership("admin", ADMIN_ID)],
       ],
+      workspaces: [[{ id: "ws-1", name: "Acme", ownerId: OWNER_ID }]],
     })
 
     await expect(
