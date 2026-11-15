@@ -1,4 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+
+import { and, count, eq } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import {
@@ -10,7 +12,7 @@ import {
 } from "@repo/database/schema/workspaces";
 import { user } from "@repo/database/schema/auth";
 
-import type { SessionWithUser } from "@repo/api/domains/server";
+import { assertCanCreateTeam, getPlanLimits } from "@repo/api/plans";
 import {
   createTeamSchema,
   inviteTeamMemberSchema,
@@ -18,7 +20,10 @@ import {
   updateTeamMemberRoleSchema,
   acceptTeamInviteSchema,
 } from "@repo/api/workspaces/schemas";
-import { TeamServiceError } from "./team-errors.js";
+import { TeamServiceError } from "@repo/api/workspaces/team-errors";
+import { resolveWorkspacePlan } from "@repo/api/workspaces/plan";
+
+type TeamSession = { user: { id: string; email: string } } | null;
 
 const unauthorized = () =>
   new TeamServiceError(401, "UNAUTHORIZED", "You must be signed in");
@@ -51,7 +56,7 @@ const cannotChangeOwnerRole = () =>
   new TeamServiceError(400, "CANNOT_CHANGE_OWNER_ROLE", "Cannot change the owner's role");
 
 function generateInviteToken(): string {
-  return crypto.randomUUID();
+  return randomUUID();
 }
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -62,7 +67,7 @@ const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
  */
 export function createTeamService(deps: {
   db: Database;
-  getSession: (headers: Headers) => Promise<SessionWithUser>;
+  getSession: (headers: Headers) => Promise<TeamSession>;
 }) {
   const { db, getSession } = deps;
 
@@ -105,27 +110,47 @@ export function createTeamService(deps: {
     return team;
   };
 
-  /** Lists teams in a workspace that the session user is a member of. */
+  /** Lists teams in a workspace the session user can see. */
   const listTeams = async (workspaceId: string, headers: Headers) => {
     const session = await getSession(headers);
     if (!session) throw unauthorized();
 
-    const memberships = await db
+    const [workspaceMembership] = await db
+      .select()
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.workspaceId, workspaceId),
+          eq(workspaceMembers.userId, session.user.id),
+        ),
+      )
+      .limit(1);
+
+    if (!workspaceMembership) throw forbidden();
+
+    const canSeeAllTeams =
+      workspaceMembership.role === "owner" ||
+      workspaceMembership.role === "admin";
+
+    const rows = await db
       .select({
         team: teams,
         role: teamMembers.role,
       })
-      .from(teamMembers)
-      .innerJoin(teams, eq(teamMembers.teamId, teams.id))
-      .where(
+      .from(teams)
+      .leftJoin(
+        teamMembers,
         and(
-          eq(teams.workspaceId, workspaceId),
+          eq(teamMembers.teamId, teams.id),
           eq(teamMembers.userId, session.user.id),
         ),
       )
+      .where(eq(teams.workspaceId, workspaceId))
       .orderBy(teams.createdAt);
 
-    return memberships.map(({ team, role }) => ({ ...team, role }));
+    return rows
+      .filter(({ role }) => canSeeAllTeams || role !== null)
+      .map(({ team, role }) => ({ ...team, role }));
   };
 
   /** Returns a team if the session user is a member. */
@@ -145,13 +170,13 @@ export function createTeamService(deps: {
     if (!session) throw unauthorized();
     const body = createTeamSchema.parse(input);
 
-    // Verify the workspace exists and the user is a member
-    const [workspaceExists] = await db
+    // Verify the workspace exists and the user can manage it.
+    const [workspace] = await db
       .select({ id: workspaces.id })
       .from(workspaces)
       .where(eq(workspaces.id, body.workspaceId))
       .limit(1);
-    if (!workspaceExists) throw workspaceNotFound();
+    if (!workspace) throw workspaceNotFound();
 
     const [workspaceMembership] = await db
       .select()
@@ -164,6 +189,28 @@ export function createTeamService(deps: {
       )
       .limit(1);
     if (!workspaceMembership) throw forbidden();
+    if (
+      workspaceMembership.role !== "owner" &&
+      workspaceMembership.role !== "admin"
+    ) {
+      throw new TeamServiceError(
+        403,
+        "ADMIN_REQUIRED",
+        "Only workspace owners and admins can create teams",
+      );
+    }
+
+    const [plan, teamCountRow] = await Promise.all([
+      resolveWorkspacePlan(db, body.workspaceId),
+      db
+        .select({ teamCount: count() })
+        .from(teams)
+        .where(eq(teams.workspaceId, body.workspaceId)),
+    ]);
+    assertCanCreateTeam(
+      getPlanLimits(plan),
+      teamCountRow[0]?.teamCount ?? 0,
+    );
 
     const [created] = await db
       .insert(teams)
@@ -177,12 +224,18 @@ export function createTeamService(deps: {
       throw new TeamServiceError(500, "CREATE_FAILED", "Failed to create team");
     }
 
-    // Make the creator the team owner
-    await db.insert(teamMembers).values({
-      teamId: created.id,
-      userId: session.user.id,
-      role: "owner",
-    });
+    // No transaction on the neon-http driver: remove the orphaned team if the
+    // owner membership cannot be written.
+    try {
+      await db.insert(teamMembers).values({
+        teamId: created.id,
+        userId: session.user.id,
+        role: "owner",
+      });
+    } catch (error) {
+      await db.delete(teams).where(eq(teams.id, created.id));
+      throw error;
+    }
 
     return created;
   };
@@ -326,11 +379,11 @@ export function createTeamService(deps: {
     return { invite: savedInvite, team, inviteUrl: inviteUrl(savedInvite.token) };
   };
 
-  /** Lists pending invites for a team. */
+  /** Lists pending invites for a team. Only managers see bearer tokens. */
   const listTeamInvites = async (teamId: string, headers: Headers) => {
     const session = await getSession(headers);
     if (!session) throw unauthorized();
-    await requireTeamMembership(teamId, session.user.id);
+    await requireTeamAdmin(teamId, session.user.id);
 
     return db.select().from(teamInvites).where(eq(teamInvites.teamId, teamId));
   };
@@ -353,6 +406,23 @@ export function createTeamService(deps: {
     if (!invite) throw inviteNotFound();
     if (new Date(invite.expiresAt) < new Date()) throw inviteExpired();
 
+    // Invite links are bearer tokens, but they are addressed to one person.
+    // Requiring the signed-in email to match stops a forwarded link from
+    // granting membership to someone the team did not invite.
+    if (invite.email.toLowerCase() !== session.user.email.toLowerCase()) {
+      throw new TeamServiceError(
+        403,
+        "INVITE_EMAIL_MISMATCH",
+        "This invite was sent to a different email address",
+      );
+    }
+
+    const [team] = await db
+      .select({ workspaceId: teams.workspaceId })
+      .from(teams)
+      .where(eq(teams.id, invite.teamId))
+      .limit(1);
+
     const [existingMember] = await db
       .select()
       .from(teamMembers)
@@ -365,16 +435,19 @@ export function createTeamService(deps: {
       .limit(1);
 
     if (!existingMember) {
-      await db.insert(teamMembers).values({
-        teamId: invite.teamId,
-        userId: session.user.id,
-        role: invite.role,
-      });
+      await db
+        .insert(teamMembers)
+        .values({
+          teamId: invite.teamId,
+          userId: session.user.id,
+          role: invite.role,
+        })
+        .onConflictDoNothing();
     }
 
     await db.delete(teamInvites).where(eq(teamInvites.id, invite.id));
 
-    return { teamId: invite.teamId };
+    return { teamId: invite.teamId, workspaceId: team?.workspaceId ?? null };
   };
 
   /** Updates a member's role. */
