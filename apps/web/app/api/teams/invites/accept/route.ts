@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { TeamServiceError } from "@repo/api/workspaces";
@@ -11,8 +11,11 @@ export const runtime = "nodejs";
 /** Accepts a team invite by token. */
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const parsed = acceptTeamInviteSchema.safeParse(body);
+    const body = await request.json().catch(() => null);
+    const cookieStore = await cookies();
+    const token =
+      body?.token ?? cookieStore.get("pending_team_invite_token")?.value ?? "";
+    const parsed = acceptTeamInviteSchema.safeParse({ token });
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -29,6 +32,7 @@ export async function POST(request: Request) {
       parsed.data,
       await headers(),
     );
+    cookieStore.delete("pending_team_invite_token");
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof TeamServiceError) {
