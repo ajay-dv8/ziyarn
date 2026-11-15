@@ -6,6 +6,7 @@ import { createEmailService } from "@repo/api/email";
 
 const DUE_CAMPAIGN = {
   id: "campaign-1",
+  workspaceId: "workspace-1",
   ownerId: "owner-1",
   name: "Autumn update",
   subject: "Hello",

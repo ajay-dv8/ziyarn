@@ -6,13 +6,13 @@ import type { Transporter } from "nodemailer";
 
 import { getPlanLimits } from "@repo/api/plans";
 import type { Plan } from "@repo/api/plans/schemas";
+import { resolveWorkspacePlan } from "@repo/api/workspaces/plan";
 import type { Database } from "@repo/database";
 import {
   campaignRecipients,
   campaigns,
   customers,
   domains,
-  subscriptions,
   unsubscribedEmails,
   type Campaign,
   type CampaignRecipient,
@@ -172,12 +172,17 @@ export function createEmailService(deps: { db: Database }) {
   const { db } = deps;
 
   return {
-    async createCampaign(ownerId: string, input: CreateCampaignInput): Promise<Campaign> {
+    async createCampaign(
+      ownerId: string,
+      workspaceId: string,
+      input: CreateCampaignInput,
+    ): Promise<Campaign> {
       const data = createCampaignSchema.parse(input);
       const body = data.blocks ? renderEmailBody(data.blocks) : (data.body ?? "");
       const [campaign] = await db
         .insert(campaigns)
         .values({
+          workspaceId,
           ownerId,
           name: data.name,
           subject: data.subject,
@@ -191,19 +196,27 @@ export function createEmailService(deps: { db: Database }) {
       return campaign;
     },
 
-    async listCampaigns(ownerId: string): Promise<Campaign[]> {
+    async listCampaigns(workspaceId: string): Promise<Campaign[]> {
       return db
         .select()
         .from(campaigns)
-        .where(eq(campaigns.ownerId, ownerId))
+        .where(eq(campaigns.workspaceId, workspaceId))
         .orderBy(desc(campaigns.createdAt));
     },
 
-    async getCampaign(ownerId: string, campaignId: string): Promise<Campaign> {
+    async getCampaign(
+      workspaceId: string,
+      campaignId: string,
+    ): Promise<Campaign> {
       const [campaign] = await db
         .select()
         .from(campaigns)
-        .where(and(eq(campaigns.id, campaignId), eq(campaigns.ownerId, ownerId)))
+        .where(
+          and(
+            eq(campaigns.id, campaignId),
+            eq(campaigns.workspaceId, workspaceId),
+          ),
+        )
         .limit(1);
       if (!campaign) {
         throw new EmailServiceError(404, "NOT_FOUND", "Campaign not found");
@@ -216,7 +229,7 @@ export function createEmailService(deps: { db: Database }) {
      * itself is triggered by the scheduler (processDueCampaigns).
      */
     async scheduleCampaign(
-      ownerId: string,
+      workspaceId: string,
       campaignId: string,
       input: ScheduleCampaignInput,
     ): Promise<Campaign> {
@@ -228,7 +241,7 @@ export function createEmailService(deps: { db: Database }) {
       if (when.getTime() <= Date.now()) {
         throw new EmailServiceError(400, "SCHEDULE_IN_PAST", "Scheduled time must be in the future");
       }
-      const campaign = await this.getCampaign(ownerId, campaignId);
+      const campaign = await this.getCampaign(workspaceId, campaignId);
       if (campaign.status !== "draft") {
         throw new EmailServiceError(
           409,
@@ -249,10 +262,10 @@ export function createEmailService(deps: { db: Database }) {
 
     /** Cancels a scheduled campaign, returning it to draft. */
     async cancelScheduledCampaign(
-      ownerId: string,
+      workspaceId: string,
       campaignId: string,
     ): Promise<Campaign> {
-      const campaign = await this.getCampaign(ownerId, campaignId);
+      const campaign = await this.getCampaign(workspaceId, campaignId);
       if (campaign.status !== "scheduled") {
         throw new EmailServiceError(
           409,
@@ -362,10 +375,10 @@ export function createEmailService(deps: { db: Database }) {
     },
 
     async getRecipients(
-      ownerId: string,
+      workspaceId: string,
       campaignId: string,
     ): Promise<CampaignRecipient[]> {
-      await this.getCampaign(ownerId, campaignId);
+      await this.getCampaign(workspaceId, campaignId);
       return db
         .select()
         .from(campaignRecipients)
@@ -374,7 +387,11 @@ export function createEmailService(deps: { db: Database }) {
         .limit(500);
     },
 
-    async countRecipients(ownerId: string, campaignId: string): Promise<number> {
+    async countRecipients(
+      workspaceId: string,
+      campaignId: string,
+    ): Promise<number> {
+      await this.getCampaign(workspaceId, campaignId);
       const [row] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(campaignRecipients)
@@ -387,13 +404,13 @@ export function createEmailService(deps: { db: Database }) {
      * claimed atomically before delivery, so a double click cannot send twice.
      */
     async sendCampaign(
-      ownerId: string,
+      workspaceId: string,
       campaignId: string,
     ): Promise<{ recipients: number }> {
       if (!smtpConfig()) {
         throw emailNotConfiguredError();
       }
-      const campaign = await this.getCampaign(ownerId, campaignId);
+      const campaign = await this.getCampaign(workspaceId, campaignId);
       if (campaign.status === "sent" || campaign.status === "sending") {
         throw new EmailServiceError(
           409,
@@ -411,7 +428,7 @@ export function createEmailService(deps: { db: Database }) {
         .where(
           and(
             eq(campaigns.id, campaign.id),
-            eq(campaigns.ownerId, ownerId),
+            eq(campaigns.workspaceId, workspaceId),
             inArray(campaigns.status, ["draft", "scheduled"]),
           ),
         )
@@ -470,7 +487,7 @@ export function createEmailService(deps: { db: Database }) {
         throw emailNotConfiguredError();
       }
       const recipients = await this.buildRecipientList(
-        campaign.ownerId,
+        campaign.workspaceId,
         campaign.audience,
       );
       if (recipients.length === 0) {
@@ -481,8 +498,10 @@ export function createEmailService(deps: { db: Database }) {
         return { recipients: 0 };
       }
 
-      const emailsThisMonth = await this.emailsSentThisMonth(campaign.ownerId);
-      const plan = await this.ownerPlan(campaign.ownerId);
+      const emailsThisMonth = await this.emailsSentThisMonth(
+        campaign.workspaceId,
+      );
+      const plan = await this.workspacePlan(campaign.workspaceId);
       const { emailsPerMonth } = getPlanLimits(plan);
       if (emailsThisMonth + recipients.length > emailsPerMonth) {
         throw new EmailServiceError(
@@ -667,7 +686,7 @@ export function createEmailService(deps: { db: Database }) {
       return { handled: false };
     },
 
-    async emailsSentThisMonth(ownerId: string): Promise<number> {
+    async emailsSentThisMonth(workspaceId: string): Promise<number> {
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
@@ -678,7 +697,7 @@ export function createEmailService(deps: { db: Database }) {
         .from(campaigns)
         .where(
           and(
-            eq(campaigns.ownerId, ownerId),
+            eq(campaigns.workspaceId, workspaceId),
             eq(campaigns.status, "sent"),
             gte(campaigns.createdAt, startOfMonth),
           ),
@@ -686,26 +705,9 @@ export function createEmailService(deps: { db: Database }) {
       return row?.total ?? 0;
     },
 
-    async ownerPlan(ownerId: string): Promise<Plan> {
-      const [sub] = await db
-        .select({ plan: subscriptions.plan })
-        .from(subscriptions)
-        .where(
-          and(
-            eq(subscriptions.ownerId, ownerId),
-            eq(subscriptions.status, "active"),
-          ),
-        )
-        .limit(1);
-      if (sub) {
-        return sub.plan;
-      }
-      const [row] = await db
-        .select({ plan: domains.plan })
-        .from(domains)
-        .where(eq(domains.ownerId, ownerId))
-        .limit(1);
-      return row?.plan ?? "free";
+    /** The plan whose email allowance applies to this workspace. */
+    async workspacePlan(workspaceId: string): Promise<Plan> {
+      return resolveWorkspacePlan(db, workspaceId);
     },
 
     /**
@@ -714,10 +716,10 @@ export function createEmailService(deps: { db: Database }) {
      * imported subscribers, or everyone. Unsubscribed emails are removed.
      */
     async buildRecipientList(
-      ownerId: string,
+      workspaceId: string,
       audience: "all" | "chat" | "database" | "site" = "all",
     ): Promise<Array<{ id: string; email: string }>> {
-      const conditions = [eq(domains.ownerId, ownerId)];
+      const conditions = [eq(domains.workspaceId, workspaceId)];
       if (audience !== "all") {
         conditions.push(eq(customers.source, audience));
       }
