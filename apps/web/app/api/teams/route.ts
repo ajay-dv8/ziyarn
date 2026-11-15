@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { PlanLimitError } from "@repo/api/plans";
 import { TeamServiceError } from "@repo/api/workspaces";
 import { createTeamSchema } from "@repo/api/workspaces";
 
@@ -60,7 +61,10 @@ export async function POST(request: Request) {
     );
     return NextResponse.json({ team }, { status: 201 });
   } catch (error) {
-    if (error instanceof TeamServiceError) {
+    if (
+      error instanceof TeamServiceError ||
+      error instanceof PlanLimitError
+    ) {
       return NextResponse.json(
         { code: error.code, message: error.message },
         { status: error.status },
