@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { and, count, eq, or, sql } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import { domains } from "@repo/database/schema/domains";
@@ -34,6 +34,8 @@ import {
   parseDomainLocations,
   resolveDomainLocations,
 } from "@repo/api/domains/locations";
+import { resolveActiveWorkspaceId } from "@repo/api/workspaces/active";
+import { resolveWorkspacePlan } from "@repo/api/workspaces/plan";
 
 export type SessionWithUser = {
   user: { id: string };
@@ -74,10 +76,10 @@ const conflict = (field: string) =>
   );
 
 /**
- * Workspace-aware domain CRUD. Access is granted to:
- *  - The domain owner directly
- *  - Any user who shares a workspace with the domain owner
- * Mutations (create/update/delete) additionally require owner/admin/member role.
+ * Workspace-scoped domain CRUD. Access is granted to members of the domain's
+ * workspace — `ownerId` records who created the domain, it is not an access
+ * grant. Mutations additionally require the owner/admin/member role; viewers
+ * can read only.
  */
 export function createDomainsService(deps: {
   db: Database;
@@ -86,8 +88,8 @@ export function createDomainsService(deps: {
   const { db, getSession } = deps;
 
   /**
-   * Returns the domain if the session user has access (owner or workspace member).
-   * Also returns the user's workspace role for mutation gating.
+   * Returns the domain if the session user is a member of the workspace it
+   * belongs to. Also returns that membership's role for mutation gating.
    */
   const requireDomainAccess = async (
     id: string,
@@ -95,55 +97,40 @@ export function createDomainsService(deps: {
   ): Promise<
     NonNullable<SessionWithUser> & {
       domain: typeof domains.$inferSelect;
-      workspaceRole: string | null;
+      workspaceRole: string;
     }
   > => {
     const session = await getSession(headers);
     if (!session) throw unauthorized();
 
-    // Fetch domain + check workspace membership in one query
-    const [row] = await db
-      .select({
-        domain: domains,
-        workspaceRole: workspaceMembers.role,
-      })
+    const [domain] = await db
+      .select()
       .from(domains)
-      .leftJoin(
-        workspaceMembers,
-        and(
-          eq(workspaceMembers.userId, session.user.id),
-          sql`EXISTS (
-            SELECT 1 FROM ${workspaceMembers} AS wm
-            WHERE wm.user_id = ${domains.ownerId}
-              AND wm.workspace_id = ${workspaceMembers.workspaceId}
-          )`,
-        ),
-      )
       .where(eq(domains.id, id))
       .limit(1);
+    if (!domain) throw notFound();
 
-    if (!row) throw notFound();
-
-    // Direct owner always has full access
-    const isOwner = row.domain.ownerId === session.user.id;
-    if (!isOwner && !row.workspaceRole) throw forbidden();
+    const [membership] = await db
+      .select({ role: workspaceMembers.role })
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.workspaceId, domain.workspaceId),
+          eq(workspaceMembers.userId, session.user.id),
+        ),
+      )
+      .limit(1);
+    if (!membership) throw forbidden();
 
     return {
       ...session,
-      domain: row.domain,
-      workspaceRole: isOwner ? "owner" : row.workspaceRole,
+      domain,
+      workspaceRole: membership.role,
     };
   };
 
-  /**
-   * Checks if the user's workspace role allows mutations.
-   * owner / admin / member can mutate. viewer cannot.
-   */
-  const requireMutationAccess = (
-    workspaceRole: string | null,
-    isOwner: boolean,
-  ) => {
-    if (isOwner) return; // domain owner can always mutate
+  /** owner / admin / member can mutate; viewer cannot. */
+  const requireMutationAccess = (workspaceRole: string) => {
     if (
       workspaceRole === "owner" ||
       workspaceRole === "admin" ||
@@ -154,37 +141,26 @@ export function createDomainsService(deps: {
   };
 
   return {
-    /** Lists domains the session user can access (owner or workspace member). */
+    /**
+     * Lists the domains in the active workspace. The cookie only expresses
+     * intent; membership is checked server-side and the user's first
+     * workspace is the fallback.
+     */
     listDomains: async (headers: Headers) => {
       const session = await getSession(headers);
       if (!session) throw unauthorized();
 
-      // Subquery: workspace IDs the user belongs to
-      const userWorkspaceIds = db
-        .select({ workspaceId: workspaceMembers.workspaceId })
-        .from(workspaceMembers)
-        .where(eq(workspaceMembers.userId, session.user.id))
-        .as("user_ws_ids");
-
-      // Subquery: user IDs who share a workspace with the session user
-      const workspacePeerIds = db
-        .select({ userId: workspaceMembers.userId })
-        .from(workspaceMembers)
-        .innerJoin(
-          userWorkspaceIds,
-          eq(workspaceMembers.workspaceId, userWorkspaceIds.workspaceId),
-        )
-        .as("ws_peer_ids");
+      const workspaceId = await resolveActiveWorkspaceId(
+        db,
+        headers,
+        session.user.id,
+      );
+      if (!workspaceId) return [];
 
       return db
         .select()
         .from(domains)
-        .where(
-          or(
-            eq(domains.ownerId, session.user.id),
-            sql`${domains.ownerId} IN (SELECT user_id FROM ${workspacePeerIds})`,
-          ),
-        )
+        .where(eq(domains.workspaceId, workspaceId))
         .orderBy(domains.createdAt)
         .then((rows) =>
           rows.map((row) => ({
@@ -237,34 +213,24 @@ export function createDomainsService(deps: {
         .limit(1);
       if (existing) throw conflict("slug");
 
-      const plan = planSchema.parse("free");
-      const [row] = await db
-        .select({ count: count() })
-        .from(domains)
-        .where(eq(domains.ownerId, session.user.id));
-      assertCanCreateDomain(getPlanLimits(plan), row?.count ?? 0);
+      let workspaceId = await resolveActiveWorkspaceId(
+        db,
+        headers,
+        session.user.id,
+      );
 
-      // Auto-create workspace if user doesn't have one
-      const [existingMembership] = await db
-        .select({ workspaceId: workspaceMembers.workspaceId })
-        .from(workspaceMembers)
-        .where(eq(workspaceMembers.userId, session.user.id))
-        .limit(1);
-
-      let workspaceId = existingMembership?.workspaceId;
-
+      // First domain for a brand-new user: give them a workspace first. The
+      // fallback plan is free because no workspace exists yet to resolve one.
       if (!workspaceId) {
-        // Check workspace creation limit
         const [workspaceCountRow] = await db
           .select({ count: count() })
           .from(workspaceMembers)
           .where(eq(workspaceMembers.userId, session.user.id));
         assertCanCreateWorkspace(
-          getPlanLimits(plan),
+          getPlanLimits("free"),
           workspaceCountRow?.count ?? 0,
         );
 
-        // Create workspace
         const [createdWorkspace] = await db
           .insert(workspaces)
           .values({
@@ -281,7 +247,6 @@ export function createDomainsService(deps: {
           );
         }
 
-        // Add user as workspace owner
         await db.insert(workspaceMembers).values({
           workspaceId: createdWorkspace.id,
           userId: session.user.id,
@@ -290,6 +255,13 @@ export function createDomainsService(deps: {
 
         workspaceId = createdWorkspace.id;
       }
+
+      const plan = await resolveWorkspacePlan(db, workspaceId);
+      const [domainCountRow] = await db
+        .select({ count: count() })
+        .from(domains)
+        .where(eq(domains.workspaceId, workspaceId));
+      assertCanCreateDomain(getPlanLimits(plan), domainCountRow?.count ?? 0);
 
       // A plan that does not include the requested widget gets the first one
       // it does include, rather than refusing to create the domain.
@@ -302,6 +274,7 @@ export function createDomainsService(deps: {
         .insert(domains)
         .values({
           ownerId: session.user.id,
+          workspaceId,
           name: body.name,
           slug: body.slug,
           logoUrl: body.logoUrl ?? null,
@@ -323,8 +296,7 @@ export function createDomainsService(deps: {
     ) => {
       const body = updateDomainSchema.parse(input);
       const { domain, workspaceRole } = await requireDomainAccess(id, headers);
-      const isOwner = domain.ownerId === (await getSession(headers))?.user.id;
-      requireMutationAccess(workspaceRole, isOwner);
+      requireMutationAccess(workspaceRole);
 
       if (body.slug && body.slug !== domain.slug) {
         const [existing] = await db
@@ -386,8 +358,7 @@ export function createDomainsService(deps: {
     deleteDomain: async (id: string, headers: Headers) => {
       domainIdSchema.parse({ id });
       const { domain, workspaceRole } = await requireDomainAccess(id, headers);
-      const isOwner = domain.ownerId === (await getSession(headers))?.user.id;
-      requireMutationAccess(workspaceRole, isOwner);
+      requireMutationAccess(workspaceRole);
 
       await db.delete(domains).where(eq(domains.id, domain.id));
     },
