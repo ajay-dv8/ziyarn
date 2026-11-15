@@ -14,11 +14,7 @@ import { Building2, Globe, Plus, Users } from "lucide-react";
 import { CreateDomainSheet } from "@/components/domains/create-domain-sheet";
 import { CreateTeamDialog } from "@/components/workspaces/create-team-dialog";
 import { CreateWorkspaceDialog } from "@/components/workspaces/create-workspace-dialog";
-
-import {
-  useActiveWorkspaceId,
-  type WorkspaceSummary,
-} from "@/components/dashboard/workspace-switcher";
+import { setActiveWorkspaceCookie } from "@/lib/active-workspace";
 
 type CreateTarget = "workspace" | "domain" | "team" | null;
 
@@ -28,11 +24,10 @@ type CreateTarget = "workspace" | "domain" | "team" | null;
  * user has none.
  */
 export function HeaderCreateMenu({
-  workspaces,
+  activeWorkspaceId,
 }: {
-  workspaces: WorkspaceSummary[];
+  activeWorkspaceId: string | null;
 }) {
-  const activeWorkspaceId = useActiveWorkspaceId(workspaces);
   const [dialog, setDialog] = useState<CreateTarget>(null);
 
   return (
@@ -78,6 +73,7 @@ export function HeaderCreateMenu({
         onOpenChange={(nextOpen) => {
           if (!nextOpen) setDialog(null);
         }}
+        onCreated={setActiveWorkspaceCookie}
       />
       <CreateDomainSheet
         open={dialog === "domain"}

@@ -1,7 +1,11 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { getPlanLimits, type Plan } from "@repo/api/plans";
+import { getPlanLimits } from "@repo/api/plans";
+import {
+  pickActiveWorkspaceId,
+  readActiveWorkspaceCookie,
+} from "@repo/api/workspaces/active-cookie";
 import {
   SidebarInset,
   SidebarProvider,
@@ -21,20 +25,13 @@ import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
 import { workspaceService } from "@/services/workspace-service";
 
-const PLAN_RANK: Record<Plan, number> = {
-  free: 0,
-  standard: 1,
-  pro: 2,
-  ultimate: 3,
-  custom: 4,
-};
-
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await authService.getSession(await headers());
+  const requestHeaders = await headers();
+  const session = await authService.getSession(requestHeaders);
   if (!session) {
     redirect(APP_ROUTES.SIGN_IN);
   }
@@ -55,14 +52,14 @@ export default async function DashboardLayout({
     redirect(`${APP_ROUTES.ACCEPT_INVITE}?token=${pendingInviteToken}`);
   }
 
-  const [domains, workspaces] = await Promise.all([
-    domainsService.listDomains(await headers()),
-    workspaceService.listWorkspaces(await headers()),
+  const [domains, workspaces, plan] = await Promise.all([
+    domainsService.listDomains(requestHeaders),
+    workspaceService.listWorkspaces(requestHeaders),
+    workspaceService.getActiveWorkspacePlan(requestHeaders),
   ]);
-  const plan = domains.reduce<Plan>(
-    (best, domain) =>
-      PLAN_RANK[domain.plan] > PLAN_RANK[best] ? domain.plan : best,
-    "free",
+  const activeWorkspaceId = pickActiveWorkspaceId(
+    workspaces.map((workspace) => workspace.id),
+    readActiveWorkspaceCookie(requestHeaders),
   );
   const limits = getPlanLimits(plan);
   const workspaceSummaries = workspaces.map((workspace) => ({
@@ -90,13 +87,16 @@ export default async function DashboardLayout({
         <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-4" />
-          <WorkspaceSwitcher workspaces={workspaceSummaries} />
+          <WorkspaceSwitcher
+            workspaces={workspaceSummaries}
+            activeWorkspaceId={activeWorkspaceId}
+          />
           <div className="ml-auto flex items-center gap-2">
             {/* Desktop: the account menu lives in the sidebar's plan card, so
                 the header carries the create action instead. Mobile keeps the
                 account menu here. */}
             <div className="hidden md:block">
-              <HeaderCreateMenu workspaces={workspaceSummaries} />
+              <HeaderCreateMenu activeWorkspaceId={activeWorkspaceId} />
             </div>
             <div className="md:hidden">
               <UserMenu email={session.user.email} />

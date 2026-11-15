@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@repo/ui/components/button";
 import {
@@ -14,39 +14,12 @@ import {
 import { Building2, Check, ChevronsUpDown, Plus } from "lucide-react";
 
 import { CreateWorkspaceDialog } from "@/components/workspaces/create-workspace-dialog";
+import { setActiveWorkspaceCookie } from "@/lib/active-workspace";
 
 export type WorkspaceSummary = {
   id: string;
   name: string;
 };
-
-/**
- * The `?ws=` query param picks the active workspace; the first one is the
- * default. Shared by the header switcher and the create menu, which both need
- * to know which workspace a new team belongs to.
- */
-export function useActiveWorkspaceId(
-  workspaces: WorkspaceSummary[],
-): string | null {
-  const searchParams = useSearchParams();
-  const requested = searchParams.get("ws");
-
-  if (requested && workspaces.some((workspace) => workspace.id === requested)) {
-    return requested;
-  }
-
-  return workspaces[0]?.id ?? null;
-}
-
-function hrefWithWorkspace(
-  pathname: string,
-  searchParams: URLSearchParams,
-  workspaceId: string,
-): string {
-  const params = new URLSearchParams(searchParams.toString());
-  params.set("ws", workspaceId);
-  return `${pathname}?${params.toString()}`;
-}
 
 /**
  * Header workspace picker: shows the active workspace's name with an
@@ -55,17 +28,21 @@ function hrefWithWorkspace(
  */
 export function WorkspaceSwitcher({
   workspaces,
+  activeWorkspaceId,
 }: {
   workspaces: WorkspaceSummary[];
+  activeWorkspaceId: string | null;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const activeWorkspaceId = useActiveWorkspaceId(workspaces);
   const activeWorkspace = workspaces.find(
     (workspace) => workspace.id === activeWorkspaceId,
   );
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const activate = (workspaceId: string) => {
+    setActiveWorkspaceCookie(workspaceId);
+    router.refresh();
+  };
 
   return (
     <>
@@ -92,9 +69,7 @@ export function WorkspaceSwitcher({
             <DropdownMenuItem
               key={workspace.id}
               className="gap-2"
-              onClick={() =>
-                router.push(hrefWithWorkspace(pathname, searchParams, workspace.id))
-              }
+              onClick={() => activate(workspace.id)}
             >
               <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
@@ -121,9 +96,7 @@ export function WorkspaceSwitcher({
       <CreateWorkspaceDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onCreated={(workspaceId) => {
-          router.push(hrefWithWorkspace(pathname, searchParams, workspaceId));
-        }}
+        onCreated={setActiveWorkspaceCookie}
       />
     </>
   );
