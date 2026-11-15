@@ -18,9 +18,11 @@ export const domains = pgTable(
     ownerId: text("owner_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    workspaceId: uuid("workspace_id").references(() => workspaces.id, {
-      onDelete: "set null",
-    }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      // no action (not restrict): deleting a user cascades both the workspace
+      // and its domains in one statement; restrict would fire mid-cascade.
+      .references(() => workspaces.id, { onDelete: "no action" }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     logoUrl: text("logo_url"),
@@ -88,6 +90,7 @@ export const domains = pgTable(
     uniqueIndex("domains_slug_idx").on(table.slug),
     uniqueIndex("domains_embed_secret_idx").on(table.embedSecret),
     index("domains_owner_id_idx").on(table.ownerId),
+    index("domains_workspace_id_idx").on(table.workspaceId),
   ],
 );
 

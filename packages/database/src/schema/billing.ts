@@ -10,6 +10,7 @@ import {
 
 import { user } from "@repo/database/schema/auth";
 import { leads } from "@repo/database/schema/index";
+import { workspaces } from "@repo/database/schema/workspaces";
 
 export const subscriptions = pgTable(
   "subscriptions",
@@ -50,6 +51,9 @@ export const campaigns = pgTable(
   "campaigns",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     ownerId: text("owner_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
@@ -78,7 +82,10 @@ export const campaigns = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("campaigns_owner_id_idx").on(table.ownerId)],
+  (table) => [
+    index("campaigns_workspace_id_idx").on(table.workspaceId),
+    index("campaigns_owner_id_idx").on(table.ownerId),
+  ],
 );
 
 export const campaignRecipients = pgTable(
