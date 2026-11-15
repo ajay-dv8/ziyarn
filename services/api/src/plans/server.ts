@@ -11,6 +11,8 @@ export type PlanLimits = {
   maxDomains: number;
   /** Max workspaces a user can create on this plan. */
   maxWorkspaces: number;
+  /** Max teams a workspace can contain on this plan. */
+  maxTeams: number;
   /** Max AI credits per domain per month (P3/P6 will consume these). */
   creditsPerMonth: number;
   /** Max widget conversations per domain per day. */
@@ -37,6 +39,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   free: {
     maxDomains: 1,
     maxWorkspaces: 1,
+    maxTeams: 1,
     creditsPerMonth: 100,
     conversationsPerDay: 100,
     emailsPerMonth: 0,
@@ -48,6 +51,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   standard: {
     maxDomains: 3,
     maxWorkspaces: 10,
+    maxTeams: 3,
     creditsPerMonth: 200,
     conversationsPerDay: 1000,
     emailsPerMonth: 500,
@@ -58,6 +62,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   pro: {
     maxDomains: 10,
     maxWorkspaces: Number.POSITIVE_INFINITY,
+    maxTeams: 10,
     creditsPerMonth: 1000,
     conversationsPerDay: 5000,
     emailsPerMonth: 2000,
@@ -68,6 +73,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   ultimate: {
     maxDomains: 50,
     maxWorkspaces: Number.POSITIVE_INFINITY,
+    maxTeams: Number.POSITIVE_INFINITY,
     creditsPerMonth: 3000,
     conversationsPerDay: 50000,
     emailsPerMonth: 10000,
@@ -78,6 +84,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   custom: {
     maxDomains: Number.POSITIVE_INFINITY,
     maxWorkspaces: Number.POSITIVE_INFINITY,
+    maxTeams: Number.POSITIVE_INFINITY,
     creditsPerMonth: Number.POSITIVE_INFINITY,
     conversationsPerDay: Number.POSITIVE_INFINITY,
     emailsPerMonth: Number.POSITIVE_INFINITY,
@@ -187,6 +194,34 @@ export function assertCanCreateWorkspace(
       429,
       "PLAN_LIMIT_EXCEEDED",
       `Your plan allows at most ${limits.maxWorkspaces} workspace(s)`,
+    );
+  }
+}
+
+/** Throws if a workspace already has as many teams as its plan allows. */
+export function assertCanCreateTeam(
+  limits: PlanLimits,
+  currentTeamCount: number,
+): void {
+  if (currentTeamCount >= limits.maxTeams) {
+    throw new PlanLimitError(
+      429,
+      "PLAN_LIMIT_EXCEEDED",
+      `Your plan allows at most ${limits.maxTeams} team(s) per workspace`,
+    );
+  }
+}
+
+/** Throws if a workspace already has as many members + invites as its plan allows. */
+export function assertCanAddMember(
+  limits: PlanLimits,
+  currentSeatCount: number,
+): void {
+  if (currentSeatCount >= limits.maxMembers) {
+    throw new PlanLimitError(
+      429,
+      "MEMBER_LIMIT_EXCEEDED",
+      `Your plan allows at most ${limits.maxMembers} team member(s)`,
     );
   }
 }
