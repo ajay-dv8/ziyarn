@@ -26,6 +26,7 @@ export const APP_ROUTES = {
   RESET_PASSWORD: "/reset-password",
   VERIFY_EMAIL: "/verify-email",
   ACCEPT_INVITE: "/accept-invite",
+  ACCEPT_TEAM_INVITE: "/accept-team-invite",
   ONBOARDING: "/onboarding",
   /** Design preview with seeded demo data; no domain secret required. */
   WIDGET_PREVIEW: "/widget-preview",
