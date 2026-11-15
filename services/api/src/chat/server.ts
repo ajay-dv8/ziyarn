@@ -357,7 +357,11 @@ export function createChatService(deps: { db: Database }) {
     },
 
     /** Conversations across all domains of an owner, newest activity first. */
-    listConversationsForOwner: async (ownerId: string, limit = 100) => {
+    listConversationsForWorkspace: async (
+      ownerId: string,
+      workspaceId: string,
+      limit = 100,
+    ) => {
       const rows = await db
         .select({
           conversation: conversations,
@@ -368,7 +372,12 @@ export function createChatService(deps: { db: Database }) {
         .from(conversations)
         .innerJoin(agents, eq(conversations.agentId, agents.id))
         .innerJoin(domains, eq(agents.domainId, domains.id))
-        .where(eq(domains.ownerId, ownerId))
+        .where(
+          and(
+            eq(domains.ownerId, ownerId),
+            eq(domains.workspaceId, workspaceId),
+          ),
+        )
         .orderBy(desc(conversations.updatedAt))
         .limit(limit);
 

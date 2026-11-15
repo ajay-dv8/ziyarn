@@ -6,16 +6,26 @@ import { ConversationsPage } from "@/components/conversations/conversations-page
 import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 import { chatService } from "@/services/chat-service";
+import { workspaceService } from "@/services/workspace-service";
 
 export const metadata: Metadata = {
   title: "Conversations",
 };
 
 export default async function Conversations() {
-  const session = await authService.getSession(await headers());
+  const requestHeaders = await headers();
+  const session = await authService.getSession(requestHeaders);
   if (!session?.user) redirect(APP_ROUTES.SIGN_IN);
 
-  const rows = await chatService.listConversationsForOwner(session.user.id);
+  const workspaceId = await workspaceService.getActiveWorkspaceId(
+    requestHeaders,
+  );
+  const rows = workspaceId
+    ? await chatService.listConversationsForWorkspace(
+        session.user.id,
+        workspaceId,
+      )
+    : [];
   const conversations = rows.map((row) => ({
     ...row,
     createdAt: row.createdAt.toISOString(),
