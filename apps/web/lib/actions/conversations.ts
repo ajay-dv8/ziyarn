@@ -11,6 +11,7 @@ import {
 } from "@repo/api/chat";
 import { db } from "@repo/database";
 import { leads } from "@repo/database/schema";
+import { resolveActiveWorkspaceId } from "@repo/api/workspaces/active";
 
 import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
@@ -85,7 +86,13 @@ export async function listConversationsAction(): Promise<
 > {
   try {
     const user = await requireOwner();
-    const rows = await chatService.listConversationsForOwner(user.id);
+    const workspaceId = await resolveActiveWorkspaceId(db, await headers(), user.id);
+    if (!workspaceId) return { ok: true, conversations: [] };
+
+    const rows = await chatService.listConversationsForWorkspace(
+      user.id,
+      workspaceId,
+    );
     const conversations = rows.map((row) => ({
       id: row.id,
       status: row.status,
