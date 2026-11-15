@@ -14,7 +14,12 @@ import {
   type BusinessType,
 } from "@repo/api/domains/business-types";
 
-export function CreateDomainForm() {
+export function CreateDomainForm({
+  onCreated,
+}: {
+  /** Runs after the domain exists, e.g. for the caller to close its sheet. */
+  onCreated?: () => void;
+}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +53,7 @@ export function CreateDomainForm() {
     }
 
     router.push(APP_ROUTES.DASHBOARD_DOMAINS);
+    onCreated?.();
     router.refresh();
   };
 
