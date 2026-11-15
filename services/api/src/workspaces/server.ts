@@ -19,6 +19,7 @@ import {
   highestPlan,
 } from "@repo/api/plans";
 import { resolveWorkspacePlan } from "@repo/api/workspaces/plan";
+import { resolveActiveWorkspaceId } from "@repo/api/workspaces/active";
 import { APP_ROUTES, absoluteUrl } from "@repo/routes";
 import type { Plan } from "@repo/api/plans/schemas";
 import {
@@ -163,6 +164,18 @@ export function createWorkspaceService(deps: {
     return membership;
   };
 
+  /** Destructive workspace actions are owner-only. */
+  const requireWorkspaceOwner = async (
+    workspaceId: string,
+    userId: string,
+  ) => {
+    const membership = await requireWorkspaceMembership(workspaceId, userId);
+    if (membership.role !== "owner") {
+      throw ownerRequired("delete this workspace");
+    }
+    return membership;
+  };
+
   /** Finds a workspace by ID. */
   const requireWorkspace = async (workspaceId: string) => {
     const [workspace] = await db
@@ -202,7 +215,9 @@ export function createWorkspaceService(deps: {
         })
         .from(workspaceMembers)
         .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
-        .where(eq(workspaceMembers.userId, session.user.id));
+        .where(eq(workspaceMembers.userId, session.user.id))
+        // First-joined first: the fallback active workspace is the first row.
+        .orderBy(workspaceMembers.createdAt);
 
       return memberships.map(({ workspace, role }) => ({
         ...workspace,
@@ -220,6 +235,25 @@ export function createWorkspaceService(deps: {
       );
       const workspace = await requireWorkspace(workspaceId);
       return { ...workspace, role: membership.role };
+    },
+
+    /** The workspace the dashboard is showing, or null when the user has none. */
+    getActiveWorkspaceId: async (headers: Headers) => {
+      const session = await getSession(headers);
+      if (!session) throw unauthorized();
+      return resolveActiveWorkspaceId(db, headers, session.user.id);
+    },
+
+    /** The plan whose limits apply to the active workspace. */
+    getActiveWorkspacePlan: async (headers: Headers): Promise<Plan> => {
+      const session = await getSession(headers);
+      if (!session) throw unauthorized();
+      const workspaceId = await resolveActiveWorkspaceId(
+        db,
+        headers,
+        session.user.id,
+      );
+      return workspaceId ? resolveWorkspacePlan(db, workspaceId) : "free";
     },
 
     /** Creates a workspace and makes the creator the owner. */
@@ -295,15 +329,27 @@ export function createWorkspaceService(deps: {
     },
 
     /**
-     * Deletes a workspace with its memberships and pending invites (both
-     * cascade). Domains are owned by a person, not by a team, so the caller's
-     * agents and domains survive — losing the team costs the people in it their
-     * shared access, which is why the UI confirms before calling this.
+     * Deletes a workspace with its memberships, teams and pending invites (all
+     * cascade). Owner-only, and refused while the workspace still has domains:
+     * a domain carries conversations, customers and orders, so deleting it is
+     * a separate, explicit decision.
      */
     deleteWorkspace: async (workspaceId: string, headers: Headers) => {
       const session = await getSession(headers);
       if (!session) throw unauthorized();
-      await requireWorkspaceAdmin(workspaceId, session.user.id);
+      await requireWorkspaceOwner(workspaceId, session.user.id);
+
+      const [domainCountRow] = await db
+        .select({ count: count() })
+        .from(domains)
+        .where(eq(domains.workspaceId, workspaceId));
+      if ((domainCountRow?.count ?? 0) > 0) {
+        throw new WorkspaceServiceError(
+          409,
+          "WORKSPACE_NOT_EMPTY",
+          "Move or delete this workspace's domains before deleting it",
+        );
+      }
 
       await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
     },
@@ -630,6 +676,19 @@ export function createWorkspaceService(deps: {
             ),
           );
       }
+
+      // Domains belong to the workspace, but the rest of the app still uses
+      // domains.ownerId for its data checks. Hand the ones this person created
+      // in this workspace to the workspace owner so the data stays reachable.
+      await db
+        .update(domains)
+        .set({ ownerId: workspace.ownerId, updatedAt: new Date() })
+        .where(
+          and(
+            eq(domains.workspaceId, workspaceId),
+            eq(domains.ownerId, member.userId),
+          ),
+        );
 
       await db
         .delete(workspaceMembers)
