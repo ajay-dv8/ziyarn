@@ -45,6 +45,7 @@ import { ZiyarnLogo } from "@/assets/logo/ziyarn-logo";
 import { APP_ROUTES } from "@/constants/routes";
 import { CreateDomainButton } from "@/components/domains/create-domain-button";
 import { DomainLogo } from "@/components/domains/domain-logo";
+import { UserMenu } from "@/components/dashboard/user-menu";
 import { useUnreadCount } from "@/hooks/use-unread-count";
 import {
   getBusinessTypeConfig,
@@ -68,11 +69,13 @@ export function AppSidebar({
   plan,
   domainCount,
   maxDomains,
+  email,
   domains,
 }: {
   plan: string;
   domainCount: number;
   maxDomains: number;
+  email: string;
   domains: {
     id: string;
     name: string;
@@ -328,6 +331,9 @@ export function AppSidebar({
                     {domainCount} of {maxDomains} domains
                   </p>
                 </div>
+                {/* The account menu lives here on desktop; the header only
+                    keeps it on mobile. */}
+                <UserMenu email={email} />
               </CardContent>
             </Card>
           </SidebarMenuItem>
