@@ -11,7 +11,7 @@ import { workspaceService } from "@/services/workspace-service";
 
 export const runtime = "nodejs";
 
-/** Renames a team. Owners and admins only. */
+/** Renames a workspace. Owners and admins only. */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ workspaceId: string }> },
@@ -54,8 +54,8 @@ export async function PATCH(
 }
 
 /**
- * Deletes a team, its memberships and its pending invites. Domains belong to
- * the people who created them and are not touched.
+ * Deletes a workspace, its memberships and its pending invites. Domains belong
+ * to the people who created them and are not touched.
  */
 export async function DELETE(
   _request: Request,
