@@ -14,9 +14,12 @@ import { UserMenu } from "@/components/dashboard/user-menu";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { DashboardTitleUpdater } from "@/components/dashboard/dashboard-title-updater";
 import { DashboardToastListener } from "@/components/dashboard/dashboard-toast-listener";
+import { HeaderCreateMenu } from "@/components/dashboard/header-create-menu";
+import { WorkspaceSwitcher } from "@/components/dashboard/workspace-switcher";
 import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
+import { workspaceService } from "@/services/workspace-service";
 
 const PLAN_RANK: Record<Plan, number> = {
   free: 0,
@@ -52,13 +55,20 @@ export default async function DashboardLayout({
     redirect(`${APP_ROUTES.ACCEPT_INVITE}?token=${pendingInviteToken}`);
   }
 
-  const domains = await domainsService.listDomains(await headers());
+  const [domains, workspaces] = await Promise.all([
+    domainsService.listDomains(await headers()),
+    workspaceService.listWorkspaces(await headers()),
+  ]);
   const plan = domains.reduce<Plan>(
     (best, domain) =>
       PLAN_RANK[domain.plan] > PLAN_RANK[best] ? domain.plan : best,
     "free",
   );
   const limits = getPlanLimits(plan);
+  const workspaceSummaries = workspaces.map((workspace) => ({
+    id: workspace.id,
+    name: workspace.name,
+  }));
 
   return (
     <SidebarProvider>
@@ -68,6 +78,7 @@ export default async function DashboardLayout({
         plan={plan}
         domainCount={domains.length}
         maxDomains={limits.maxDomains}
+        email={session.user.email}
         domains={domains.map((domain) => ({
           id: domain.id,
           name: domain.name,
@@ -79,8 +90,17 @@ export default async function DashboardLayout({
         <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-4" />
-          <div className="ml-auto">
-            <UserMenu email={session.user.email} />
+          <WorkspaceSwitcher workspaces={workspaceSummaries} />
+          <div className="ml-auto flex items-center gap-2">
+            {/* Desktop: the account menu lives in the sidebar's plan card, so
+                the header carries the create action instead. Mobile keeps the
+                account menu here. */}
+            <div className="hidden md:block">
+              <HeaderCreateMenu workspaces={workspaceSummaries} />
+            </div>
+            <div className="md:hidden">
+              <UserMenu email={session.user.email} />
+            </div>
           </div>
         </header>
         {!session.user.emailVerified ? (
