@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
-import { getPlanLimits, PLAN_DISPLAY_NAMES, type Plan } from "@repo/api/plans";
+import { getPlanLimits, PLAN_DISPLAY_NAMES } from "@repo/api/plans";
 import { Badge } from "@repo/ui/components/badge";
 import {
   Card,
@@ -15,19 +15,11 @@ import { CreateCampaignButton } from "@/components/dashboard/create-campaign-but
 import { ScheduleCampaignControl } from "@/components/dashboard/schedule-campaign-button";
 import { SendCampaignButton } from "@/components/dashboard/send-campaign-button";
 import { authService } from "@/services/auth-service";
-import { domainsService } from "@/services/domains-service";
 import { emailService } from "@/services/email-service";
+import { workspaceService } from "@/services/workspace-service";
 
 export const metadata: Metadata = {
   title: "Campaigns",
-};
-
-const PLAN_RANK: Record<Plan, number> = {
-  free: 0,
-  standard: 1,
-  pro: 2,
-  ultimate: 3,
-  custom: 4,
 };
 
 export default async function CampaignsPage() {
@@ -36,15 +28,14 @@ export default async function CampaignsPage() {
   if (!session) {
     return null;
   }
-  const [campaigns, domains, emailsThisMonth] = await Promise.all([
-    emailService.listCampaigns(session.user.id),
-    domainsService.listDomains(requestHeaders),
-    emailService.emailsSentThisMonth(session.user.id),
-  ]);
-  const plan = domains.reduce<Plan>(
-    (best, domain) => (PLAN_RANK[domain.plan] > PLAN_RANK[best] ? domain.plan : best),
-    "free",
+  const workspaceId = await workspaceService.getActiveWorkspaceId(
+    requestHeaders,
   );
+  const [campaigns, emailsThisMonth, plan] = await Promise.all([
+    workspaceId ? emailService.listCampaigns(workspaceId) : [],
+    workspaceId ? emailService.emailsSentThisMonth(workspaceId) : 0,
+    workspaceService.getActiveWorkspacePlan(requestHeaders),
+  ]);
   const { emailsPerMonth } = getPlanLimits(plan);
 
   return (
