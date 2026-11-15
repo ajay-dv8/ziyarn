@@ -13,6 +13,7 @@ import {
 
 import { authService } from "@/services/auth-service";
 import { usageService } from "@/services/usage-service";
+import { workspaceService } from "@/services/workspace-service";
 
 export const metadata: Metadata = {
   title: "Usage",
@@ -77,7 +78,10 @@ export default async function UsagePage() {
 
   let data: UsageSummary | null = null;
   try {
-    data = await usageService.getMonthlyUsage(session.user.id);
+    const workspaceId = await workspaceService.getActiveWorkspaceId(
+      requestHeaders,
+    );
+    data = await usageService.getMonthlyUsage(workspaceId);
   } catch (error) {
     console.error("GET usage failed:", error);
   }

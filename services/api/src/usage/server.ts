@@ -7,11 +7,11 @@ import {
   conversations,
   domains,
   messages,
-  subscriptions,
 } from "@repo/database/schema";
 
 import { getPlanLimits } from "@repo/api/plans";
-import type { Plan } from "@repo/api/plans/schemas";
+import { resolveActiveWorkspaceId } from "@repo/api/workspaces/active";
+import { resolveWorkspacePlan } from "@repo/api/workspaces/plan";
 import {
   usagePeriodSchema,
   type UsagePeriodInput,
@@ -52,7 +52,7 @@ function currentPeriod(): string {
 }
 
 /**
- * Owner-scoped usage metering: conversations, AI messages and marketing
+ * Workspace-scoped usage metering: conversations, AI messages and marketing
  * emails consumed in a month, aggregated live from the source tables (no
  * ledger drift). Plan limits come from the single plans module.
  */
@@ -64,17 +64,30 @@ export function createUsageService(deps: {
 
   return {
     async getMonthlyUsage(
-      ownerId: string,
+      workspaceId: string | null,
       input: UsagePeriodInput = {},
     ): Promise<UsageSummary> {
       const parsed = usagePeriodSchema.parse(input);
       const period = parsed.period ?? currentPeriod();
       const { start, end } = monthRange(period);
 
+      // A user without a workspace has no usage yet, but the page still needs
+      // a plan and limits to render.
+      if (!workspaceId) {
+        return {
+          period,
+          plan: "free",
+          conversations: 0,
+          messages: 0,
+          emails: 0,
+          limits: getPlanLimits("free"),
+        };
+      }
+
       const domainIds = db
         .select({ id: domains.id })
         .from(domains)
-        .where(eq(domains.ownerId, ownerId));
+        .where(eq(domains.workspaceId, workspaceId));
 
       const [conversationRow] = await db
         .select({ total: count() })
@@ -108,14 +121,14 @@ export function createUsageService(deps: {
         .from(campaigns)
         .where(
           and(
-            eq(campaigns.ownerId, ownerId),
+            eq(campaigns.workspaceId, workspaceId),
             eq(campaigns.status, "sent"),
             gte(campaigns.createdAt, start),
             lt(campaigns.createdAt, end),
           ),
         );
 
-      const plan = await resolveOwnerPlan(db, ownerId);
+      const plan = await resolveWorkspacePlan(db, workspaceId);
 
       return {
         period,
@@ -127,7 +140,7 @@ export function createUsageService(deps: {
       };
     },
 
-    /** Owner-guarded wrapper for API routes. */
+    /** Session- and workspace-guarded wrapper for API routes. */
     async getUsageForSession(
       headers: Headers,
       input: UsagePeriodInput = {},
@@ -136,27 +149,14 @@ export function createUsageService(deps: {
       if (!session?.user) {
         throw unauthorized();
       }
-      return this.getMonthlyUsage(session.user.id, input);
+      const workspaceId = await resolveActiveWorkspaceId(
+        db,
+        headers,
+        session.user.id,
+      );
+      return this.getMonthlyUsage(workspaceId, input);
     },
   };
-}
-
-/** Active subscription wins; otherwise the first domain's plan. */
-async function resolveOwnerPlan(db: Database, ownerId: string): Promise<Plan> {
-  const [sub] = await db
-    .select({ plan: subscriptions.plan })
-    .from(subscriptions)
-    .where(and(eq(subscriptions.ownerId, ownerId), eq(subscriptions.status, "active")))
-    .limit(1);
-  if (sub) {
-    return sub.plan;
-  }
-  const [row] = await db
-    .select({ plan: domains.plan })
-    .from(domains)
-    .where(eq(domains.ownerId, ownerId))
-    .limit(1);
-  return row?.plan ?? "free";
 }
 
 export type UsageService = ReturnType<typeof createUsageService>;
