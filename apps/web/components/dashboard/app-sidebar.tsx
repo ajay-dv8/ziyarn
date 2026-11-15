@@ -23,6 +23,7 @@ import {
 } from "@repo/ui/components/sidebar";
 import {
   BarChart3,
+  Building2,
   Calendar,
   ChevronRight,
   CreditCard,
@@ -275,6 +276,16 @@ export function AppSidebar({
               >
                 <Plug />
                 <span>Integrations</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname.startsWith(APP_ROUTES.DASHBOARD_WORKSPACES)}
+                tooltip="Workspaces"
+                render={<Link href={APP_ROUTES.DASHBOARD_WORKSPACES} />}
+              >
+                <Building2 />
+                <span>Workspaces</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
