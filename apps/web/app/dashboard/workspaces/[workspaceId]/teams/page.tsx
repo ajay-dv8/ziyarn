@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import Link from "next/link";
 
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -13,36 +12,47 @@ import {
 import { CreateTeamButton } from "@/components/workspaces/create-team-button";
 import { APP_ROUTES } from "@/constants/routes";
 import { teamService } from "@/services/team-service";
+import { workspaceService } from "@/services/workspace-service";
 
 export const metadata: Metadata = {
   title: "Teams",
 };
 
 export default async function WorkspaceTeamsPage({
-  searchParams,
+  params,
 }: {
-  searchParams: Promise<{ workspaceId?: string }>;
+  params: Promise<{ workspaceId: string }>;
 }) {
+  const { workspaceId } = await params;
   const requestHeaders = await headers();
-  const { workspaceId } = await searchParams;
 
-  if (!workspaceId) {
-    redirect(APP_ROUTES.DASHBOARD_WORKSPACES);
-  }
+  const [workspace, teams] = await Promise.all([
+    workspaceService.getWorkspace(workspaceId, requestHeaders),
+    teamService.listTeams(workspaceId, requestHeaders),
+  ]);
 
-  const teams = await teamService.listTeams(workspaceId, requestHeaders);
+  const canManage = workspace.role === "owner" || workspace.role === "admin";
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-semibold">Teams</h1>
-          <p className="text-sm text-muted-foreground">
-            Teams group people, agents and knowledge bases inside this workspace.
-          </p>
-        </div>
+      <div>
+        <Link
+          href={APP_ROUTES.DASHBOARD_WORKSPACES}
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← All workspaces
+        </Link>
+        <div className="mt-3 flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold">{workspace.name} teams</h1>
+            <p className="text-sm text-muted-foreground">
+              Teams group people, agents and knowledge bases inside this
+              workspace.
+            </p>
+          </div>
 
-        <CreateTeamButton workspaceId={workspaceId} />
+          {canManage && <CreateTeamButton workspaceId={workspaceId} />}
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -50,16 +60,9 @@ export default async function WorkspaceTeamsPage({
           <Card key={team.id}>
             <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
               <div className="flex min-w-0 items-start gap-3">
-                <CardTitle className="truncate">
-                  <a
-                    href="#"
-                    className="hover:underline underline-offset-4"
-                  >
-                    {team.name}
-                  </a>
-                </CardTitle>
+                <CardTitle className="truncate">{team.name}</CardTitle>
                 <CardDescription>
-                  {team.role} ·
+                  {team.role ?? "not a member"} ·{" "}
                   {new Date(team.createdAt).toLocaleDateString()}
                 </CardDescription>
               </div>
@@ -68,7 +71,9 @@ export default async function WorkspaceTeamsPage({
         ))}
         {teams.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No teams yet — click &quot;New team&quot; to get started.
+            {canManage
+              ? 'No teams yet — click "New team" to get started.'
+              : "You are not in any teams in this workspace yet."}
           </p>
         )}
       </div>
