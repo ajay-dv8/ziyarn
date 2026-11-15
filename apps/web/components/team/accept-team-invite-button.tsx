@@ -1,0 +1,53 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+import { Button } from "@repo/ui/components/button";
+import { toast } from "sonner";
+
+import { API_ROUTES, APP_ROUTES } from "@/constants/routes";
+
+export function AcceptTeamInviteButton({ token }: { token: string }) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+
+  const handleAccept = async () => {
+    setPending(true);
+    try {
+      const response = await fetch(API_ROUTES.teams.acceptInvite, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        toast.error(error.message || "Failed to accept invite");
+        setPending(false);
+        return;
+      }
+
+      const result = (await response.json()) as { workspaceId?: string };
+      toast.success("Invite accepted! Welcome to the team.");
+      router.push(
+        result.workspaceId
+          ? APP_ROUTES.DASHBOARD_WORKSPACE_TEAMS.replace(
+              "[workspaceId]",
+              result.workspaceId,
+            )
+          : APP_ROUTES.DASHBOARD_WORKSPACES,
+      );
+      router.refresh();
+    } catch {
+      toast.error("Failed to accept invite");
+      setPending(false);
+    }
+  };
+
+  return (
+    <Button onClick={handleAccept} disabled={pending} className="w-full">
+      {pending ? "Joining..." : "Accept invite"}
+    </Button>
+  );
+}
