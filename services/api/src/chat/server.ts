@@ -149,6 +149,9 @@ export function systemPromptFor(
     bookingLine,
     filterLine,
     catalogLine,
+    // Without this, a resolved handoff stays in the transcript and the model
+    // keeps deferring to a human who is no longer handling the chat.
+    "Conversation state: you are the active assistant and no human is currently handling this chat. If earlier messages mention a human agent, a teammate, or an escalation, that handoff is over — answer the visitor's latest message yourself. Never tell the visitor a human will reply or that they have already been connected to one. Escalate again only if they ask for a human or the request needs one.",
   ];
   return parts.filter(Boolean).join("\n\n");
 }
@@ -975,6 +978,15 @@ export async function handleChatPost(
           },
         },
       );
+    }
+
+    // A new visitor message brings a finished conversation back to life so the
+    // AI can help again (and the owner can reply if it escalates again).
+    if (
+      conversation.status === "resolved" ||
+      conversation.status === "closed"
+    ) {
+      await chatService.setConversationStatus(conversationId, "active");
     }
 
     let activeAiService = aiService;

@@ -53,6 +53,24 @@ describe("customerFacingAiErrorMessage", () => {
 });
 
 describe("systemPromptFor", () => {
+  it("tells the model a finished human handoff is over", () => {
+    const prompt = systemPromptFor(
+      { slug: "urban-plus-2", businessType: "ecommerce" },
+      {
+        name: "Urban+",
+        description: null,
+        instructions: null,
+        systemPrompt: null,
+        tools: null,
+        filterQuestions: null,
+      },
+      [],
+    );
+
+    expect(prompt).toContain("that handoff is over");
+    expect(prompt).toContain("Never tell the visitor a human will reply");
+  });
+
   it("tells the model to use only supplied source URLs", () => {
     const prompt = systemPromptFor(
       { slug: "urban-plus-2", businessType: "ecommerce" },
