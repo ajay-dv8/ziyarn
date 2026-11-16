@@ -951,7 +951,8 @@ export async function handleChatPost(
 
     // A human has taken over. Keep recording the visitor's messages (so the
     // human sees them) but do not let the AI answer until the escalation is
-    // resolved or closed.
+    // resolved or closed. `escalated` tells the shell to keep its replying
+    // loader up instead of rendering the empty-turn fallback.
     const conversation = await chatService.getConversationForDomain(
       conversationId,
       domain.id,
@@ -962,6 +963,7 @@ export async function handleChatPost(
         `data: ${JSON.stringify({
           type: "done",
           conversationId,
+          escalated: true,
           serverTime: new Date().toISOString(),
         })}\n\n`,
         {
