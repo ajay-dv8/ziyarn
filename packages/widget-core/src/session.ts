@@ -34,7 +34,7 @@ export interface SendHandlers {
   onDelta(delta: string): void;
   onTool(name: string, args?: Record<string, unknown>): void;
   onEscalate(): void;
-  onDone(conversationId: string | null): void;
+  onDone(conversationId: string | null, escalated?: boolean): void;
   onError(message: string, code?: string): void;
   /** Called for every event, including ones the shell has no bubble for. */
   onTick?(): void;
@@ -207,7 +207,7 @@ export function createSession(config: SessionConfig): Session {
         store.save("conversation", event.conversationId);
       }
       rememberTime(event.serverTime ?? new Date().toISOString());
-      handlers.onDone(event.conversationId ?? conversationId);
+      handlers.onDone(event.conversationId ?? conversationId, event.escalated);
     });
   }
 
