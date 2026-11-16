@@ -73,7 +73,13 @@ export type StreamEvent =
   | { type: "text"; delta: string }
   | { type: "tool"; name: AgentToolName; args?: Record<string, unknown> }
   | { type: "escalate" }
-  | { type: "done"; conversationId?: string; serverTime?: string }
+  | {
+      type: "done";
+      conversationId?: string;
+      serverTime?: string;
+      /** The turn was paused because a human owns the conversation. */
+      escalated?: boolean;
+    }
   | { type: "error"; message?: string; code?: string };
 
 /** Events on the owner-reply delta stream. */

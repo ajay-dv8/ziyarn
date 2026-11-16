@@ -58,5 +58,6 @@ describe("handleChatPost escalation pause", () => {
     });
     expect(streamChat).not.toHaveBeenCalled();
     expect(body).toContain('"type":"done"');
+    expect(body).toContain('"escalated":true');
   });
 });
