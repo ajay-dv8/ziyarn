@@ -116,6 +116,7 @@ export function ChatWidget({
   const [agentName, setAgentName] = useState<string | null>(null);
   const [domainLogoUrl, setDomainLogoUrl] = useState<string | null>(null);
   const [escalated, setEscalated] = useState(false);
+  const [awaitingHuman, setAwaitingHuman] = useState(false);
   const [products, setProducts] = useState<AgentProduct[]>([]);
   const [locations, setLocations] = useState<AgentLocation[]>([]);
   const [viewerProduct, setViewerProduct] = useState<AgentProduct | null>(null);
@@ -128,6 +129,7 @@ export function ChatWidget({
   const nextId = useRef(1);
   const stopped = useRef(false);
   const seenOwnerMessages = useRef<Set<string>>(new Set());
+  const ownerReplyCount = useRef(0);
 
   const patchMessage = useCallback(
     (id: string, patch: (message: ChatMessage) => ChatMessage) => {
@@ -147,6 +149,10 @@ export function ChatWidget({
     const key = `${message.createdAt ?? ""}:${text}`;
     if (seenOwnerMessages.current.has(key)) return;
     seenOwnerMessages.current.add(key);
+    ownerReplyCount.current += 1;
+
+    // The human answered: the "Replying…" placeholder has done its job.
+    setAwaitingHuman(false);
 
     setMessages((current) => [
       ...current,
@@ -334,13 +340,18 @@ export function ChatWidget({
     setStreaming(true);
     setActiveId(replyId);
 
+    let pausedForHuman = false;
+    const ownerRepliesAtSend = ownerReplyCount.current;
     await session.send(text, {
-      onDelta: (delta) =>
+      onDelta: (delta) => {
+        setAwaitingHuman(false);
         patchMessage(replyId, (message) => ({
           ...message,
           text: message.text + delta,
-        })),
+        }));
+      },
       onTool: (name, args) => {
+        setAwaitingHuman(false);
         // Knowledge retrieval is internal - the answer is the result the
         // visitor asked for, not the search query behind it.
         if (name === "answer_knowledge") return;
@@ -366,33 +377,48 @@ export function ChatWidget({
         });
       },
       onEscalate: () => setEscalated(true),
-      onDone: () => {},
-      onError: (errorMessage, errorCode) =>
+      onDone: (_conversationId, escalated) => {
+        pausedForHuman = escalated === true;
+      },
+      onError: (errorMessage, errorCode) => {
+        setAwaitingHuman(false);
         patchMessage(replyId, (message) => ({
           ...message,
           error: errorMessage,
           errorCode,
-        })),
+        }));
+      },
     });
 
     setStreaming(false);
     setActiveId(null);
-    patchMessage(replyId, (message) => {
-      if (
-        message.text.trim() ||
-        message.tool ||
-        message.products?.length ||
-        message.error
-      ) {
-        return message;
+    if (pausedForHuman) {
+      setEscalated(true);
+      setMessages((current) =>
+        current.filter((message) => message.id !== replyId),
+      );
+      // Only wait if the human has not already answered mid-turn.
+      if (ownerReplyCount.current === ownerRepliesAtSend) {
+        setAwaitingHuman(true);
       }
-      return {
-        ...message,
-        text: stopped.current
-          ? "Stopped."
-          : "I'm sorry, I couldn't generate a reply.",
-      };
-    });
+    } else {
+      patchMessage(replyId, (message) => {
+        if (
+          message.text.trim() ||
+          message.tool ||
+          message.products?.length ||
+          message.error
+        ) {
+          return message;
+        }
+        return {
+          ...message,
+          text: stopped.current
+            ? "Stopped."
+            : "I'm sorry, I couldn't generate a reply.",
+        };
+      });
+    }
     if (sessionRef.current === session) {
       session.listenForOwnerReplies({ onMessage: appendOwnerMessage });
     }
@@ -553,6 +579,16 @@ export function ChatWidget({
                   />
                 ),
               )}
+              {awaitingHuman && !streaming ? (
+                <div className="flex items-start gap-3">
+                  <AssistantAvatar running logoUrl={domainLogoUrl} />
+                  <div className="min-w-0 pt-0.5">
+                    <p className="text-[13px] leading-[1.55] text-[#8f8b97] italic">
+                      Replying…
+                    </p>
+                  </div>
+                </div>
+              ) : null}
               {escalated ? (
                 <p className="text-[11px] leading-[1.5] text-[#8a5a00]">
                   A teammate has been notified and will reply here.
@@ -784,7 +820,7 @@ function AssistantMessage({
             )
           ) : running ? (
             <p className="text-[13px] leading-[1.55] text-[#8f8b97] italic">
-              Working…
+              Replying…
             </p>
           ) : null}
           {/* A card already answers the turn: a provider error (429, timeout)
