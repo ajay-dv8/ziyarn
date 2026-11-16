@@ -949,6 +949,32 @@ export async function handleChatPost(
       content: body.message,
     });
 
+    // A human has taken over. Keep recording the visitor's messages (so the
+    // human sees them) but do not let the AI answer until the escalation is
+    // resolved or closed.
+    const conversation = await chatService.getConversationForDomain(
+      conversationId,
+      domain.id,
+    );
+    if (conversation.status === "escalated") {
+      logger.info({ conversationId }, "chat_paused_for_human");
+      return new Response(
+        `data: ${JSON.stringify({
+          type: "done",
+          conversationId,
+          serverTime: new Date().toISOString(),
+        })}\n\n`,
+        {
+          headers: {
+            "content-type": "text/event-stream; charset=utf-8",
+            "cache-control": "no-cache, no-transform",
+            connection: "keep-alive",
+            ...CORS_HEADERS,
+          },
+        },
+      );
+    }
+
     let activeAiService = aiService;
     if (resolveAiService) {
       try {

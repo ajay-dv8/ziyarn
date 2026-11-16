@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import { domains } from "@repo/database/schema/domains";
@@ -74,6 +74,26 @@ const conflict = (field: string) =>
     "CONFLICT",
     `A domain with this ${field} already exists`,
   );
+
+/** Normalises a domain row for the UI (validated widget, trigger, locations). */
+function presentDomain(row: typeof domains.$inferSelect) {
+  return {
+    ...row,
+    // Narrowed here, not cast at the call sites: a row holding a retired
+    // variant id must never reach the UI as an unvalidated string. Then
+    // clamped to the plan, so a domain whose plan does not include its widget
+    // reports the one it may actually use.
+    widgetVariant: clampWidgetVariantForPlan(
+      planSchema.parse(row.plan),
+      row.widgetVariant,
+    ),
+    // Same doctrine for the chat trigger: unknown ids fail open to the
+    // default and the customization bag always has its keys.
+    chatTrigger: resolveChatTrigger(row.chatTrigger),
+    chatTriggerConfig: resolveChatTriggerConfig(row.chatTriggerConfig),
+    locations: resolveDomainLocations(row.locations),
+  };
+}
 
 /**
  * Workspace-scoped domain CRUD. Access is granted to members of the domain's
@@ -162,41 +182,40 @@ export function createDomainsService(deps: {
         .from(domains)
         .where(eq(domains.workspaceId, workspaceId))
         .orderBy(domains.createdAt)
-        .then((rows) =>
-          rows.map((row) => ({
-            ...row,
-            // Narrowed here, not cast at the call sites: a row holding a
-            // retired variant id must never reach the UI as an unvalidated
-            // string. Then clamped to the plan, so a domain whose plan does
-            // not include its widget reports the one it may actually use.
-            widgetVariant: clampWidgetVariantForPlan(
-              planSchema.parse(row.plan),
-              row.widgetVariant,
-            ),
-            // Same doctrine for the chat trigger: unknown ids fail open to
-            // the default and the customization bag always has its keys.
-            chatTrigger: resolveChatTrigger(row.chatTrigger),
-            chatTriggerConfig: resolveChatTriggerConfig(
-              row.chatTriggerConfig,
-            ),
-            locations: resolveDomainLocations(row.locations),
-          })),
-        );
+        .then((rows) => rows.map(presentDomain));
+    },
+
+    /**
+     * Lists every domain reachable through the user's workspace memberships.
+     * Used by the account-level overview; workspace-scoped pages keep using
+     * `listDomains`.
+     */
+    listAccountDomains: async (headers: Headers) => {
+      const session = await getSession(headers);
+      if (!session) throw unauthorized();
+
+      const memberships = await db
+        .select({ workspaceId: workspaceMembers.workspaceId })
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.userId, session.user.id));
+
+      const workspaceIds = memberships.map(
+        (membership) => membership.workspaceId,
+      );
+      if (workspaceIds.length === 0) return [];
+
+      return db
+        .select()
+        .from(domains)
+        .where(inArray(domains.workspaceId, workspaceIds))
+        .orderBy(domains.createdAt)
+        .then((rows) => rows.map(presentDomain));
     },
 
     /** Returns a single domain if the session user has access. */
     getDomain: async (id: string, headers: Headers) => {
       const { domain } = await requireDomainAccess(id, headers);
-      return {
-        ...domain,
-        widgetVariant: clampWidgetVariantForPlan(
-          planSchema.parse(domain.plan),
-          domain.widgetVariant,
-        ),
-        chatTrigger: resolveChatTrigger(domain.chatTrigger),
-        chatTriggerConfig: resolveChatTriggerConfig(domain.chatTriggerConfig),
-        locations: resolveDomainLocations(domain.locations),
-      };
+      return presentDomain(domain);
     },
 
     /** Creates a domain owned by the session user (subject to plan limits). */

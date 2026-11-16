@@ -40,7 +40,7 @@ const PLAN_RANK: Record<Plan, number> = {
 };
 
 export default async function DashboardPage() {
-  const domains = await domainsService.listDomains(await headers());
+  const domains = await domainsService.listAccountDomains(await headers());
 
   if (domains.length === 0) {
     return (
@@ -85,13 +85,13 @@ export default async function DashboardPage() {
     {
       label: "Domains",
       value: String(domains.length),
-      sub: `of ${limits.maxDomains} allowed`,
+      sub: "across your workspaces",
       icon: Globe,
     },
     {
       label: "Conversations today",
       value: String(conversationsToday),
-      sub: `of ${limits.conversationsPerDay} per day`,
+      sub: "across your domains",
       icon: MessagesSquare,
     },
     {
