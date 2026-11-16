@@ -328,6 +328,7 @@ export function ChatWidget({
 
     setDraft("");
     setEscalated(false);
+    setAwaitingHuman(false);
     stopped.current = false;
 
     const userId = `user-${nextId.current++}`;

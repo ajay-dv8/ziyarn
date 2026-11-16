@@ -4,7 +4,11 @@ import { handleChatPost, type ChatService } from "@repo/api/chat/server";
 
 const conversationId = "11111111-1111-4111-8111-111111111111";
 
-function createChatService(appendMessage: ReturnType<typeof vi.fn>) {
+function createChatService(
+  appendMessage: ReturnType<typeof vi.fn>,
+  status: "active" | "escalated" | "resolved" | "closed" = "escalated",
+  extra: Record<string, unknown> = {},
+) {
   return {
     resolveDomainBySecret: async () => ({
       id: "domain-1",
@@ -16,10 +20,26 @@ function createChatService(appendMessage: ReturnType<typeof vi.fn>) {
     // Both the request validation and the post-append status check read it.
     getConversationForDomain: async () => ({
       id: conversationId,
-      status: "escalated",
+      status,
     }),
     appendMessage,
+    ...extra,
   } as unknown as ChatService;
+}
+
+function chatRequest(message: string) {
+  return new Request("http://localhost/api/chat", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-embed-secret": "secret",
+    },
+    body: JSON.stringify({
+      conversationId,
+      visitorId: "visitor-123",
+      message,
+    }),
+  });
 }
 
 describe("handleChatPost escalation pause", () => {
@@ -30,18 +50,7 @@ describe("handleChatPost escalation pause", () => {
     const response = await handleChatPost(
       createChatService(appendMessage),
       {} as never,
-      new Request("http://localhost/api/chat", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-embed-secret": "secret",
-        },
-        body: JSON.stringify({
-          conversationId,
-          visitorId: "visitor-123",
-          message: "Can a human answer this?",
-        }),
-      }),
+      chatRequest("Can a human answer this?"),
       {
         aiService: { isConfigured: true, streamChat } as never,
         portalService: {} as never,
@@ -59,5 +68,44 @@ describe("handleChatPost escalation pause", () => {
     expect(streamChat).not.toHaveBeenCalled();
     expect(body).toContain('"type":"done"');
     expect(body).toContain('"escalated":true');
+  });
+
+  it("reopens a resolved conversation and lets the AI answer again", async () => {
+    const appendMessage = vi.fn().mockResolvedValue({ id: "message-1" });
+    const setConversationStatus = vi.fn().mockResolvedValue(undefined);
+    const streamChat = vi.fn(async function* () {
+      yield { type: "text", delta: "Hi! How can I help?" };
+    });
+
+    const response = await handleChatPost(
+      createChatService(appendMessage, "resolved", {
+        setConversationStatus,
+        contextMessages: async () => [],
+        getProductCatalog: async () => [],
+        getBookingConfig: async () => null,
+      }),
+      {} as never,
+      chatRequest("hi"),
+      {
+        aiService: { isConfigured: true, streamChat } as never,
+        portalService: {} as never,
+        knowledgeService: {} as never,
+        chatRateLimiter: { check: () => true },
+        logger: { info: vi.fn(), error: vi.fn() } as never,
+      },
+    );
+
+    expect(setConversationStatus).toHaveBeenCalledWith(
+      conversationId,
+      "active",
+    );
+    expect(streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        systemPrompt: expect.stringContaining("that handoff is over"),
+      }),
+    );
+    const body = await response.text();
+    expect(body).toContain('"type":"text"');
+    expect(body).toContain('"type":"done"');
   });
 });
