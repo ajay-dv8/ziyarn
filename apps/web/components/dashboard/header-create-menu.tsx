@@ -44,7 +44,7 @@ export function HeaderCreateMenu({
           }
         >
           <Plus className="h-4 w-4" />
-          <span>Create</span>
+          <span>Create New</span>
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-56">
