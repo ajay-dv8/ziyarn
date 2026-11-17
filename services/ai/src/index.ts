@@ -208,6 +208,7 @@ type StreamInput = {
   messages: ChatTurn[];
   tools?: AgentToolName[];
   executeTool: ToolExecutor;
+  temperature?: number;
   signal?: AbortSignal;
 };
 
@@ -236,6 +237,9 @@ async function* streamWith(
         model,
         messages: history,
         ...(enabledTools.length > 0 ? { tools: enabledTools } : {}),
+        ...(input.temperature !== undefined
+          ? { temperature: input.temperature }
+          : {}),
         stream: true,
       },
       { signal: input.signal },
