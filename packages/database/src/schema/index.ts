@@ -9,7 +9,9 @@ export * from "@repo/database/schema/rate-limit";
 export * from "@repo/database/schema/settings";
 export * from "@repo/database/schema/workspaces";
 
+import { user } from "@repo/database/schema/auth";
 import { domains } from "@repo/database/schema/domains";
+import { workspaces } from "@repo/database/schema/workspaces";
 import {
   boolean,
   index,
@@ -171,6 +173,59 @@ export const messages = pgTable(
   (table) => [
     index("messages_conversation_id_idx").on(table.conversationId),
     index("messages_role_idx").on(table.role),
+  ],
+);
+
+/**
+ * Short-lived delivery metadata for the dashboard notification bell. The
+ * escalated-conversation count in the sidebar comes from conversations.status,
+ * so deleting an expired notification can never hide an open escalation.
+ */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    domainId: uuid("domain_id").references(() => domains.id, {
+      onDelete: "cascade",
+    }),
+    conversationId: uuid("conversation_id").references(
+      () => conversations.id,
+      { onDelete: "cascade" },
+    ),
+    type: text("type", {
+      enum: ["conversation_escalated"],
+    }).notNull(),
+    dedupeKey: text("dedupe_key").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("notifications_user_dedupe_idx").on(
+      table.userId,
+      table.dedupeKey,
+    ),
+    index("notifications_user_updated_idx").on(
+      table.userId,
+      table.updatedAt,
+    ),
+    index("notifications_user_read_idx").on(table.userId, table.readAt),
+    index("notifications_conversation_id_idx").on(table.conversationId),
+    index("notifications_workspace_id_idx").on(table.workspaceId),
+    index("notifications_expires_at_idx").on(table.expiresAt),
   ],
 );
 
