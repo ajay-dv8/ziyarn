@@ -14,6 +14,7 @@ import { KnowledgeUploadButton } from "@/components/dashboard/knowledge-upload-b
 import { WebsiteCrawlForm } from "@/components/dashboard/website-crawl-form";
 import { CrawledPagesCard } from "@/components/dashboard/crawled-pages-card";
 import { AgentPicker } from "@/components/domains/agent-picker";
+import { DomainLocationsEditor } from "@/components/domains/domain-locations-editor";
 import { DomainTabs } from "@/components/domains/domain-tabs";
 import type { KnowledgeDocumentRow } from "@/components/dashboard/crawled-pages-card";
 import { API_ROUTES, APP_ROUTES } from "@/constants/routes";
@@ -116,8 +117,9 @@ export default async function KnowledgePage({
             Knowledge Base
           </h1>
           <p className="text-sm text-muted-foreground">
-            Upload files your agent answers from. Documents are embedded and
-            searched by similarity at chat time.
+            Upload files your agent answers from, and manage the branches
+            customers can visit. Documents are embedded and searched by
+            similarity at chat time.
           </p>
         </div>
       </div>
@@ -140,6 +142,25 @@ export default async function KnowledgePage({
           activeAgentId={selectedAgent?.id}
           path={APP_ROUTES.DASHBOARD_KNOWLEDGE}
         />
+      ) : null}
+
+      {selectedDomain ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Branches &amp; locations</CardTitle>
+            <CardDescription>
+              Add the places customers can visit. The agent uses these for exact
+              directions and falls back to the knowledge base when none are
+              saved.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DomainLocationsEditor
+              domainId={selectedDomain.id}
+              initialLocations={selectedDomain.locations}
+            />
+          </CardContent>
+        </Card>
       ) : null}
 
       {!selectedDomain || !selectedAgent ? (
