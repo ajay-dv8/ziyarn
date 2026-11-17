@@ -12,7 +12,12 @@ export const metadata: Metadata = {
   title: "Conversations",
 };
 
-export default async function Conversations() {
+export default async function Conversations({
+  searchParams,
+}: {
+  searchParams: Promise<{ conversationId?: string }>;
+}) {
+  const params = await searchParams;
   const requestHeaders = await headers();
   const session = await authService.getSession(requestHeaders);
   if (!session?.user) redirect(APP_ROUTES.SIGN_IN);
@@ -45,7 +50,10 @@ export default async function Conversations() {
         </p>
       </div>
       <div className="mt-4 min-h-0 flex-1">
-        <ConversationsPage initial={conversations} />
+        <ConversationsPage
+          initial={conversations}
+          initialConversationId={params.conversationId ?? null}
+        />
       </div>
     </div>
   );
