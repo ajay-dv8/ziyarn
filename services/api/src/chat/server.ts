@@ -134,6 +134,9 @@ export function systemPromptFor(
   const locationRule = locationsLine
     ? "Locations: when your answer names a specific place a visitor could visit — a street address, office, branch, shop, or venue — wrap that place in a location tag exactly like this: [[location: 123 Example Street, City]]. If the place is one of the business locations listed above, use that location's exact tag instead of a generic tag. The widget turns the tag into a tap-to-open maps link. Use the specific address or place name inside a generic tag, not a phrase such as our office or here. Only tag a place that appears in the knowledge results, tool results, the business information above, the business locations listed above, or the visitor's message; never guess or invent a location. Do not tag broad regions, countries, or online services."
     : "Locations: when your answer names a specific place a visitor could visit — a street address, office, branch, shop, or venue — wrap that place in a location tag exactly like this: [[location: 123 Example Street, City]]. The widget turns the tag into a tap-to-open Google Maps link. Use the specific address or place name inside the tag, not a phrase such as our office or here. Only tag a place that appears in the knowledge results, tool results, the business information above, or the visitor's message; never guess or invent a location. Do not tag broad regions, countries, or online services.";
+  const knowledgeLocationFallback = agent.tools?.includes("answer_knowledge")
+    ? "If the visitor asks about branches, outlets, offices, or locations and no saved locations are listed above, call answer_knowledge and answer from the knowledge results, including crawled pages. Do not say you lack location information until you have checked."
+    : "";
   const parts = [
     agent.systemPrompt ?? businessConfig.defaultSystemPrompt,
     agent.description ? `About this business: ${agent.description}` : "",
@@ -145,6 +148,7 @@ export function systemPromptFor(
     "Knowledge results may include a Source URL. When you answer from such an entry, cite the page as a markdown link using its title and the exact URL. Never invent, guess, or construct URLs from the domain slug; only use URLs supplied by knowledge results, the product catalog, or tool results, and do not add a link when no source URL was supplied.",
     locationsLine,
     locationRule,
+    knowledgeLocationFallback,
     "Appointments and payments are live: use book_appointment to schedule calls and create_payment (or sell_product) for purchases. Never create either without the visitor's agreement.",
     bookingLine,
     filterLine,
@@ -1041,6 +1045,10 @@ export async function handleChatPost(
       enabledTools = undefined;
     }
 
+    // The prompt must describe the tools this turn can actually call. With
+    // deep search off, answer_knowledge is filtered out.
+    const promptAgent = { ...agent, tools: enabledTools ?? [] };
+
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
@@ -1054,7 +1062,7 @@ export async function handleChatPost(
         const abortTimer = setTimeout(() => abortController.abort(), 60_000);
         try {
           for await (const event of activeAiService.streamChat({
-            systemPrompt: systemPromptFor(domain, agent, catalog, bookingConfig),
+            systemPrompt: systemPromptFor(domain, promptAgent, catalog, bookingConfig),
             messages: context,
             tools: enabledTools as AgentToolName[] | undefined,
             executeTool: toolExecutor,

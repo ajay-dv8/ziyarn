@@ -142,6 +142,41 @@ describe("systemPromptFor", () => {
     expect(prompt).not.toContain("5.5502");
   });
 
+  it("tells an agent with knowledge tools to search for unsaved locations", () => {
+    const prompt = systemPromptFor(
+      { slug: "henos-energy", businessType: "energy" },
+      {
+        name: "Henos Agent",
+        description: null,
+        instructions: null,
+        systemPrompt: null,
+        tools: ["answer_knowledge"],
+        filterQuestions: null,
+      },
+      [],
+    );
+
+    expect(prompt).toContain("call answer_knowledge");
+    expect(prompt).toContain("Do not say you lack location information");
+  });
+
+  it("does not mention the knowledge fallback when the tool is disabled", () => {
+    const prompt = systemPromptFor(
+      { slug: "henos-energy", businessType: "energy" },
+      {
+        name: "Henos Agent",
+        description: null,
+        instructions: null,
+        systemPrompt: null,
+        tools: [],
+        filterQuestions: null,
+      },
+      [],
+    );
+
+    expect(prompt).not.toContain("call answer_knowledge");
+  });
+
   it("includes a product page URL in the catalog line", () => {
     const prompt = systemPromptFor(
       { slug: "urban-plus-2", businessType: "ecommerce" },
