@@ -34,11 +34,13 @@ type Settings = {
 export function BookingsClient({
   domains,
   selectedDomainId,
+  label,
   bookings,
   settings,
 }: {
   domains: Domain[];
   selectedDomainId: string | null;
+  label: string;
   bookings: Booking[];
   settings: Settings | null;
 }) {
@@ -76,7 +78,7 @@ export function BookingsClient({
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Bookings</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{label}</h1>
           <p className="text-sm text-muted-foreground">
             Manage appointment requests and configure availability for your agents.
           </p>
