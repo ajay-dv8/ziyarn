@@ -3,6 +3,8 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { EmailServiceError } from "@repo/api/email";
+import { pruneExpiredNotifications } from "@repo/api/notifications";
+import { db } from "@repo/database";
 
 import { emailService } from "@/services/email-service";
 import { pruneRateLimitWindows } from "@/lib/rate-limit-db";
@@ -27,9 +29,9 @@ function secretsMatch(provided: string, secret: string): boolean {
 
 /**
  * Scheduler entrypoint — sends every campaign whose scheduled time has
- * arrived and prunes expired chat rate-limit windows. Protected by the
- * CRON_SECRET header; called by the GitHub Actions cron workflow on a regular
- * interval.
+ * arrived and prunes expired chat rate-limit windows and notifications.
+ * Protected by the CRON_SECRET header; called by the GitHub Actions cron
+ * workflow on a regular interval.
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -61,10 +63,19 @@ export async function GET(request: Request) {
     console.error("Rate-limit window pruning failed:", error);
   }
 
+  let notificationsPruned = 0;
+  try {
+    notificationsPruned = await pruneExpiredNotifications(db);
+  } catch (error) {
+    // Expired notifications are already hidden by expires_at; a failed prune
+    // must not stop campaign delivery.
+    console.error("Notification pruning failed:", error);
+  }
+
   try {
     const result = await emailService.processDueCampaigns();
     return NextResponse.json(
-      { ...result, rateLimitWindowsPruned },
+      { ...result, rateLimitWindowsPruned, notificationsPruned },
       { headers: { "cache-control": "no-store" } },
     );
   } catch (error) {
