@@ -77,25 +77,40 @@ Agents can escalate manually:
 
 ## Notifications
 
-### Dashboard Badge
+### Escalated Conversations Badge
 
-Unread messages show a red badge on the Conversations icon.
+The Conversations icon shows a red count of **open escalated conversations in
+the active workspace**. The count comes from the conversation status itself, so
+resolving or closing the conversation clears it even if its notification was
+never read. Individual conversations still show their own unread-message count
+in the list.
+
+### Notification Bell
+
+The header bell tracks unread escalation notifications across all your
+workspaces. Clicking one switches to its workspace and opens that conversation.
+Opening, replying to, or resolving the conversation marks its notification read.
+Use **Mark all read** to clear the bell.
+
+Notifications are short-lived delivery metadata, not a permanent audit log.
+They expire after 30 days and the scheduled cleanup job removes expired rows.
 
 ### Tab Title
 
-Browser tab shows unread count: `(3) Ziyarn`
+Browser tab shows the unread notification count: `(3) Ziyarn`
 
 ### Toast Notifications
 
-Real-time toast alerts for new messages.
+In-app toast alerts for new escalations while the dashboard is visible.
 
 ### Browser Notifications
 
-Desktop notifications (requires permission).
+Desktop notifications for new escalations while the tab is hidden (requires
+permission).
 
 ### Sound
 
-Audio alert for new messages (3-note chime).
+Audio alert for new escalations while the tab is hidden (3-note chime).
 
 ## Finding a Conversation
 
