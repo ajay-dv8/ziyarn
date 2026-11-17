@@ -108,4 +108,37 @@ describe("handleChatPost escalation pause", () => {
     expect(body).toContain('"type":"text"');
     expect(body).toContain('"type":"done"');
   });
+
+  it("passes the agent's creativity setting to the AI", async () => {
+    const appendMessage = vi.fn().mockResolvedValue({ id: "message-1" });
+    const streamChat = vi.fn(async function* () {
+      yield { type: "text", delta: "Hi! How can I help?" };
+    });
+
+    const response = await handleChatPost(
+      createChatService(appendMessage, "active", {
+        defaultAgentForDomain: async () => ({
+          id: "agent-1",
+          temperature: 1.3,
+        }),
+        contextMessages: async () => [],
+        getProductCatalog: async () => [],
+        getBookingConfig: async () => null,
+      }),
+      {} as never,
+      chatRequest("hi"),
+      {
+        aiService: { isConfigured: true, streamChat } as never,
+        portalService: {} as never,
+        knowledgeService: {} as never,
+        chatRateLimiter: { check: () => true },
+        logger: { info: vi.fn(), error: vi.fn() } as never,
+      },
+    );
+
+    await response.text();
+    expect(streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({ temperature: 1.3 }),
+    );
+  });
 });
