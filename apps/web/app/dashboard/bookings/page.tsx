@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
+import { getBusinessTypeConfig } from "@repo/api/domains/business-types";
+
 import { BookingsClient } from "@/components/dashboard/bookings-client";
 import { authService } from "@/services/auth-service";
 import { domainsService } from "@/services/domains-service";
@@ -21,7 +23,9 @@ export default async function BookingsPage({
 
   const domains = await domainsService.listDomains(requestHeaders);
   const { domainId } = await searchParams;
-  const selectedId = domains.find((domain) => domain.id === domainId)?.id ?? domains[0]?.id ?? null;
+  const selectedDomain =
+    domains.find((domain) => domain.id === domainId) ?? domains[0] ?? null;
+  const selectedId = selectedDomain?.id ?? null;
 
   let bookings: {
     id: string;
@@ -73,6 +77,7 @@ export default async function BookingsPage({
     <BookingsClient
       domains={domains.map((domain) => ({ id: domain.id, name: domain.name }))}
       selectedDomainId={selectedId}
+      label={getBusinessTypeConfig(selectedDomain?.businessType).labels.bookings}
       bookings={bookings}
       settings={settings}
     />
