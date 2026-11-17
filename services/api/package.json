@@ -28,6 +28,8 @@
     "./email/*": "./src/email/*.ts",
     "./knowledge": "./src/knowledge/index.ts",
     "./knowledge/*": "./src/knowledge/*.ts",
+    "./notifications": "./src/notifications/index.ts",
+    "./notifications/*": "./src/notifications/*.ts",
     "./plans": "./src/plans/index.ts",
     "./plans/*": "./src/plans/*.ts",
     "./portal": "./src/portal/index.ts",
