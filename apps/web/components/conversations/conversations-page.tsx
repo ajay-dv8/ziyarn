@@ -11,6 +11,7 @@ import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { cn } from "@repo/ui/lib/utils";
 
 import { API_ROUTES } from "@/constants/routes";
+import { refreshNotificationSummary } from "@/hooks/use-notification-summary";
 import { formatFullDateTime, formatRelativeTime } from "@/lib/utils";
 import { stripLocationMarkers } from "@/lib/widget-markdown";
 
@@ -47,7 +48,13 @@ const STATUS_LABEL: Record<ConversationRow["status"], string> = {
  * Right panel: messenger view with real-time SSE streaming, lead info, and reply input.
  * Layout fills the parent container (h-full) so scrolling is handled per-panel, not the page.
  */
-export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
+export function ConversationsPage({
+  initial,
+  initialConversationId = null,
+}: {
+  initial: ConversationRow[];
+  initialConversationId?: string | null;
+}) {
   const [conversations, setConversations] = useState(initial);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
@@ -62,6 +69,7 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
   const selectedConversationRef = useRef<string | null>(null);
   const connectRef = useRef<(since: string) => void>(() => {});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const openedInitialIdRef = useRef<string | null>(null);
 
   /** Scroll the messages container to the bottom */
   const scrollToBottom = useCallback(() => {
@@ -159,45 +167,70 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
   }, []);
 
   /** Load conversation history and open SSE stream */
-  async function openConversation(conversationId: string) {
-    setSelectedId(conversationId);
-    setMessages([]);
-    setLead(null);
-    seenMessageIdsRef.current = new Set();
-    markConversationSeenAction({ conversationId });
-    // Optimistically clear unread badge
-    setConversations((prev) =>
-      prev.map((conv) =>
-        conv.id === conversationId ? { ...conv, unread: 0 } : conv,
-      ),
-    );
+  const openConversation = useCallback(
+    async (conversationId: string) => {
+      setSelectedId(conversationId);
+      setMessages([]);
+      setLead(null);
+      seenMessageIdsRef.current = new Set();
+      void markConversationSeenAction({ conversationId })
+        .then(() => refreshNotificationSummary())
+        .catch(() => {});
+      // Optimistically clear unread badge
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id === conversationId
+            ? { ...conversation, unread: 0 }
+            : conversation,
+        ),
+      );
 
-    // Fetch full message history
-    const res = await fetch(
-      API_ROUTES.chat.root + "?conversationId=" + encodeURIComponent(conversationId),
-    );
-    if (res.ok) {
-      const data = await res.json();
-      const history: MessageRow[] = data.messages ?? [];
-      history.forEach((msg) => seenMessageIdsRef.current.add(msg.id));
-      setMessages(history);
-      // Set cursor to last message or server time for SSE reconnect
-      const lastMessage = history[history.length - 1];
-      const cursor =
-        lastMessage?.createdAt ??
-        (typeof data.serverTime === "string" ? data.serverTime : undefined);
-      if (!cursor) return;
-      sinceCursorRef.current = cursor;
-      connect(cursor);
-      requestAnimationFrame(scrollToBottom);
+      // Fetch full message history
+      const res = await fetch(
+        API_ROUTES.chat.root +
+          "?conversationId=" +
+          encodeURIComponent(conversationId),
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const history: MessageRow[] = data.messages ?? [];
+        history.forEach((message) => seenMessageIdsRef.current.add(message.id));
+        setMessages(history);
+        // Set cursor to last message or server time for SSE reconnect
+        const lastMessage = history[history.length - 1];
+        const cursor =
+          lastMessage?.createdAt ??
+          (typeof data.serverTime === "string" ? data.serverTime : undefined);
+        if (!cursor) return;
+        sinceCursorRef.current = cursor;
+        connect(cursor);
+        requestAnimationFrame(scrollToBottom);
+      }
+
+      // Fetch lead info (filter question answers) for this conversation
+      const leadRes = await getConversationLeadAction({ conversationId });
+      if (leadRes.ok) {
+        setLead(leadRes.lead ?? null);
+      }
+    },
+    [connect, scrollToBottom],
+  );
+
+  // A notification or email can deep-link straight to one conversation.
+  useEffect(() => {
+    if (!initialConversationId) return;
+    if (openedInitialIdRef.current === initialConversationId) return;
+    if (
+      !conversations.some(
+        (conversation) => conversation.id === initialConversationId,
+      )
+    ) {
+      return;
     }
 
-    // Fetch lead info (filter question answers) for this conversation
-    const leadRes = await getConversationLeadAction({ conversationId });
-    if (leadRes.ok) {
-      setLead(leadRes.lead ?? null);
-    }
-  }
+    openedInitialIdRef.current = initialConversationId;
+    void openConversation(initialConversationId);
+  }, [conversations, initialConversationId, openConversation]);
 
   /** Send an owner reply to the current conversation */
   async function sendReply() {
@@ -217,6 +250,7 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
       sinceCursorRef.current = sentMessage.createdAt;
       connect(sentMessage.createdAt);
       scrollToBottom();
+      refreshNotificationSummary();
     }
   }
 
@@ -235,6 +269,7 @@ export function ConversationsPage({ initial }: { initial: ConversationRow[] }) {
           conv.id === conversationId ? { ...conv, status } : conv,
         ),
       );
+      refreshNotificationSummary();
     }
   }
 
