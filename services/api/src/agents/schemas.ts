@@ -29,6 +29,7 @@ export const createAgentSchema = z.object({
   systemPrompt: z.string().trim().max(16000).optional(),
   tools: z.array(agentToolsSchema).max(10).optional(),
   filterQuestions: filterQuestionsSchema.optional(),
+  temperature: z.number().finite().min(0).max(2).nullable().optional(),
 });
 
 export const updateAgentSchema = z
@@ -39,6 +40,7 @@ export const updateAgentSchema = z
     systemPrompt: createAgentSchema.shape.systemPrompt.optional(),
     tools: createAgentSchema.shape.tools.optional(),
     filterQuestions: createAgentSchema.shape.filterQuestions.optional(),
+    temperature: createAgentSchema.shape.temperature.optional(),
   })
   .refine(
     (data) =>
@@ -47,7 +49,8 @@ export const updateAgentSchema = z
       data.instructions !== undefined ||
       data.systemPrompt !== undefined ||
       data.tools !== undefined ||
-      data.filterQuestions !== undefined,
+      data.filterQuestions !== undefined ||
+      data.temperature !== undefined,
     { message: "Nothing to update" },
   );
 
