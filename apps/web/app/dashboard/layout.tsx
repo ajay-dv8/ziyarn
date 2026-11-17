@@ -19,6 +19,7 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { DashboardTitleUpdater } from "@/components/dashboard/dashboard-title-updater";
 import { DashboardToastListener } from "@/components/dashboard/dashboard-toast-listener";
 import { HeaderCreateMenu } from "@/components/dashboard/header-create-menu";
+import { NotificationBell } from "@/components/dashboard/notification-bell";
 import { WorkspaceSwitcher } from "@/components/dashboard/workspace-switcher";
 import { APP_ROUTES } from "@/constants/routes";
 import { authService } from "@/services/auth-service";
@@ -92,6 +93,7 @@ export default async function DashboardLayout({
             activeWorkspaceId={activeWorkspaceId}
           />
           <div className="ml-auto flex items-center gap-2">
+            <NotificationBell />
             {/* Desktop: the account menu lives in the sidebar's plan card, so
                 the header carries the create action instead. Mobile keeps the
                 account menu here. */}
