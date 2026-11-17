@@ -16,6 +16,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  real,
   text,
   timestamp,
   uniqueIndex,
@@ -53,6 +54,8 @@ export const agents = pgTable(
     tools: text("tools").array().default([]),
     knowledgeSourceIds: uuid("knowledge_source_ids").array().default([]),
     filterQuestions: jsonb("filter_questions"),
+    // NULL keeps the provider's default sampling temperature.
+    temperature: real("temperature"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -64,6 +67,26 @@ export const agents = pgTable(
     index("agents_name_idx").on(table.name),
     index("agents_domain_id_idx").on(table.domainId),
   ],
+);
+
+/**
+ * The agent the widget should use. No row means the oldest agent is used, so
+ * deleting the default simply falls back instead of leaving the domain stuck.
+ */
+export const domainAgentDefaults = pgTable(
+  "domain_agent_defaults",
+  {
+    domainId: uuid("domain_id")
+      .primaryKey()
+      .references(() => domains.id, { onDelete: "cascade" }),
+    agentId: uuid("agent_id")
+      .notNull()
+      .references(() => agents.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("domain_agent_defaults_agent_id_idx").on(table.agentId)],
 );
 
 export const conversations = pgTable(
