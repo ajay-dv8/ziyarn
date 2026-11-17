@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { APP_ROUTES } from "@/constants/routes";
-import { useUnreadCount } from "@/hooks/use-unread-count";
+import { setActiveWorkspaceCookie } from "@/lib/active-workspace";
+import { useNotificationSummary } from "@/hooks/use-notification-summary";
+
+/** A poll that recovers after a short outage should not toast stale events. */
+const TOAST_MAX_AGE_MS = 2 * 60 * 1000;
 
 /**
  * Plays a short 3-note ascending chime (C5 → E5 → G5) using the Web Audio API.
@@ -27,16 +30,22 @@ function playNotificationSound() {
       if (frequency === undefined) continue;
       oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
 
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime + noteIndex * (noteDuration + noteGap));
+      gainNode.gain.setValueAtTime(
+        0.3,
+        audioContext.currentTime + noteIndex * (noteDuration + noteGap),
+      );
       gainNode.gain.exponentialRampToValueAtTime(
         0.001,
-        audioContext.currentTime + noteIndex * (noteDuration + noteGap) + noteDuration,
+        audioContext.currentTime +
+          noteIndex * (noteDuration + noteGap) +
+          noteDuration,
       );
 
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
 
-      const startTime = audioContext.currentTime + noteIndex * (noteDuration + noteGap);
+      const startTime =
+        audioContext.currentTime + noteIndex * (noteDuration + noteGap);
       oscillator.start(startTime);
       oscillator.stop(startTime + noteDuration);
     }
@@ -46,16 +55,16 @@ function playNotificationSound() {
 }
 
 /**
- * Listens for unread count changes and triggers:
- * 1. In-app toast (always when document is visible)
- * 2. Browser notification + sound (when document is hidden)
+ * Listens for new notification events and triggers:
+ * 1. In-app toast (when the document is visible)
+ * 2. Browser notification + sound (when the document is hidden)
  *
  * Renders nothing — side-effect only.
  */
 export function DashboardToastListener() {
-  const totalUnread = useUnreadCount();
-  const router = useRouter();
-  const previousCountRef = useRef(totalUnread);
+  const { latestNotification } = useNotificationSummary();
+  const lastMarkerRef = useRef<string | null>(null);
+  const initializedRef = useRef(false);
   const hasRequestedPermissionRef = useRef(false);
 
   // Request browser notification permission on mount (once)
@@ -68,33 +77,67 @@ export function DashboardToastListener() {
   }, []);
 
   useEffect(() => {
-    const previousCount = previousCountRef.current;
-    previousCountRef.current = totalUnread;
+    if (!latestNotification) {
+      if (!initializedRef.current) initializedRef.current = true;
+      lastMarkerRef.current = null;
+      return;
+    }
 
-    // Only notify on increment (new escalation arrived)
-    if (totalUnread <= previousCount) return;
+    const notification = latestNotification;
+    const marker = `${notification.id}:${notification.updatedAt}`;
 
-    // In-app toast (shown when tab is visible)
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      lastMarkerRef.current = marker;
+      return;
+    }
+
+    if (marker === lastMarkerRef.current) return;
+    lastMarkerRef.current = marker;
+
+    const updatedAt = new Date(notification.updatedAt).getTime();
+    if (!Number.isFinite(updatedAt) || Date.now() - updatedAt > TOAST_MAX_AGE_MS) {
+      return;
+    }
+
+    function openLatestNotification() {
+      if (!notification.conversationId) return;
+      setActiveWorkspaceCookie(notification.workspaceId);
+      window.location.assign(
+        `${APP_ROUTES.DASHBOARD_CONVERSATIONS}?conversationId=${encodeURIComponent(
+          notification.conversationId,
+        )}`,
+      );
+    }
+
     if (!document.hidden) {
       toast("New escalation", {
-        description: "A visitor has been connected to a human agent",
+        description: notification.body,
         action: {
           label: "View",
-          onClick: () => router.push(APP_ROUTES.DASHBOARD_CONVERSATIONS),
+          onClick: openLatestNotification,
         },
         duration: 10_000,
       });
     }
 
-    // Browser notification + sound (shown when tab is hidden)
-    if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+    if (
+      document.hidden &&
+      "Notification" in window &&
+      Notification.permission === "granted"
+    ) {
       playNotificationSound();
-      new Notification("Ziyarn", {
-        body: "New visitor escalation — open to respond",
+      const browserNotification = new Notification("Ziyarn", {
+        body: notification.body,
         icon: "/favicon.ico",
+        tag: notification.id,
       });
+      browserNotification.onclick = () => {
+        window.focus();
+        openLatestNotification();
+      };
     }
-  }, [totalUnread, router]);
+  }, [latestNotification]);
 
   return null;
 }
