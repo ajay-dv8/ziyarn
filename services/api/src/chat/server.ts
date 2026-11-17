@@ -9,7 +9,7 @@ import {
   messages,
   products,
   bookingSettings,
-  users,
+  user as authUser,
 } from "@repo/database/schema";
 import { isAiModelUnavailableError, type AgentToolName } from "@repo/ai";
 import { currencyCode, formatDecimal } from "@repo/money";
@@ -21,6 +21,11 @@ import {
   escalationNotificationTemplate,
 } from "@repo/api/email/templates";
 import { sendTransactional } from "@repo/api/email/server";
+import {
+  ensureConversationEscalationNotification,
+  markConversationNotificationsRead,
+  notifyConversationEscalated,
+} from "@repo/api/notifications/server";
 import {
   clampWidgetVariantForPlan,
   getPlanLimits,
@@ -228,6 +233,19 @@ function buildDeltaStream(
       ...CORS_HEADERS,
     },
   });
+}
+
+/** Notification cleanup must never make a conversation action fail. */
+async function markNotificationsReadQuietly(
+  db: Database,
+  userId: string,
+  conversationId: string,
+) {
+  try {
+    await markConversationNotificationsRead(db, userId, conversationId);
+  } catch (error) {
+    console.error("notification_mark_read_failed", conversationId, error);
+  }
 }
 
 /**
@@ -462,26 +480,6 @@ export function createChatService(deps: { db: Database }) {
       });
     },
 
-    /** Total unread message count across all conversations for an owner. */
-    getTotalUnreadCount: async (ownerId: string) => {
-      const ownerConversations = db
-        .select({ id: conversations.id })
-        .from(conversations)
-        .innerJoin(agents, eq(conversations.agentId, agents.id))
-        .innerJoin(domains, eq(agents.domainId, domains.id))
-        .where(eq(domains.ownerId, ownerId));
-
-      const [row] = await db
-        .select({
-          total: sql<number>`coalesce(sum(case when ${messages.sender} <> 'owner' and ${messages.createdAt} > ${conversations.ownerSeenAt} then 1 else 0 end), 0)`,
-        })
-        .from(messages)
-        .innerJoin(conversations, eq(messages.conversationId, conversations.id))
-        .where(inArray(conversations.id, ownerConversations));
-
-      return row?.total ?? 0;
-    },
-
     /** Messages created after `since`, optionally restricted to a sender. */
     listMessagesSince: async (
       id: string,
@@ -536,6 +534,7 @@ export function createChatService(deps: { db: Database }) {
         .update(conversations)
         .set({ updatedAt: new Date() })
         .where(eq(conversations.id, id));
+      await markNotificationsReadQuietly(db, ownerId, id);
       return created;
     },
 
@@ -546,6 +545,7 @@ export function createChatService(deps: { db: Database }) {
         .update(conversations)
         .set({ ownerSeenAt: new Date(), updatedAt: new Date() })
         .where(eq(conversations.id, id));
+      await markNotificationsReadQuietly(db, ownerId, id);
     },
 
     /** Status change scoped to the owner (resolve/close/reopen/…). */
@@ -560,6 +560,9 @@ export function createChatService(deps: { db: Database }) {
         .set({ status, updatedAt: new Date() })
         .where(eq(conversations.id, id))
         .returning();
+      if (status !== "escalated") {
+        await markNotificationsReadQuietly(db, ownerId, id);
+      }
       return updated;
     },
 
@@ -790,28 +793,89 @@ export type EscalateConversationDeps = {
  */
 export async function escalateConversationToHuman(deps: EscalateConversationDeps): Promise<void> {
   const { db, domain, conversationId, chatService, logger, reason } = deps;
+
+  // Read the previous status so a repeated tool call cannot send a second
+  // email or reopen an already-read notification for the same episode.
+  const [currentConversation] = await db
+    .select({ status: conversations.status })
+    .from(conversations)
+    .where(eq(conversations.id, conversationId))
+    .limit(1);
+  const wasEscalated = currentConversation?.status === "escalated";
+
   await chatService.setConversationStatus(conversationId, "escalated");
   logger.info({ conversationId, reason }, "conversation_escalated");
 
   try {
     const [domainRow] = await db
-      .select({ ownerId: domains.ownerId, domainName: domains.name })
+      .select({
+        ownerId: domains.ownerId,
+        workspaceId: domains.workspaceId,
+        domainName: domains.name,
+      })
       .from(domains)
       .where(eq(domains.id, domain.id))
       .limit(1);
-    if (domainRow) {
+
+    if (!domainRow) {
+      logger.error(
+        { conversationId, domainId: domain.id },
+        "escalation_domain_missing",
+      );
+      return;
+    }
+
+    const [visitorMessage] = await db
+      .select({ content: messages.content })
+      .from(messages)
+      .where(
+        and(
+          eq(messages.conversationId, conversationId),
+          eq(messages.sender, "visitor"),
+        ),
+      )
+      .orderBy(desc(messages.createdAt))
+      .limit(1);
+
+    const notificationInput = {
+      userId: domainRow.ownerId,
+      workspaceId: domainRow.workspaceId,
+      domainId: domain.id,
+      conversationId,
+      domainName: domainRow.domainName,
+      message: visitorMessage?.content ?? null,
+      reason: typeof reason === "string" ? reason : null,
+    };
+
+    try {
+      if (wasEscalated) {
+        await ensureConversationEscalationNotification(db, notificationInput);
+      } else {
+        await notifyConversationEscalated(db, notificationInput);
+      }
+    } catch (notificationError) {
+      logger.error(
+        { err: notificationError, conversationId },
+        "escalation_notification_failed",
+      );
+    }
+
+    if (wasEscalated) return;
+
+    try {
+      // The legacy `users` table is empty; the authenticated recipient lives in
+      // the Better Auth `user` table that domains.ownerId already references.
       const [ownerRow] = await db
-        .select({ email: users.email })
-        .from(users)
-        .where(eq(users.id, domainRow.ownerId))
+        .select({ email: authUser.email })
+        .from(authUser)
+        .where(eq(authUser.id, domainRow.ownerId))
         .limit(1);
       if (ownerRow?.email) {
-        const firstMsg = await chatService.contextMessages(conversationId, 1);
         const dashboardUrl = `${absoluteUrl(process.env.BETTER_AUTH_URL ?? "", APP_ROUTES.DASHBOARD_CONVERSATIONS)}?conversationId=${conversationId}`;
         const template = escalationNotificationTemplate({
           domainName: domainRow.domainName,
           dashboardUrl,
-          firstMessage: firstMsg[0]?.content ?? null,
+          firstMessage: visitorMessage?.content ?? null,
           reason: typeof reason === "string" ? reason : undefined,
         });
         await sendTransactional({
@@ -821,9 +885,14 @@ export async function escalateConversationToHuman(deps: EscalateConversationDeps
           html: template.html,
         });
       }
+    } catch (emailError) {
+      logger.error({ err: emailError, conversationId }, "escalation_email_failed");
     }
-  } catch (emailError) {
-    logger.error({ err: emailError, conversationId }, "escalation_email_failed");
+  } catch (lookupError) {
+    logger.error(
+      { err: lookupError, conversationId },
+      "escalation_lookup_failed",
+    );
   }
 }
 
