@@ -41,6 +41,7 @@ export const API_ROUTES = {
   agents: {
     root: "/api/agents",
     byId: (agentId: string) => `/api/agents/${agentId}`,
+    defaultByAgent: (agentId: string) => `/api/agents/${agentId}/default`,
   },
   analytics: "/api/analytics",
   auth: {
