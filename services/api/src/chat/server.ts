@@ -4,6 +4,7 @@ import type { Database } from "@repo/database";
 import {
   agents,
   conversations,
+  domainAgentDefaults,
   domains,
   messages,
   products,
@@ -274,8 +275,28 @@ export function createChatService(deps: { db: Database }) {
       return domain;
     },
 
-    /** Returns the first agent of a domain (P3: one default agent). */
+    /** Returns the chosen widget agent, falling back to the oldest agent. */
     defaultAgentForDomain: async (domainId: string) => {
+      const [chosen] = await db
+        .select({ agentId: domainAgentDefaults.agentId })
+        .from(domainAgentDefaults)
+        .where(eq(domainAgentDefaults.domainId, domainId))
+        .limit(1);
+
+      if (chosen) {
+        const [agent] = await db
+          .select()
+          .from(agents)
+          .where(
+            and(
+              eq(agents.id, chosen.agentId),
+              eq(agents.domainId, domainId),
+            ),
+          )
+          .limit(1);
+        if (agent) return agent;
+      }
+
       const [agent] = await db
         .select()
         .from(agents)
@@ -725,6 +746,7 @@ type AiService = {
     messages: { role: "user" | "assistant"; content: string }[];
     tools?: AgentToolName[];
     executeTool: (name: AgentToolName, args: Record<string, unknown>) => Promise<string>;
+    temperature?: number;
     signal?: AbortSignal;
   }) => AsyncIterable<{ type: string; delta?: string; name?: AgentToolName; args?: Record<string, unknown> }>;
 };
@@ -1066,6 +1088,9 @@ export async function handleChatPost(
             messages: context,
             tools: enabledTools as AgentToolName[] | undefined,
             executeTool: toolExecutor,
+            ...(agent.temperature !== null
+              ? { temperature: agent.temperature }
+              : {}),
             signal: abortController.signal,
           })) {
             if (event.type === "text") {
