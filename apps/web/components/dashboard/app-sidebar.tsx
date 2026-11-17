@@ -46,7 +46,7 @@ import { APP_ROUTES } from "@/constants/routes";
 import { CreateDomainButton } from "@/components/domains/create-domain-button";
 import { DomainLogo } from "@/components/domains/domain-logo";
 import { UserMenu } from "@/components/dashboard/user-menu";
-import { useUnreadCount } from "@/hooks/use-unread-count";
+import { useNotificationSummary } from "@/hooks/use-notification-summary";
 import {
   getBusinessTypeConfig,
   type BusinessType,
@@ -86,7 +86,7 @@ export function AppSidebar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeDomainId = searchParams.get("domainId");
-  const totalUnread = useUnreadCount();
+  const { openEscalatedCount } = useNotificationSummary();
   const inDomainSection = DOMAIN_SCOPED_PATHS.some((path) =>
     pathname.startsWith(path),
   );
@@ -185,9 +185,14 @@ export function AppSidebar({
                 <MessagesSquare />
                 <span>Conversations</span>
               </SidebarMenuButton>
-              {totalUnread > 0 && (
-                <SidebarMenuBadge className="bg-destructive text-destructive-foreground">
-                  {totalUnread}
+              {openEscalatedCount > 0 && (
+                <SidebarMenuBadge
+                  className="bg-destructive text-destructive-foreground"
+                  aria-label={`${openEscalatedCount} escalated ${
+                    openEscalatedCount === 1 ? "conversation" : "conversations"
+                  }`}
+                >
+                  {openEscalatedCount > 99 ? "99+" : openEscalatedCount}
                 </SidebarMenuBadge>
               )}
             </SidebarMenuItem>
