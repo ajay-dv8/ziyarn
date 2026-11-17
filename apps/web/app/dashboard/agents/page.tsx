@@ -39,6 +39,11 @@ export default async function AgentsPage({
   const agents = selected
     ? await agentsService.listAgents(selected.id, requestHeaders)
     : [];
+  const storedDefaultAgentId =
+    selected && agents.length > 0
+      ? await agentsService.getDefaultAgentId(selected.id, requestHeaders)
+      : null;
+  const defaultAgentId = storedDefaultAgentId ?? agents[0]?.id ?? null;
 
   return (
     <div className="space-y-6">
@@ -83,14 +88,14 @@ export default async function AgentsPage({
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {agents.map((agent, agentIndex) => {
+          {agents.map((agent) => {
             const questions = Array.isArray(agent.filterQuestions)
               ? agent.filterQuestions.filter(
                   (question): question is string =>
                     typeof question === "string",
                 )
               : [];
-            const isDefaultAgent = agentIndex === 0;
+            const isDefaultAgent = agent.id === defaultAgentId;
 
             return (
               <Card key={agent.id}>

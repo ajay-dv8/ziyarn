@@ -44,7 +44,6 @@ import {
   MoreVertical,
   Pencil,
   Settings2,
-  Sparkles,
   Trash2,
   Volume2,
 } from "lucide-react";
@@ -59,6 +58,7 @@ type AgentCardAgent = {
   systemPrompt: string | null;
   tools: string[] | null;
   filterQuestions: unknown;
+  temperature: number | null;
 };
 
 type ToolOption = {
@@ -145,9 +145,11 @@ export function AgentCardMenu({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [configureSaving, setConfigureSaving] = useState(false);
+  const [defaultSaving, setDefaultSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [configureError, setConfigureError] = useState<string | null>(null);
+  const [defaultError, setDefaultError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     name: agent.name,
@@ -158,6 +160,7 @@ export function AgentCardMenu({
     systemPrompt: agent.systemPrompt ?? "",
     tools: initialTools(agent.tools),
     filterQuestions: questionsToText(agent.filterQuestions),
+    temperature: agent.temperature,
   });
 
   function toggleTool(toolId: AgentTools) {
@@ -234,6 +237,7 @@ export function AgentCardMenu({
             systemPrompt: configureForm.systemPrompt.trim(),
             tools: configureForm.tools,
             filterQuestions,
+            temperature: configureForm.temperature,
           }),
         },
       );
@@ -251,6 +255,33 @@ export function AgentCardMenu({
     } catch {
       setConfigureError("Network error. Please try again.");
       setConfigureSaving(false);
+    }
+  }
+
+  async function makeDefault() {
+    setDefaultSaving(true);
+    setDefaultError(null);
+    try {
+      const response = await fetch(
+        `${API_ROUTES.agents.defaultByAgent(agent.id)}?domainId=${encodeURIComponent(domainId)}`,
+        { method: "POST" },
+      );
+      if (!response.ok) {
+        setDefaultError(
+          await readErrorMessage(
+            response,
+            "We could not change the widget agent.",
+          ),
+        );
+        setDefaultSaving(false);
+        return;
+      }
+
+      setDefaultSaving(false);
+      router.refresh();
+    } catch {
+      setDefaultError("Network error. Please try again.");
+      setDefaultSaving(false);
     }
   }
 
@@ -281,13 +312,6 @@ export function AgentCardMenu({
 
   const comingSoonSettings = [
     {
-      icon: Bot,
-      title: "Default widget agent",
-      description: isDefault
-        ? "This agent is used by the widget today. Choosing a different default is coming soon."
-        : "The widget currently uses the oldest agent. Choosing a different default is coming soon.",
-    },
-    {
       icon: Cpu,
       title: "Model and provider",
       description:
@@ -298,11 +322,6 @@ export function AgentCardMenu({
       title: "Voice",
       description:
         "Voice replies, language, and read-aloud for the widget.",
-    },
-    {
-      icon: Sparkles,
-      title: "Creativity",
-      description: "Adjust response temperature and creativity.",
     },
     {
       icon: Flag,
@@ -340,6 +359,7 @@ export function AgentCardMenu({
           <DropdownMenuItem
             onClick={() => {
               setConfigureError(null);
+              setDefaultError(null);
               setConfigureOpen(true);
             }}
           >
@@ -517,6 +537,68 @@ export function AgentCardMenu({
 
             <section className="space-y-3">
               <div>
+                <h3 className="text-sm font-medium">Response style</h3>
+                <p className="text-xs text-muted-foreground">
+                  Higher creativity gives more varied answers. Lower values
+                  keep replies predictable.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor={`agent-temperature-${agent.id}`}>
+                    Creativity
+                  </Label>
+                  <span className="text-xs text-muted-foreground">
+                    {configureForm.temperature === null
+                      ? "Provider default"
+                      : configureForm.temperature.toFixed(1)}
+                  </span>
+                </div>
+                <input
+                  id={`agent-temperature-${agent.id}`}
+                  type="range"
+                  min={0}
+                  max={2}
+                  step={0.1}
+                  value={configureForm.temperature ?? 0.7}
+                  aria-valuetext={
+                    configureForm.temperature === null
+                      ? "Provider default"
+                      : configureForm.temperature.toFixed(1)
+                  }
+                  onChange={(event) =>
+                    setConfigureForm({
+                      ...configureForm,
+                      temperature: Number(event.target.value),
+                    })
+                  }
+                  className="w-full accent-primary"
+                />
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Precise</span>
+                  <span>Creative</span>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    disabled={configureForm.temperature === null}
+                    onClick={() =>
+                      setConfigureForm({
+                        ...configureForm,
+                        temperature: null,
+                      })
+                    }
+                  >
+                    Use provider default
+                  </Button>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <div>
                 <h3 className="text-sm font-medium">Capabilities</h3>
                 <p className="text-xs text-muted-foreground">
                   Choose what the agent can do during a conversation.
@@ -611,6 +693,52 @@ export function AgentCardMenu({
                 <BookOpen className="size-4" />
                 Manage knowledge
               </Button>
+            </section>
+
+            <section className="space-y-2">
+              <div>
+                <h3 className="text-sm font-medium">Widget</h3>
+                <p className="text-xs text-muted-foreground">
+                  Choose which agent answers visitors on your website.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+                <div className="flex items-start gap-3">
+                  <Bot
+                    className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <div className="space-y-0.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium">Widget agent</p>
+                      {isDefault ? (
+                        <Badge variant="secondary">In use</Badge>
+                      ) : null}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {isDefault
+                        ? "Visitors talk to this agent."
+                        : "The widget currently uses a different agent."}
+                    </p>
+                  </div>
+                </div>
+                {!isDefault ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={makeDefault}
+                    disabled={defaultSaving}
+                  >
+                    {defaultSaving ? "Saving…" : "Use this agent"}
+                  </Button>
+                ) : null}
+              </div>
+              {defaultError ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {defaultError}
+                </p>
+              ) : null}
             </section>
 
             <section className="space-y-3 rounded-lg border border-dashed p-4">

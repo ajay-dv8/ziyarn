@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
-import { agents, domains } from "@repo/database/schema";
+import { agents, domainAgentDefaults, domains } from "@repo/database/schema";
 
 import type { SessionWithUser } from "@repo/api/domains/server";
 import {
@@ -114,6 +114,22 @@ export function createAgentsService(deps: {
       return row;
     },
 
+    /**
+     * The explicitly chosen widget agent, or null when the domain still uses
+     * the oldest agent.
+     */
+    getDefaultAgentId: async (domainId: string, headers: Headers) => {
+      await requireOwnedDomain(domainId, headers);
+
+      const [row] = await db
+        .select({ agentId: domainAgentDefaults.agentId })
+        .from(domainAgentDefaults)
+        .where(eq(domainAgentDefaults.domainId, domainId))
+        .limit(1);
+
+      return row?.agentId ?? null;
+    },
+
     /** Creates an agent inside a domain owned by the session user. */
     createAgent: async (input: CreateAgentInput, headers: Headers) => {
       const body = createAgentSchema.parse(input);
@@ -129,6 +145,7 @@ export function createAgentsService(deps: {
           systemPrompt: body.systemPrompt,
           tools: body.tools ?? [...DEFAULT_AGENT_TOOLS],
           filterQuestions: body.filterQuestions ?? null,
+          temperature: body.temperature ?? null,
         })
         .returning();
 
@@ -162,12 +179,32 @@ export function createAgentsService(deps: {
           ...(body.filterQuestions !== undefined
             ? { filterQuestions: body.filterQuestions }
             : {}),
+          ...(body.temperature !== undefined
+            ? { temperature: body.temperature }
+            : {}),
           updatedAt: new Date(),
         })
         .where(eq(agents.id, agent.id))
         .returning();
 
       return updated;
+    },
+
+    /** Makes an agent the one the widget talks to. */
+    setDefaultAgent: async (
+      domainId: string,
+      agentId: string,
+      headers: Headers,
+    ) => {
+      const agent = await requireOwnedAgent(domainId, agentId, headers);
+
+      await db
+        .insert(domainAgentDefaults)
+        .values({ domainId, agentId: agent.id })
+        .onConflictDoUpdate({
+          target: domainAgentDefaults.domainId,
+          set: { agentId: agent.id, updatedAt: new Date() },
+        });
     },
 
     /** Deletes an agent owned by the session user. */
