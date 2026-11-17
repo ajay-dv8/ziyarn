@@ -14,6 +14,7 @@ import {
 import { Building2, Check, ChevronsUpDown, Plus } from "lucide-react";
 
 import { CreateWorkspaceDialog } from "@/components/workspaces/create-workspace-dialog";
+import { refreshNotificationSummary } from "@/hooks/use-notification-summary";
 import { setActiveWorkspaceCookie } from "@/lib/active-workspace";
 
 export type WorkspaceSummary = {
@@ -41,6 +42,7 @@ export function WorkspaceSwitcher({
 
   const activate = (workspaceId: string) => {
     setActiveWorkspaceCookie(workspaceId);
+    refreshNotificationSummary();
     router.refresh();
   };
 
@@ -96,7 +98,10 @@ export function WorkspaceSwitcher({
       <CreateWorkspaceDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onCreated={setActiveWorkspaceCookie}
+        onCreated={(workspaceId) => {
+          setActiveWorkspaceCookie(workspaceId);
+          refreshNotificationSummary();
+        }}
       />
     </>
   );
