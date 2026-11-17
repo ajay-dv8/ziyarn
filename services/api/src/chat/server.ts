@@ -138,7 +138,7 @@ export function systemPromptFor(
     ? "If the visitor asks about branches, outlets, offices, or locations and no saved locations are listed above, call answer_knowledge and answer from the knowledge results, including crawled pages. Do not say you lack location information until you have checked."
     : "";
   const parts = [
-    agent.systemPrompt ?? businessConfig.defaultSystemPrompt,
+    agent.systemPrompt?.trim() || businessConfig.defaultSystemPrompt,
     agent.description ? `About this business: ${agent.description}` : "",
     agent.instructions ? `Guidelines:\n${agent.instructions}` : "",
     agent.tools?.length

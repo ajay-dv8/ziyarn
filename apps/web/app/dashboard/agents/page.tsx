@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
+import { Badge } from "@repo/ui/components/badge";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/card";
 
-import { AgentActions } from "@/components/dashboard/agent-actions";
+import { AgentCardMenu } from "@/components/dashboard/agent-card-menu";
 import { CreateAgentButton } from "@/components/dashboard/create-agent-button";
 import { DomainTabs } from "@/components/domains/domain-tabs";
 import { authService } from "@/services/auth-service";
@@ -81,17 +83,35 @@ export default async function AgentsPage({
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {agents.map((agent) => {
+          {agents.map((agent, agentIndex) => {
             const questions = Array.isArray(agent.filterQuestions)
-              ? agent.filterQuestions.filter((q): q is string => typeof q === "string")
+              ? agent.filterQuestions.filter(
+                  (question): question is string =>
+                    typeof question === "string",
+                )
               : [];
+            const isDefaultAgent = agentIndex === 0;
+
             return (
               <Card key={agent.id}>
                 <CardHeader>
-                  <CardTitle className="text-base">{agent.name}</CardTitle>
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <CardTitle className="text-base">{agent.name}</CardTitle>
+                    {agents.length > 1 && isDefaultAgent ? (
+                      <Badge variant="secondary">Widget agent</Badge>
+                    ) : null}
+                  </div>
                   <CardDescription>
-                    {agent.description ?? "No description"}
+                    {agent.description || "No description"}
                   </CardDescription>
+                  <CardAction>
+                    <AgentCardMenu
+                      agent={agent}
+                      domainId={selected.id}
+                      isDefault={isDefaultAgent}
+                      agentCount={agents.length}
+                    />
+                  </CardAction>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -104,15 +124,19 @@ export default async function AgentsPage({
                   </div>
                   {questions.length > 0 ? (
                     <ul className="space-y-1 text-sm">
-                      {questions.map((question, index) => (
-                        <li key={index} className="text-muted-foreground">
-                          <span className="text-foreground">Q{index + 1}:</span>{" "}
+                      {questions.map((question, questionIndex) => (
+                        <li
+                          key={questionIndex}
+                          className="text-muted-foreground"
+                        >
+                          <span className="text-foreground">
+                            Q{questionIndex + 1}:
+                          </span>{" "}
                           {question}
                         </li>
                       ))}
                     </ul>
                   ) : null}
-                  <AgentActions agent={agent} domainId={selected.id} />
                 </CardContent>
               </Card>
             );

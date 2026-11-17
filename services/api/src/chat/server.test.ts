@@ -177,6 +177,23 @@ describe("systemPromptFor", () => {
     expect(prompt).not.toContain("call answer_knowledge");
   });
 
+  it("falls back to the business default when the custom prompt is blank", () => {
+    const prompt = systemPromptFor(
+      { slug: "urban-plus-2", businessType: "ecommerce" },
+      {
+        name: "Urban+",
+        description: null,
+        instructions: null,
+        systemPrompt: "   ",
+        tools: null,
+        filterQuestions: null,
+      },
+      [],
+    );
+
+    expect(prompt).toContain("friendly sales and support assistant");
+  });
+
   it("includes a product page URL in the catalog line", () => {
     const prompt = systemPromptFor(
       { slug: "urban-plus-2", businessType: "ecommerce" },
