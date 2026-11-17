@@ -99,6 +99,11 @@ export function AppSidebar({
   );
   const businessConfig = getBusinessTypeConfig(selectedDomain?.businessType);
   const labels = businessConfig.labels;
+  const domainHref = (path: string) => {
+    if (!selectedDomain) return path;
+    const separator = path.includes("?") ? "&" : "?";
+    return `${path}${separator}domainId=${encodeURIComponent(selectedDomain.id)}`;
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -191,7 +196,7 @@ export function AppSidebar({
                 <SidebarMenuButton
                   isActive={pathname === APP_ROUTES.DASHBOARD_BOOKINGS}
                   tooltip={labels.bookings}
-                  render={<Link href={APP_ROUTES.DASHBOARD_BOOKINGS} />}
+                  render={<Link href={domainHref(APP_ROUTES.DASHBOARD_BOOKINGS)} />}
                 >
                   <Calendar />
                   <span>{labels.bookings}</span>
@@ -205,7 +210,7 @@ export function AppSidebar({
               <SidebarMenuButton
                 isActive={pathname === APP_ROUTES.DASHBOARD_ANALYTICS}
                 tooltip="Analytics"
-                render={<Link href={APP_ROUTES.DASHBOARD_ANALYTICS} />}
+                render={<Link href={domainHref(APP_ROUTES.DASHBOARD_ANALYTICS)} />}
               >
                 <BarChart3 />
                 <span>Analytics</span>
@@ -225,7 +230,7 @@ export function AppSidebar({
               <SidebarMenuButton
                 isActive={pathname === APP_ROUTES.DASHBOARD_CUSTOMERS}
                 tooltip={labels.customers}
-                render={<Link href={APP_ROUTES.DASHBOARD_CUSTOMERS} />}
+                render={<Link href={domainHref(APP_ROUTES.DASHBOARD_CUSTOMERS)} />}
               >
                 <UsersRound />
                 <span>{labels.customers}</span>
@@ -235,7 +240,7 @@ export function AppSidebar({
               <SidebarMenuButton
                 isActive={pathname === APP_ROUTES.DASHBOARD_ORDERS}
                 tooltip={labels.orders}
-                render={<Link href={APP_ROUTES.DASHBOARD_ORDERS} />}
+                render={<Link href={domainHref(APP_ROUTES.DASHBOARD_ORDERS)} />}
               >
                 <Package />
                 <span>{labels.orders}</span>
@@ -255,7 +260,7 @@ export function AppSidebar({
               <SidebarMenuButton
                 isActive={pathname === APP_ROUTES.DASHBOARD_PRODUCTS}
                 tooltip={labels.productsPlural}
-                render={<Link href={APP_ROUTES.DASHBOARD_PRODUCTS} />}
+                render={<Link href={domainHref(APP_ROUTES.DASHBOARD_PRODUCTS)} />}
               >
                 <ShoppingBag />
                 <span>{labels.productsPlural}</span>
