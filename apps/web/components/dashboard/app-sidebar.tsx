@@ -21,8 +21,10 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
 } from "@repo/ui/components/sidebar";
+import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
+  BookOpen,
   Building2,
   Calendar,
   ChevronRight,
@@ -65,10 +67,16 @@ const DOMAIN_SCOPED_PATHS = [
   APP_ROUTES.DASHBOARD_DATABASES,
 ];
 
+type WorkspaceLink = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  active?: boolean;
+  external?: boolean;
+};
+
 export function AppSidebar({
   plan,
-  domainCount,
-  maxDomains,
   email,
   domains,
 }: {
@@ -94,9 +102,7 @@ export function AppSidebar({
     inDomainSection || pathname.startsWith(APP_ROUTES.DASHBOARD_ANALYTICS),
   );
 
-  const selectedDomain = domains.find(
-    (domain) => domain.id === activeDomainId,
-  );
+  const selectedDomain = domains.find((domain) => domain.id === activeDomainId);
   const businessConfig = getBusinessTypeConfig(selectedDomain?.businessType);
   const labels = businessConfig.labels;
   const domainHref = (path: string) => {
@@ -104,6 +110,91 @@ export function AppSidebar({
     const separator = path.includes("?") ? "&" : "?";
     return `${path}${separator}domainId=${encodeURIComponent(selectedDomain.id)}`;
   };
+
+  const workspaceLinks: WorkspaceLink[] = [
+    ...(businessConfig.showBookings
+      ? [
+          {
+            label: labels.bookings,
+            href: domainHref(APP_ROUTES.DASHBOARD_BOOKINGS),
+            icon: Calendar,
+            active: pathname === APP_ROUTES.DASHBOARD_BOOKINGS,
+          },
+        ]
+      : []),
+    {
+      label: "Analytics",
+      href: domainHref(APP_ROUTES.DASHBOARD_ANALYTICS),
+      icon: BarChart3,
+      active: pathname === APP_ROUTES.DASHBOARD_ANALYTICS,
+    },
+    {
+      label: "Usage",
+      href: APP_ROUTES.DASHBOARD_USAGE,
+      icon: Gauge,
+      active: pathname === APP_ROUTES.DASHBOARD_USAGE,
+    },
+    {
+      label: labels.customers,
+      href: domainHref(APP_ROUTES.DASHBOARD_CUSTOMERS),
+      icon: UsersRound,
+      active: pathname === APP_ROUTES.DASHBOARD_CUSTOMERS,
+    },
+    {
+      label: labels.orders,
+      href: domainHref(APP_ROUTES.DASHBOARD_ORDERS),
+      icon: Package,
+      active: pathname === APP_ROUTES.DASHBOARD_ORDERS,
+    },
+    {
+      label: "Campaigns",
+      href: APP_ROUTES.DASHBOARD_CAMPAIGNS,
+      icon: Mail,
+      active: pathname === APP_ROUTES.DASHBOARD_CAMPAIGNS,
+    },
+    {
+      label: labels.productsPlural,
+      href: domainHref(APP_ROUTES.DASHBOARD_PRODUCTS),
+      icon: ShoppingBag,
+      active: pathname === APP_ROUTES.DASHBOARD_PRODUCTS,
+    },
+    {
+      label: "Billing",
+      href: APP_ROUTES.DASHBOARD_BILLING,
+      icon: CreditCard,
+      active: pathname === APP_ROUTES.DASHBOARD_BILLING,
+    },
+    {
+      label: "Integrations",
+      href: APP_ROUTES.DASHBOARD_INTEGRATIONS,
+      icon: Plug,
+      active: pathname === APP_ROUTES.DASHBOARD_INTEGRATIONS,
+    },
+    {
+      label: "Workspaces",
+      href: APP_ROUTES.DASHBOARD_WORKSPACES,
+      icon: Building2,
+      active: pathname.startsWith(APP_ROUTES.DASHBOARD_WORKSPACES),
+    },
+    {
+      label: "Team",
+      href: APP_ROUTES.DASHBOARD_TEAM,
+      icon: Users,
+      active: pathname === APP_ROUTES.DASHBOARD_TEAM,
+    },
+    {
+      label: "Settings",
+      href: APP_ROUTES.DASHBOARD_SETTINGS,
+      icon: Settings,
+      active: pathname === APP_ROUTES.DASHBOARD_SETTINGS,
+    },
+    {
+      label: "Docs",
+      href: APP_ROUTES.DOCS,
+      icon: BookOpen,
+      external: true,
+    },
+  ];
 
   return (
     <Sidebar collapsible="icon">
@@ -196,131 +287,29 @@ export function AppSidebar({
                 </SidebarMenuBadge>
               )}
             </SidebarMenuItem>
-            {businessConfig.showBookings && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={pathname === APP_ROUTES.DASHBOARD_BOOKINGS}
-                  tooltip={labels.bookings}
-                  render={<Link href={domainHref(APP_ROUTES.DASHBOARD_BOOKINGS)} />}
-                >
-                  <Calendar />
-                  <span>{labels.bookings}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            )}
             {/* Agents and Knowledge are not listed here. They live inside a
                 domain now — see DomainTabs and plan/domain-tabs-plan.md. Their
                 routes still work, so old bookmarks are fine. */}
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={pathname === APP_ROUTES.DASHBOARD_ANALYTICS}
-                tooltip="Analytics"
-                render={<Link href={domainHref(APP_ROUTES.DASHBOARD_ANALYTICS)} />}
-              >
-                <BarChart3 />
-                <span>Analytics</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={pathname === APP_ROUTES.DASHBOARD_USAGE}
-                tooltip="Usage"
-                render={<Link href={APP_ROUTES.DASHBOARD_USAGE} />}
-              >
-                <Gauge />
-                <span>Usage</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={pathname === APP_ROUTES.DASHBOARD_CUSTOMERS}
-                tooltip={labels.customers}
-                render={<Link href={domainHref(APP_ROUTES.DASHBOARD_CUSTOMERS)} />}
-              >
-                <UsersRound />
-                <span>{labels.customers}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={pathname === APP_ROUTES.DASHBOARD_ORDERS}
-                tooltip={labels.orders}
-                render={<Link href={domainHref(APP_ROUTES.DASHBOARD_ORDERS)} />}
-              >
-                <Package />
-                <span>{labels.orders}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={pathname === APP_ROUTES.DASHBOARD_CAMPAIGNS}
-                tooltip="Campaigns"
-                render={<Link href={APP_ROUTES.DASHBOARD_CAMPAIGNS} />}
-              >
-                <Mail />
-                <span>Campaigns</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={pathname === APP_ROUTES.DASHBOARD_PRODUCTS}
-                tooltip={labels.productsPlural}
-                render={<Link href={domainHref(APP_ROUTES.DASHBOARD_PRODUCTS)} />}
-              >
-                <ShoppingBag />
-                <span>{labels.productsPlural}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={pathname === APP_ROUTES.DASHBOARD_BILLING}
-                tooltip="Billing"
-                render={<Link href={APP_ROUTES.DASHBOARD_BILLING} />}
-              >
-                <CreditCard />
-                <span>Billing</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={pathname === APP_ROUTES.DASHBOARD_INTEGRATIONS}
-                tooltip="Integrations"
-                render={<Link href={APP_ROUTES.DASHBOARD_INTEGRATIONS} />}
-              >
-                <Plug />
-                <span>Integrations</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={pathname.startsWith(APP_ROUTES.DASHBOARD_WORKSPACES)}
-                tooltip="Workspaces"
-                render={<Link href={APP_ROUTES.DASHBOARD_WORKSPACES} />}
-              >
-                <Building2 />
-                <span>Workspaces</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={pathname === APP_ROUTES.DASHBOARD_TEAM}
-                tooltip="Team"
-                render={<Link href={APP_ROUTES.DASHBOARD_TEAM} />}
-              >
-                <Users />
-                <span>Team</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={pathname === APP_ROUTES.DASHBOARD_SETTINGS}
-                tooltip="Settings"
-                render={<Link href={APP_ROUTES.DASHBOARD_SETTINGS} />}
-              >
-                <Settings />
-                <span>Settings</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {workspaceLinks.map(
+              ({ label, href, icon: Icon, active, external }) => (
+                <SidebarMenuItem key={label}>
+                  <SidebarMenuButton
+                    isActive={active}
+                    tooltip={label}
+                    render={
+                      <Link
+                        href={href}
+                        target={external ? "_blank" : undefined}
+                        rel={external ? "noreferrer noopener" : undefined}
+                      />
+                    }
+                  >
+                    <Icon />
+                    <span>{label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ),
+            )}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
@@ -330,20 +319,13 @@ export function AppSidebar({
           <SidebarMenuItem>
             <Card className="w-full border-none bg-secondary/60 shadow-none">
               <CardContent className="flex items-center gap-3 p-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <Sparkles size={14} className="text-primary" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium capitalize leading-tight">
+                {/* The account menu lives here on desktop; the header only keeps it on mobile. */}
+                <UserMenu email={email} />
+                 <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs text-muted-foreground">
                     {plan} plan
                   </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {domainCount} of {maxDomains} domains
-                  </p>
                 </div>
-                {/* The account menu lives here on desktop; the header only
-                    keeps it on mobile. */}
-                <UserMenu email={email} />
               </CardContent>
             </Card>
           </SidebarMenuItem>
