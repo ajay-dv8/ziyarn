@@ -145,22 +145,12 @@ export default async function KnowledgePage({
       ) : null}
 
       {selectedDomain ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Branches &amp; locations</CardTitle>
-            <CardDescription>
-              Add the places customers can visit. The agent uses these for exact
-              directions and falls back to the knowledge base when none are
-              saved.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DomainLocationsEditor
-              domainId={selectedDomain.id}
-              initialLocations={selectedDomain.locations}
-            />
-          </CardContent>
-        </Card>
+        <DomainLocationsEditor
+          key={selectedDomain.id}
+          domainId={selectedDomain.id}
+          initialLocations={selectedDomain.locations}
+          showHeader
+        />
       ) : null}
 
       {!selectedDomain || !selectedAgent ? (
