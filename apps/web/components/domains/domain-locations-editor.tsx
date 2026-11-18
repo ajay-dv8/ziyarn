@@ -661,23 +661,23 @@ export function DomainLocationsEditor({
               type="button"
               onClick={() => setExpanded((previous) => !previous)}
               aria-expanded={expanded}
-              className="flex w-full items-start justify-between gap-3 text-left"
+              className="flex w-full flex-col gap-1 text-left"
             >
-              <div>
+              <div className="flex w-full items-start justify-between gap-2 sm:justify-start">
                 <CardTitle>
                   Branches &amp; locations ({locations.length})
                 </CardTitle>
-                <CardDescription className="mt-1">
-                  Add the places customers can visit. The agent uses these for
-                  exact directions and falls back to the knowledge base when
-                  none are saved.
-                </CardDescription>
+                <ChevronDown
+                  className={`mt-0.5 h-4 w-4 shrink-0 transition-transform ${
+                    expanded ? "" : "-rotate-90"
+                  }`}
+                />
               </div>
-              <ChevronDown
-                className={`mt-0.5 h-4 w-4 shrink-0 transition-transform ${
-                  expanded ? "" : "-rotate-90"
-                }`}
-              />
+              <CardDescription>
+                Add the places customers can visit. The agent uses these for
+                exact directions and falls back to the knowledge base when none
+                are saved.
+              </CardDescription>
             </button>
             <CardAction>
               {addLocationButton("hidden sm:inline-flex")}
