@@ -661,7 +661,7 @@ export function DomainLocationsEditor({
               type="button"
               onClick={() => setExpanded((previous) => !previous)}
               aria-expanded={expanded}
-              className="flex w-full items-center justify-between gap-3 text-left"
+              className="flex w-full items-start justify-between gap-3 text-left"
             >
               <div>
                 <CardTitle>
@@ -674,7 +674,7 @@ export function DomainLocationsEditor({
                 </CardDescription>
               </div>
               <ChevronDown
-                className={`h-4 w-4 shrink-0 transition-transform ${
+                className={`mt-0.5 h-4 w-4 shrink-0 transition-transform ${
                   expanded ? "" : "-rotate-90"
                 }`}
               />
