@@ -1,7 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { getPlanLimits } from "@repo/api/plans";
 import {
   pickActiveWorkspaceId,
   readActiveWorkspaceCookie,
@@ -62,7 +61,6 @@ export default async function DashboardLayout({
     workspaces.map((workspace) => workspace.id),
     readActiveWorkspaceCookie(requestHeaders),
   );
-  const limits = getPlanLimits(plan);
   const workspaceSummaries = workspaces.map((workspace) => ({
     id: workspace.id,
     name: workspace.name,
@@ -74,8 +72,7 @@ export default async function DashboardLayout({
       <DashboardToastListener />
       <AppSidebar
         plan={plan}
-        domainCount={domains.length}
-        maxDomains={limits.maxDomains}
+        name={session.user.name || session.user.email}
         email={session.user.email}
         domains={domains.map((domain) => ({
           id: domain.id,

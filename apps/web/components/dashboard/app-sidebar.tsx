@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
-import { Card, CardContent } from "@repo/ui/components/card";
+import { CardContent } from "@repo/ui/components/card";
 import {
   Sidebar,
   SidebarContent,
@@ -38,7 +38,6 @@ import {
   Plug,
   Settings,
   ShoppingBag,
-  Sparkles,
   Users,
   UsersRound,
 } from "lucide-react";
@@ -77,12 +76,12 @@ type WorkspaceLink = {
 
 export function AppSidebar({
   plan,
+  name,
   email,
   domains,
 }: {
   plan: string;
-  domainCount: number;
-  maxDomains: number;
+  name: string;
   email: string;
   domains: {
     id: string;
@@ -105,6 +104,7 @@ export function AppSidebar({
   const selectedDomain = domains.find((domain) => domain.id === activeDomainId);
   const businessConfig = getBusinessTypeConfig(selectedDomain?.businessType);
   const labels = businessConfig.labels;
+  const firstName = name.trim().split(/\s+/)[0] || name;
   const domainHref = (path: string) => {
     if (!selectedDomain) return path;
     const separator = path.includes("?") ? "&" : "?";
@@ -321,6 +321,9 @@ export function AppSidebar({
               {/* The account menu lives here on desktop; the header only keeps it on mobile. */}
               <UserMenu email={email} />
               <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium leading-tight">
+                  {firstName}
+                </p>
                 <p className="truncate text-xs text-muted-foreground">
                   {plan} plan
                 </p>
