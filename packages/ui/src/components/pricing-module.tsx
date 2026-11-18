@@ -136,12 +136,32 @@ export function PricingModule({
     )
 
     // ---- Price ----
+    const periodLabel =
+      plan.priceLabel || price === 0
+        ? null
+        : `/ ${yearly ? "year" : "month"}`
+
     const priceBlock = (
-      <div className={cn("shrink-0", plan.wide ? "sm:text-right" : "text-left flex items-baseline gap-1")}>
-        <p className="text-3xl font-semibold tracking-tight">{priceText}</p>
-        <p className="text-sm text-muted-foreground">
-          {plan.priceNote ?? (plan.priceLabel ? "" : `/ ${yearly ? "year" : "month"}`)}
-        </p>
+      <div
+        className={cn(
+          "shrink-0",
+          plan.wide ? "sm:text-right" : "text-left"
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-baseline gap-1",
+            plan.wide && "sm:justify-end"
+          )}
+        >
+          <p className="text-3xl font-semibold tracking-tight">{priceText}</p>
+          {periodLabel ? (
+            <p className="text-sm text-muted-foreground">{periodLabel}</p>
+          ) : null}
+        </div>
+        {plan.priceNote ? (
+          <p className="mt-1 text-xs text-muted-foreground">{plan.priceNote}</p>
+        ) : null}
       </div>
     )
 
@@ -194,7 +214,7 @@ export function PricingModule({
     )
 
     return (
-      // The wrapper is the grid item, so the "Recommended" pill can sit on the
+      // The wrapper is the grid item, so the "Most popular" pill can sit on the
       // card's top border: the card clips its own overflow, so a pill placed
       // inside it would be cut in half.
       <div
@@ -202,10 +222,10 @@ export function PricingModule({
         data-slot="pricing-plan-wrapper"
         className={cn("relative", plan.wide && "sm:col-span-2 lg:col-span-4")}
       >
-        {/* ---- "Recommended" pill, centred on the card's top border ---- */}
+        {/* ---- "Most popular" pill, centred on the card's top border ---- */}
         {plan.recommended && (
           <span className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground shadow-sm">
-            Recommended
+            Most popular
           </span>
         )}
 

@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 /**
- * The four paid tiers, in the order they appear. Business is recommended.
+ * The four paid tiers, in the order they appear. Pro is most popular.
  *
  * The cards carry no icon: the plan name and its price are enough, and an
  * icon only competes with the name. Pass an `icon` to a plan to bring one
@@ -81,7 +81,7 @@ function toPricingPlan(entry: {
     description,
     priceMonthly: priceFor(plan),
     priceLabel: isCustom ? "Custom" : undefined,
-    priceNote: isCustom ? " " : undefined,
+    priceNote: "Free for now",
     currencySymbol: currencyPrefix(),
     features: planFeatures(plan),
     recommended,
@@ -101,7 +101,7 @@ export default function PricingPage() {
     description: "Try the agent on one domain",
     priceMonthly: 0,
     currencySymbol: currencyPrefix(),
-    priceNote: "free forever",
+    priceNote: "Free forever",
     summary: "Everything you need to get one agent live:",
     features: planFeatures("free"),
     wide: true,
