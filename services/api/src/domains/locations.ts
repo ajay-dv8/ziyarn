@@ -3,6 +3,30 @@ import { z } from "zod";
 /** More branches than this belong in a locations table, not a prompt. */
 export const DOMAIN_LOCATION_LIMIT = 10;
 
+export const locationTypeSchema = z.enum([
+  "head_office",
+  "branch",
+  "outlet",
+  "warehouse",
+  "office",
+  "other",
+]);
+
+export type LocationType = z.infer<typeof locationTypeSchema>;
+
+export const LOCATION_TYPE_LABELS: Record<LocationType, string> = {
+  head_office: "Head office",
+  branch: "Branch",
+  outlet: "Outlet",
+  warehouse: "Warehouse",
+  office: "Office",
+  other: "Other",
+};
+
+export const LOCATION_TYPE_OPTIONS = locationTypeSchema.options.map(
+  (value) => ({ value, label: LOCATION_TYPE_LABELS[value] }),
+);
+
 const locationIdSchema = z
   .string()
   .trim()
@@ -48,6 +72,8 @@ export const domainLocationSchema = z
     id: locationIdSchema,
     /** Short internal name ("Osu branch", "Airport shop"). */
     label: oneLine(80),
+    /** What this place is: head office, branch, outlet, and so on. */
+    locationType: locationTypeSchema.optional(),
     /** The full address visitors should tap. */
     address: oneLine(300),
     notes: optionalOneLine(500),
@@ -109,8 +135,26 @@ function withSinglePrimary(locations: DomainLocation[]): DomainLocation[] {
   const resolvedPrimary = primaryIndex === -1 ? 0 : primaryIndex;
   return locations.map((location, index) => ({
     ...location,
+    locationType:
+      location.locationType ??
+      (index === resolvedPrimary ? "head_office" : "branch"),
     isPrimary: index === resolvedPrimary,
   }));
+}
+
+/** Old rows predate the type field; infer one from the primary flag. */
+export function resolveLocationType(
+  location: Pick<DomainLocation, "locationType" | "isPrimary">,
+): LocationType {
+  return (
+    location.locationType ?? (location.isPrimary ? "head_office" : "branch")
+  );
+}
+
+export function locationTypeLabel(
+  location: Pick<DomainLocation, "locationType" | "isPrimary">,
+): string {
+  return LOCATION_TYPE_LABELS[resolveLocationType(location)];
 }
 
 /** Strict validation for writes. Throws on malformed locations. */
@@ -155,7 +199,7 @@ export function domainLocationsPrompt(locations: DomainLocation[]): string {
     const tag = `[[location: ${location.id}|${locationMarkerLabel(location)}]]`;
     const notes = location.notes ? ` Note: ${location.notes}` : "";
     const primary = location.isPrimary ? " (primary)" : "";
-    return `- ${tag} — ${location.label}${primary}.${notes}`;
+    return `- ${tag} — ${location.label} — ${locationTypeLabel(location)}${primary}.${notes}`;
   });
 
   return `Business locations (use these exact tags, never invent an id):\n${lines.join("\n")}\nFor a place in this list, output the tag exactly as shown instead of a generic [[location: ...]] tag.`;

@@ -53,6 +53,22 @@ describe("domain location data", () => {
     ]);
   });
 
+  it("infers a type for rows saved before the type field", () => {
+    const [headOffice, branch] = parseDomainLocations([
+      { ...osu, isPrimary: true },
+      { ...osu, id: "loc_second", isPrimary: false },
+    ]);
+
+    expect(headOffice?.locationType).toBe("head_office");
+    expect(branch?.locationType).toBe("branch");
+  });
+
+  it("keeps an explicit type", () => {
+    const [outlet] = parseDomainLocations([{ ...osu, locationType: "outlet" }]);
+
+    expect(outlet?.locationType).toBe("outlet");
+  });
+
   it("rejects half a coordinate pair", () => {
     expect(() =>
       parseDomainLocations([{ ...osu, longitude: null }]),
@@ -86,8 +102,12 @@ describe("domain location data", () => {
       "[[location: loc_osu|12 Oxford Street, Osu, Accra]]",
     );
     expect(prompt).toContain("(primary)");
+    expect(prompt).toContain("Head office");
     expect(prompt).toContain("Park at the rear");
     expect(prompt).not.toContain("5.5502");
+    expect(
+      domainLocationsPrompt([{ ...osu, locationType: "outlet" }]),
+    ).toContain("Outlet");
   });
 });
 
