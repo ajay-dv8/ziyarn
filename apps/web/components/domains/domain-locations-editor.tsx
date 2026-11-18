@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -109,11 +109,12 @@ export function DomainLocationsEditor({
 }: {
   domainId: string;
   initialLocations: DomainLocation[];
-  /** Render the Knowledge-page card header with its desktop add action. */
+  /** Render the Knowledge-page collapsible card with its desktop add action. */
   showHeader?: boolean;
 }) {
   const router = useRouter();
   const readRequestId = useRef(0);
+  const [expanded, setExpanded] = useState(false);
   const [locations, setLocations] =
     useState<DomainLocation[]>(initialLocations);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -276,6 +277,7 @@ export function DomainLocationsEditor({
     setEditingLocation(null);
     setError(null);
     setFeedback(isNewLocation ? "Location added" : "Location updated");
+    setExpanded(true);
     router.refresh();
   }
 
@@ -326,7 +328,7 @@ export function DomainLocationsEditor({
     );
   }
 
-  const content = (
+  const listContent = (
     <div className="space-y-3">
       {locations.length === 0 ? (
         <p className="text-sm text-muted-foreground">
@@ -402,8 +404,6 @@ export function DomainLocationsEditor({
           })}
         </div>
       )}
-
-      {addLocationButton("w-full sm:hidden")}
 
       {limitReached ? (
         <p className="text-xs text-muted-foreground">
@@ -657,17 +657,38 @@ export function DomainLocationsEditor({
       <>
         <Card>
           <CardHeader>
-            <CardTitle>Branches &amp; locations</CardTitle>
-            <CardDescription>
-              Add the places customers can visit. The agent uses these for exact
-              directions and falls back to the knowledge base when none are
-              saved.
-            </CardDescription>
+            <button
+              type="button"
+              onClick={() => setExpanded((previous) => !previous)}
+              aria-expanded={expanded}
+              className="flex w-full items-center justify-between gap-3 text-left"
+            >
+              <div>
+                <CardTitle>
+                  Branches &amp; locations ({locations.length})
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Add the places customers can visit. The agent uses these for
+                  exact directions and falls back to the knowledge base when
+                  none are saved.
+                </CardDescription>
+              </div>
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 transition-transform ${
+                  expanded ? "" : "-rotate-90"
+                }`}
+              />
+            </button>
             <CardAction>
               {addLocationButton("hidden sm:inline-flex")}
             </CardAction>
           </CardHeader>
-          <CardContent>{content}</CardContent>
+          {expanded ? (
+            <CardContent>{listContent}</CardContent>
+          ) : null}
+          <div className="px-(--card-spacing) sm:hidden">
+            {addLocationButton("w-full")}
+          </div>
         </Card>
         {dialog}
       </>
@@ -680,7 +701,8 @@ export function DomainLocationsEditor({
         <div className="hidden justify-end sm:flex">
           {addLocationButton("hidden sm:inline-flex")}
         </div>
-        {content}
+        {listContent}
+        {addLocationButton("w-full sm:hidden")}
       </div>
       {dialog}
     </>
