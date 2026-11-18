@@ -317,17 +317,15 @@ export function AppSidebar({
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <Card className="w-full border-none bg-secondary/60 shadow-none">
-              <CardContent className="flex items-center gap-3 p-3">
-                {/* The account menu lives here on desktop; the header only keeps it on mobile. */}
-                <UserMenu email={email} />
-                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-muted-foreground">
-                    {plan} plan
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <CardContent className="flex items-center bg-secondary/60 gap-3 p-3">
+              {/* The account menu lives here on desktop; the header only keeps it on mobile. */}
+              <UserMenu email={email} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs text-muted-foreground">
+                  {plan} plan
+                </p>
+              </div>
+            </CardContent>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
