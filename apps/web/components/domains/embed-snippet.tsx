@@ -127,6 +127,12 @@ export function EmbedSnippet({
             </a>
             <CopyLinkButton url={dashboardUrl} label="dashboard link" />
           </div>
+          <Link
+            href={`${APP_ROUTES.DOCS}/widget#keep-the-dashboard-handy`}
+            className="mt-2 inline-block text-xs font-medium underline underline-offset-2 hover:text-foreground"
+          >
+            How to add this to your site admin
+          </Link>
         </div>
       </CardContent>
     </Card>
