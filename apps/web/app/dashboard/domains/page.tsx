@@ -125,6 +125,7 @@ export default async function DomainsPage({
             </CardHeader>
             <CardContent>
               <EmbedSnippet
+                domainId={domain.id}
                 widgetUrl={embedConfig.widgetUrl}
                 slug={embedConfig.slug}
                 secret={embedConfig.secret}
@@ -207,6 +208,7 @@ export default async function DomainsPage({
             <CardContent className="space-y-4">
               {embedConfigs[index] && (
                 <EmbedSnippet
+                  domainId={domain.id}
                   widgetUrl={embedConfigs[index].widgetUrl}
                   slug={embedConfigs[index].slug}
                   secret={embedConfigs[index].secret}

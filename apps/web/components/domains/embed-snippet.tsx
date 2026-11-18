@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 import { Button } from "@repo/ui/components/button";
 import {
@@ -12,6 +13,9 @@ import {
 } from "@repo/ui/components/card";
 import { Check, Copy, Terminal } from "lucide-react";
 
+import { CopyLinkButton } from "@/components/team/copy-link-button";
+import { APP_ROUTES } from "@/constants/routes";
+
 /**
  * The install snippet for a domain.
  *
@@ -22,13 +26,18 @@ import { Check, Copy, Terminal } from "lucide-react";
  *
  * Classic and Glow render inside the element's shadow root; Modern Sleek's
  * script opens its full-screen iframe overlay.
+ *
+ * The card also gives the owner a copyable dashboard link for their CMS admin
+ * menu or bookmarks.
  */
 export function EmbedSnippet({
+  domainId,
   widgetUrl,
   slug,
   secret,
   variant,
 }: {
+  domainId: string;
   widgetUrl: string;
   slug: string;
   secret: string;
@@ -44,6 +53,7 @@ export function EmbedSnippet({
       return "https://ziyarn.vercel.app";
     }
   })();
+  const dashboardUrl = `${embedOrigin}${APP_ROUTES.DASHBOARD_DOMAINS}?domainId=${encodeURIComponent(domainId)}`;
 
   // data-variant is intentionally omitted: the widget fetches the active
   // variant from the server on every load, so changing the widget style in
@@ -100,6 +110,24 @@ export function EmbedSnippet({
           <Terminal size={12} />
           Customize colors with data-color, position with data-position.
         </p>
+        <div className="rounded-lg border p-3">
+          <p className="text-sm font-medium">Keep Ziyarn in your site admin</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Paste this link into your CMS menu or bookmark it. It opens this
+            domain&apos;s dashboard.
+          </p>
+          <div className="mt-2 flex items-start gap-2">
+            <a
+              href={dashboardUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="min-w-0 flex-1 font-mono text-xs break-all text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              {dashboardUrl}
+            </a>
+            <CopyLinkButton url={dashboardUrl} label="dashboard link" />
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
