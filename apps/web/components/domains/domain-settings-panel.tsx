@@ -118,6 +118,7 @@ export function DomainSettingsPanel({
         </p>
         <div className="mt-3">
           <DomainLocationsEditor
+            key={domainId}
             domainId={domainId}
             initialLocations={locations}
           />
