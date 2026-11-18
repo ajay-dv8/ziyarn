@@ -384,6 +384,90 @@ Add to your theme's `theme.liquid` before `</body>`:
 ></zy-widget>
 ```
 
+## Keep the dashboard handy
+
+The dashboard link opens Ziyarn for a specific domain and uses your normal
+Ziyarn sign-in. It is for you and your staff, not site visitors.
+
+Copy it from **Dashboard → Domains → [Domain] → Keep Ziyarn in your site
+admin**, then add it wherever your team already works. If you are signed out,
+Ziyarn asks you to sign in first.
+
+The link contains only the domain ID — never the embed secret or an API key.
+
+### WordPress
+
+Ziyarn does not add anything to your WordPress admin automatically. Add a small
+must-use plugin so the link survives theme updates.
+
+1. Create `wp-content/mu-plugins/` if it does not exist.
+2. Create `wp-content/mu-plugins/ziyarn-dashboard.php`:
+
+```php
+<?php
+/**
+ * Plugin Name: Ziyarn Dashboard Link
+ * Description: Adds a Ziyarn link to the WordPress admin menu.
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+const ZIYARN_DASHBOARD_URL = 'PASTE_YOUR_ZIYARN_DASHBOARD_LINK_HERE';
+const ZIYARN_DASHBOARD_PAGE = 'ziyarn-dashboard';
+
+function ziyarn_register_dashboard_menu() {
+    add_menu_page(
+        'Ziyarn',
+        'Ziyarn',
+        'manage_options',
+        ZIYARN_DASHBOARD_PAGE,
+        'ziyarn_render_dashboard_fallback',
+        'dashicons-format-chat',
+        58
+    );
+}
+add_action( 'admin_menu', 'ziyarn_register_dashboard_menu' );
+
+function ziyarn_redirect_to_dashboard() {
+    if ( ! isset( $_GET['page'] ) || ZIYARN_DASHBOARD_PAGE !== $_GET['page'] ) {
+        return;
+    }
+    if ( ! current_user_can( 'manage_options' ) ) {
+        return;
+    }
+
+    wp_redirect( ZIYARN_DASHBOARD_URL );
+    exit;
+}
+add_action( 'admin_init', 'ziyarn_redirect_to_dashboard' );
+
+function ziyarn_render_dashboard_fallback() {
+    echo '<div class="wrap"><h1>Ziyarn</h1><p><a class="button button-primary" href="' . esc_url( ZIYARN_DASHBOARD_URL ) . '">Open dashboard</a></p></div>';
+}
+```
+
+3. Replace `PASTE_YOUR_ZIYARN_DASHBOARD_LINK_HERE` with the copied link.
+4. Save. A **Ziyarn** menu item appears for administrators.
+
+The redirect runs on `admin_init` before WordPress sends the admin page, and
+only users with `manage_options` (administrators) can use it. Do not paste the
+snippet into a theme's `functions.php`; a theme update can remove it.
+
+### Custom backends
+
+Add a link to your admin navigation that points to the copied URL. If your admin
+is a single-page app, open the link in a new tab so the Ziyarn dashboard is not
+loaded inside your admin's router.
+
+### Shopify, Webflow, Wix, Squarespace
+
+These platforms do not let you add arbitrary links to their admin navigation
+without an app. Keep the dashboard URL as a bookmark or in your password manager
+for now.
+
+The dashboard link is not a password. Anyone who has it still needs to sign in,
+and they can only see domains their account already has access to.
+
 ## Middleware / CSP Configuration
 
 If your site uses Content Security Policy headers, you need to allow the widget domain. Classic and Glow need `script-src` and `connect-src`; Modern Sleek also needs `frame-src` for the iframe origin.
