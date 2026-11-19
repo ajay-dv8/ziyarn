@@ -271,7 +271,9 @@ export function AppSidebar({
               <SidebarMenuButton
                 isActive={pathname === APP_ROUTES.DASHBOARD_CONVERSATIONS}
                 tooltip="Conversations"
-                render={<Link href={APP_ROUTES.DASHBOARD_CONVERSATIONS} />}
+                render={
+                  <Link href={domainHref(APP_ROUTES.DASHBOARD_CONVERSATIONS)} />
+                }
               >
                 <MessagesSquare />
                 <span>Conversations</span>
