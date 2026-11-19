@@ -44,16 +44,22 @@ const STATUS_LABEL: Record<ConversationRow["status"], string> = {
 
 /**
  * ConversationsPage — two-panel layout for managing live chat conversations.
- * Left panel: scrollable list of all conversations with status badges.
+ * Left panel: the current domain scope's conversations with status badges.
  * Right panel: messenger view with real-time SSE streaming, lead info, and reply input.
  * Layout fills the parent container (h-full) so scrolling is handled per-panel, not the page.
  */
 export function ConversationsPage({
   initial,
   initialConversationId = null,
+  domainId = null,
+  domainName = null,
+  showDomain = true,
 }: {
   initial: ConversationRow[];
   initialConversationId?: string | null;
+  domainId?: string | null;
+  domainName?: string | null;
+  showDomain?: boolean;
 }) {
   const [conversations, setConversations] = useState(initial);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -70,6 +76,31 @@ export function ConversationsPage({
   const connectRef = useRef<(since: string) => void>(() => {});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const openedInitialIdRef = useRef<string | null>(null);
+
+  // Changing domains changes the list; an open conversation from the previous
+  // domain must not stay visible outside its scope.
+  useEffect(() => {
+    eventSourceRef.current?.close();
+    eventSourceRef.current = null;
+    sinceCursorRef.current = null;
+    seenMessageIdsRef.current = new Set();
+    openedInitialIdRef.current = null;
+    selectedConversationRef.current = null;
+    setSelectedId(null);
+    setMessages([]);
+    setLead(null);
+    setDraft("");
+  }, [domainId]);
+
+  // A navigation away from the page must close the long-lived SSE connection.
+  useEffect(() => {
+    return () => {
+      eventSourceRef.current?.close();
+      eventSourceRef.current = null;
+      selectedConversationRef.current = null;
+      sinceCursorRef.current = null;
+    };
+  }, []);
 
   /** Scroll the messages container to the bottom */
   const scrollToBottom = useCallback(() => {
@@ -157,14 +188,17 @@ export function ConversationsPage({
   connectRef.current = connect;
   selectedConversationRef.current = selectedId;
 
-  // Poll conversation list every 10s for unread badge updates
+  // Poll conversation list every 10s for unread badge updates, keeping the
+  // current domain scope so the list cannot re-blend after navigation.
   useEffect(() => {
     const timer = setInterval(async () => {
-      const res = await listConversationsAction();
+      const res = await listConversationsAction({
+        domainId: domainId ?? undefined,
+      });
       if (res.ok && res.conversations) setConversations(res.conversations);
     }, 10000);
     return () => clearInterval(timer);
-  }, []);
+  }, [domainId]);
 
   /** Load conversation history and open SSE stream */
   const openConversation = useCallback(
@@ -283,7 +317,9 @@ export function ConversationsPage({
         <CardContent className="flex min-h-0 flex-1 flex-col p-2">
           {conversations.length === 0 && (
             <p className="p-4 text-sm text-muted-foreground">
-              No conversations yet — widget visitors appear here.
+              {domainName
+                ? `No conversations for ${domainName} yet — widget visitors appear here.`
+                : "No conversations yet — widget visitors appear here."}
             </p>
           )}
           <ScrollArea className="min-h-0 flex-1">
@@ -319,12 +355,19 @@ export function ConversationsPage({
                         ? stripLocationMarkers(
                             conversation.lastMessage.content,
                           )
-                        : conversation.domainName + " · no messages yet"}
+                        : "No messages yet"}
                     </span>
-                    <span className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span className="truncate">
-                        @{conversation.domainSlug}
-                      </span>
+                    <span
+                      className={cn(
+                        "flex items-center gap-1.5 text-xs text-muted-foreground",
+                        showDomain ? "justify-between" : "justify-end",
+                      )}
+                    >
+                      {showDomain ? (
+                        <span className="truncate">
+                          {conversation.domainName}
+                        </span>
+                      ) : null}
                       <span className="flex shrink-0 items-center gap-1.5">
                         {conversation.unread > 0 && (
                           <span className="rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
