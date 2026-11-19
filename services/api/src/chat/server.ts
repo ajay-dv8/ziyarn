@@ -402,12 +402,36 @@ export function createChatService(deps: { db: Database }) {
       };
     },
 
-    /** Conversations across all domains of an owner, newest activity first. */
+    /** Resolve the domain behind a conversation, only for its owner. */
+    getConversationDomainForOwner: async (id: string, ownerId: string) => {
+      const [row] = await db
+        .select({ domainId: domains.id })
+        .from(conversations)
+        .innerJoin(agents, eq(conversations.agentId, agents.id))
+        .innerJoin(domains, eq(agents.domainId, domains.id))
+        .where(and(eq(conversations.id, id), eq(domains.ownerId, ownerId)))
+        .limit(1);
+
+      return row?.domainId ?? null;
+    },
+
+    /**
+     * Conversations across all domains of a workspace, newest activity first.
+     * Pass `domainId` to scope the list to one domain; omit it for the
+     * explicitly labelled All domains view.
+     */
     listConversationsForWorkspace: async (
       ownerId: string,
       workspaceId: string,
-      limit = 100,
+      options: { domainId?: string; limit?: number } = {},
     ) => {
+      const { domainId, limit = 100 } = options;
+      const filters = [
+        eq(domains.ownerId, ownerId),
+        eq(domains.workspaceId, workspaceId),
+      ];
+      if (domainId) filters.push(eq(domains.id, domainId));
+
       const rows = await db
         .select({
           conversation: conversations,
@@ -418,12 +442,7 @@ export function createChatService(deps: { db: Database }) {
         .from(conversations)
         .innerJoin(agents, eq(conversations.agentId, agents.id))
         .innerJoin(domains, eq(agents.domainId, domains.id))
-        .where(
-          and(
-            eq(domains.ownerId, ownerId),
-            eq(domains.workspaceId, workspaceId),
-          ),
-        )
+        .where(and(...filters))
         .orderBy(desc(conversations.updatedAt))
         .limit(limit);
 

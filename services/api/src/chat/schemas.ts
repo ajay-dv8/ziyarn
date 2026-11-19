@@ -1,7 +1,15 @@
 import { z } from "zod";
 
+export const conversationIdParamSchema = z
+  .string()
+  .uuid("Invalid conversation id");
+
 export const conversationIdSchema = z.object({
-  id: z.string().uuid("Invalid conversation id"),
+  id: conversationIdParamSchema,
+});
+
+export const conversationListSchema = z.object({
+  domainId: z.string().uuid("Invalid domain id").optional(),
 });
 
 export const visitorIdSchema = z

@@ -18,7 +18,9 @@ export { createToolExecutor } from "@repo/api/chat/tool-executor";
 
 export {
   appendMessageSchema,
+  conversationIdParamSchema,
   conversationIdSchema,
+  conversationListSchema,
   conversationStatusSchema,
   ownerReplySchema,
   sendMessageSchema,
