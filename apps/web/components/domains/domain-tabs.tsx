@@ -8,10 +8,10 @@ import { APP_ROUTES } from "@/constants/routes";
  * The sections that live inside a single domain.
  *
  * Only sections whose page already scopes itself by `?domainId=` belong here.
- * Conversations and Campaigns do NOT accept the param yet — see
- * plan/domain-tabs-plan.md, Stage 2 — so listing them would offer a tab that
- * silently shows every domain's data mixed together. Adding one here is a
- * deliberate two-step: make the page scope itself first, then list it.
+ * Conversations is intentionally not listed: it accepts `?domainId=` but is a
+ * workspace inbox with an explicit All domains filter, so it stays top-level.
+ * Campaigns still has no domain scope. Adding either here is a deliberate
+ * two-step: make the page fully domain-scoped first, then list it.
  */
 const TABS: {
   key: string;
