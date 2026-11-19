@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 
 import {
   ConversationServiceError,
+  conversationListSchema,
   conversationStatusSchema,
   ownerReplySchema,
 } from "@repo/api/chat";
@@ -81,9 +82,14 @@ export async function replyToConversationAction(input: {
   }
 }
 
-export async function listConversationsAction(): Promise<
-  ActionResult & { conversations?: ConversationListRow[] }
-> {
+export async function listConversationsAction(
+  input: { domainId?: string } = {},
+): Promise<ActionResult & { conversations?: ConversationListRow[] }> {
+  const parsed = conversationListSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid domain filter" };
+  }
+
   try {
     const user = await requireOwner();
     const workspaceId = await resolveActiveWorkspaceId(db, await headers(), user.id);
@@ -92,6 +98,7 @@ export async function listConversationsAction(): Promise<
     const rows = await chatService.listConversationsForWorkspace(
       user.id,
       workspaceId,
+      { domainId: parsed.data.domainId },
     );
     const conversations = rows.map((row) => ({
       id: row.id,
