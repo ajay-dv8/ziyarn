@@ -78,7 +78,7 @@ function connectedAccountError() {
   return new PortalServiceError(
     409,
     "CONNECTED_ACCOUNT_REQUIRED",
-    "The domain owner has no connected Stripe account yet",
+    "This workspace has no connected Stripe account yet",
   );
 }
 
@@ -334,7 +334,7 @@ export function createPortalService(deps: {
         .from(stripeAccounts)
         .where(
           and(
-            eq(stripeAccounts.ownerId, row.domain.ownerId),
+            eq(stripeAccounts.workspaceId, row.domain.workspaceId),
             eq(stripeAccounts.status, "complete"),
           ),
         )
