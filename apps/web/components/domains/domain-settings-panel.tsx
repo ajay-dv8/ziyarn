@@ -44,7 +44,7 @@ export function DomainSettingsPanel({
   chatTriggerConfig,
   locations,
   aiOverride,
-  aiAccount,
+  aiWorkspace,
   embedSecret,
 }: {
   domainId: string;
@@ -58,7 +58,7 @@ export function DomainSettingsPanel({
   chatTriggerConfig: ResolvedChatTriggerConfig;
   locations: DomainLocation[];
   aiOverride: AiConfigView | null;
-  aiAccount: AiConfigView;
+  aiWorkspace: AiConfigView;
   embedSecret: string | null;
 }) {
   return (
@@ -154,7 +154,7 @@ export function DomainSettingsPanel({
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           Which model answers this domain&apos;s chat. By default the domain
-          uses your account&apos;s provider.
+          uses your workspace&apos;s provider.
         </p>
         <div className="mt-3">
           <AiProviderForm
@@ -162,16 +162,16 @@ export function DomainSettingsPanel({
             domainId={domainId}
             current={
               aiOverride ?? {
-                ...aiAccount,
+                ...aiWorkspace,
                 maskedApiKey: null,
                 hasApiKey: false,
               }
             }
             hasOverride={aiOverride !== null}
-            accountLabel={
-              aiAccount.provider === "platform"
+            workspaceLabel={
+              aiWorkspace.provider === "platform"
                 ? "Platform default"
-                : `${aiProviderLabel(aiAccount.provider)}${aiAccount.model ? ` · ${aiAccount.model}` : ""}`
+                : `${aiProviderLabel(aiWorkspace.provider)}${aiWorkspace.model ? ` · ${aiWorkspace.model}` : ""}`
             }
           />
         </div>

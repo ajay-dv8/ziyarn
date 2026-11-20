@@ -46,9 +46,9 @@ export default async function DomainsPage({
       // somewhere real rather than rendering an empty shell.
       redirect(APP_ROUTES.DASHBOARD_DOMAINS);
     }
-    const [embedConfig, aiAccount, aiOverride] = await Promise.all([
+    const [embedConfig, aiWorkspace, aiOverride] = await Promise.all([
       domainsService.getEmbedConfig(domain.id, requestHeaders).catch(() => null),
-      aiConfigService.getAccountConfig(requestHeaders),
+      aiConfigService.getWorkspaceConfig(requestHeaders),
       aiConfigService
         .getDomainOverride(domain.id, requestHeaders)
         .catch(() => null),
@@ -82,7 +82,7 @@ export default async function DomainsPage({
             chatTriggerConfig={domain.chatTriggerConfig}
             locations={domain.locations}
             aiOverride={aiOverride}
-            aiAccount={aiAccount}
+            aiWorkspace={aiWorkspace}
             embedSecret={embedConfig?.secret ?? null}
           />
         </div>
