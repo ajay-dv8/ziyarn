@@ -3,6 +3,8 @@ export {
   WORKSPACE_ROLE_DESCRIPTIONS,
   WORKSPACE_ROLE_LABELS,
   assignableWorkspaceRoleSchema,
+  canEditWorkspace,
+  canManageWorkspace,
   workspaceRoleSchema,
 } from "@repo/api/workspaces/roles";
 export type {

@@ -44,6 +44,16 @@ export const WORKSPACE_ROLE_LABELS: Record<WorkspaceRole, string> = {
   viewer: "Viewer",
 };
 
+/** Owners and admins can manage workspace-level connections such as Stripe. */
+export function canManageWorkspace(role: WorkspaceRole): boolean {
+  return role === "owner" || role === "admin";
+}
+
+/** Everyone except viewers can change shared workspace settings. */
+export function canEditWorkspace(role: WorkspaceRole): boolean {
+  return role !== "viewer";
+}
+
 /** One line each, so an owner can pick a role without guessing what it means. */
 export const WORKSPACE_ROLE_DESCRIPTIONS: Record<
   AssignableWorkspaceRole,
