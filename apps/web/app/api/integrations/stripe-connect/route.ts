@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { BillingServiceError } from "@repo/api/billing";
+import { canManageWorkspace } from "@repo/api/workspaces/roles";
 import { APP_ROUTES, absoluteUrl } from "@repo/routes";
 import { eq } from "drizzle-orm";
 
@@ -9,13 +10,15 @@ import { db } from "@repo/database";
 import { stripeAccounts } from "@repo/database/schema";
 
 import { authService } from "@/services/auth-service";
+import { workspaceService } from "@/services/workspace-service";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   const appUrl = process.env.BASE_APP_URL ?? "http://localhost:3000";
   try {
-    const session = await authService.getSession(await headers());
+    const requestHeaders = await headers();
+    const session = await authService.getSession(requestHeaders);
     if (!session) {
       return NextResponse.json(
         { error: { code: "UNAUTHORIZED", message: "Sign in to view integrations" } },
@@ -30,10 +33,38 @@ export async function GET() {
         "Stripe is not configured for this deployment",
       );
     }
+    const workspaceId =
+      await workspaceService.getActiveWorkspaceId(requestHeaders);
+    if (!workspaceId) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "NO_WORKSPACE",
+            message: "Create a workspace before connecting Stripe",
+          },
+        },
+        { status: 400 },
+      );
+    }
+    const workspace = await workspaceService.getWorkspace(
+      workspaceId,
+      requestHeaders,
+    );
+    if (!canManageWorkspace(workspace.role)) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "FORBIDDEN",
+            message: "Only workspace owners and admins can connect Stripe",
+          },
+        },
+        { status: 403 },
+      );
+    }
     const [account] = await db
       .select()
       .from(stripeAccounts)
-      .where(eq(stripeAccounts.ownerId, session.user.id))
+      .where(eq(stripeAccounts.workspaceId, workspaceId))
       .limit(1);
 
     if (account) {
@@ -61,6 +92,7 @@ export async function GET() {
     const [stored] = await db
       .insert(stripeAccounts)
       .values({
+        workspaceId,
         ownerId: session.user.id,
         stripeAccountId: created.id,
         status: "onboarding",

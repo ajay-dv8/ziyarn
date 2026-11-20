@@ -12,9 +12,11 @@ import {
 import { eq } from "drizzle-orm";
 
 import { ConnectStripeButton } from "@/components/dashboard/connect-stripe-button";
+import { canManageWorkspace } from "@repo/api/workspaces/roles";
 import { db } from "@repo/database";
 import { stripeAccounts } from "@repo/database/schema";
 import { authService } from "@/services/auth-service";
+import { workspaceService } from "@/services/workspace-service";
 
 export const metadata: Metadata = {
   title: "Integrations",
@@ -26,11 +28,21 @@ export default async function IntegrationsPage() {
   if (!session) {
     return null;
   }
-  const [account] = await db
-    .select()
-    .from(stripeAccounts)
-    .where(eq(stripeAccounts.ownerId, session.user.id))
-    .limit(1);
+  const workspaceId =
+    await workspaceService.getActiveWorkspaceId(requestHeaders);
+  const workspace = workspaceId
+    ? await workspaceService.getWorkspace(workspaceId, requestHeaders)
+    : null;
+  const [account] = workspaceId
+    ? await db
+        .select()
+        .from(stripeAccounts)
+        .where(eq(stripeAccounts.workspaceId, workspaceId))
+        .limit(1)
+    : [];
+  const canManageStripe = workspace
+    ? canManageWorkspace(workspace.role)
+    : false;
   const smtpConfigured = Boolean(
     process.env.SMTP_HOST && process.env.SMTP_FROM,
   );
@@ -40,7 +52,8 @@ export default async function IntegrationsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Integrations</h1>
         <p className="text-sm text-muted-foreground">
-          Connect the services that run your account.
+          Connect the services that run your workspace. These connections are
+          shared by everyone in it.
         </p>
       </div>
 
@@ -63,8 +76,16 @@ export default async function IntegrationsPage() {
               <p className="text-sm text-muted-foreground">
                 Payouts are enabled on your connected account.
               </p>
-            ) : (
+            ) : !workspace ? (
+              <p className="text-sm text-muted-foreground">
+                Create a workspace to connect a Stripe account.
+              </p>
+            ) : canManageStripe ? (
               <ConnectStripeButton />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Ask a workspace owner or admin to connect Stripe.
+              </p>
             )}
           </CardContent>
         </Card>
