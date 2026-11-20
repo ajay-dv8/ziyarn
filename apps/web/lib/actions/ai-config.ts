@@ -20,7 +20,7 @@ function errorResult(error: unknown): Extract<AiActionResult, { ok: false }> {
   return { ok: false, error: "Something went wrong, please try again" };
 }
 
-/** Saves the account-level provider, or the domain override when domainId is set. */
+/** Saves the workspace-level provider, or the domain override when domainId is set. */
 export async function saveAiConfigAction(
   input: UpdateAiConfigInput & { domainId?: string },
 ): Promise<AiActionResult> {
@@ -35,7 +35,7 @@ export async function saveAiConfigAction(
         requestHeaders,
       );
     } else {
-      await aiConfigService.updateAccountConfig(config, requestHeaders);
+      await aiConfigService.updateWorkspaceConfig(config, requestHeaders);
     }
 
     revalidatePath(APP_ROUTES.DASHBOARD_SETTINGS);
@@ -46,7 +46,7 @@ export async function saveAiConfigAction(
   }
 }
 
-/** Deletes a domain override, reverting the domain to the account default. */
+/** Deletes a domain override, reverting the domain to the workspace default. */
 export async function clearDomainAiOverrideAction(
   domainId: string,
 ): Promise<AiActionResult> {

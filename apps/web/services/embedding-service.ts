@@ -15,7 +15,7 @@ export type AgentEmbedder = {
 
 /**
  * Embeddings for one agent, resolved from its domain: BYO embedding model when
- * the domain or account sets one, otherwise the platform model. Resolving per
+ * the domain or workspace sets one, otherwise the platform model. Resolving per
  * call keeps ingestion and search on the same vector space after a settings
  * change.
  */
@@ -23,7 +23,7 @@ export async function resolveEmbedderForAgent(
   agentId: string,
 ): Promise<AgentEmbedder> {
   const [agent] = await db
-    .select({ domainId: agents.domainId, ownerId: domains.ownerId })
+    .select({ domainId: agents.domainId, workspaceId: domains.workspaceId })
     .from(agents)
     .innerJoin(domains, eq(agents.domainId, domains.id))
     .where(eq(agents.id, agentId))
@@ -32,7 +32,7 @@ export async function resolveEmbedderForAgent(
 
   const provider = await aiConfigService.resolveEmbeddingForDomain(
     agent.domainId,
-    agent.ownerId,
+    agent.workspaceId,
   );
   if (!provider) {
     return { embed: aiService.embed, model: aiService.embeddingModel };
