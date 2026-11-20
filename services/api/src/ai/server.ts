@@ -3,9 +3,12 @@ import { and, eq, isNotNull } from "drizzle-orm";
 import type { Database } from "@repo/database";
 import { aiConfigs, domainAiConfigs } from "@repo/database/schema";
 import { domains } from "@repo/database/schema/domains";
+import { workspaceMembers } from "@repo/database/schema/workspaces";
 import { createEmbedder, testAiProvider } from "@repo/ai";
 import type { EmbedProviderConfig } from "@repo/ai";
 import type { SessionWithUser } from "@repo/api/domains/server";
+import { resolveActiveWorkspaceId } from "@repo/api/workspaces/active";
+import { canEditWorkspace } from "@repo/api/workspaces/roles";
 
 import { decryptSecret, encryptSecret, maskApiKey } from "@repo/api/ai/encryption";
 import {
@@ -41,11 +44,17 @@ export class AiConfigServiceError extends Error {
 const unauthorized = () =>
   new AiConfigServiceError(401, "UNAUTHORIZED", "You must be signed in");
 const forbidden = () =>
-  new AiConfigServiceError(403, "FORBIDDEN", "You do not own this domain");
+  new AiConfigServiceError(
+    403,
+    "FORBIDDEN",
+    "You do not have access to this workspace",
+  );
+const noWorkspace = () =>
+  new AiConfigServiceError(400, "NO_WORKSPACE", "Create a workspace first");
 const domainNotFound = () =>
   new AiConfigServiceError(404, "DOMAIN_NOT_FOUND", "Domain not found");
 
-/** The only columns BYOA reads — shared by account rows and domain overrides. */
+/** The only columns BYOA reads — shared by workspace rows and domain overrides. */
 type StoredConfig = {
   provider: string;
   model: string | null;
@@ -64,27 +73,27 @@ const storedFields = {
 
 /**
  * Chooses the row that actually applies: the domain override wins over the
- * account default. Exported so the precedence rule is unit-tested without a
+ * workspace default. Exported so the precedence rule is unit-tested without a
  * database.
  */
 export function selectEffectiveConfig<Row>(
-  account: Row | null | undefined,
+  workspace: Row | null | undefined,
   override: Row | null | undefined,
 ): Row | null {
-  return override ?? account ?? null;
+  return override ?? workspace ?? null;
 }
 
 /**
  * Embedding settings resolve independently from chat: a domain override that
- * only changes the chat model keeps inheriting the account's embedding model.
- * A scope without an embedding model uses the platform embeddings.
+ * only changes the chat model keeps inheriting the workspace's embedding
+ * model. A scope without an embedding model uses the platform embeddings.
  */
 export function selectEmbeddingConfig<Row extends { embeddingModel: string | null }>(
-  account: Row | null | undefined,
+  workspace: Row | null | undefined,
   override: Row | null | undefined,
 ): Row | null {
   if (override?.embeddingModel) return override;
-  if (account?.embeddingModel) return account;
+  if (workspace?.embeddingModel) return workspace;
   return null;
 }
 
@@ -173,18 +182,68 @@ export function createAiConfigService(deps: {
     return session;
   };
 
-  // API keys are sensitive: only the domain owner may read or change them,
-  // not every workspace member who can edit the domain's public settings.
-  const requireOwnedDomain = async (domainId: string, headers: Headers) => {
+  /**
+   * The active workspace and the caller's role. The cookie only expresses
+   * intent; resolveActiveWorkspaceId already checks membership. Viewers may
+   * read, but not change, shared integration settings.
+   */
+  const requireWorkspace = async (headers: Headers, mutate = false) => {
+    const session = await requireSession(headers);
+    const workspaceId = await resolveActiveWorkspaceId(
+      db,
+      headers,
+      session.user.id,
+    );
+    if (!workspaceId) throw noWorkspace();
+
+    if (mutate) {
+      const [membership] = await db
+        .select({ role: workspaceMembers.role })
+        .from(workspaceMembers)
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, workspaceId),
+            eq(workspaceMembers.userId, session.user.id),
+          ),
+        )
+        .limit(1);
+      if (!membership || !canEditWorkspace(membership.role)) throw forbidden();
+    }
+
+    return { session, workspaceId };
+  };
+
+  /**
+   * A domain and the caller's access to the workspace it belongs to. API keys
+   * are shared by the workspace, not by the user who created the domain.
+   */
+  const requireDomainAccess = async (
+    domainId: string,
+    headers: Headers,
+    mutate = false,
+  ) => {
     const session = await requireSession(headers);
     const [domain] = await db
-      .select({ id: domains.id, ownerId: domains.ownerId })
+      .select({ id: domains.id, workspaceId: domains.workspaceId })
       .from(domains)
       .where(eq(domains.id, domainId))
       .limit(1);
     if (!domain) throw domainNotFound();
-    if (domain.ownerId !== session.user.id) throw forbidden();
-    return session;
+
+    const [membership] = await db
+      .select({ role: workspaceMembers.role })
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.workspaceId, domain.workspaceId),
+          eq(workspaceMembers.userId, session.user.id),
+        ),
+      )
+      .limit(1);
+    if (!membership) throw forbidden();
+    if (mutate && !canEditWorkspace(membership.role)) throw forbidden();
+
+    return { session, domain };
   };
 
   const requireEncryption = () => {
@@ -262,14 +321,14 @@ export function createAiConfigService(deps: {
   };
 
   /**
-   * Domains that follow the account's embedding model: everything the owner
-   * owns except domains with their own embedding model set.
+   * Domains that follow the workspace's embedding model: everything in the
+   * workspace except domains with their own embedding model set.
    */
-  const accountEmbeddingDomainIds = async (ownerId: string) => {
+  const workspaceEmbeddingDomainIds = async (workspaceId: string) => {
     const owned = await db
       .select({ id: domains.id })
       .from(domains)
-      .where(eq(domains.ownerId, ownerId));
+      .where(eq(domains.workspaceId, workspaceId));
     if (owned.length === 0) return [];
 
     const overrides = await db
@@ -278,7 +337,7 @@ export function createAiConfigService(deps: {
       .innerJoin(domains, eq(domainAiConfigs.domainId, domains.id))
       .where(
         and(
-          eq(domains.ownerId, ownerId),
+          eq(domains.workspaceId, workspaceId),
           isNotNull(domainAiConfigs.embeddingModel),
         ),
       );
@@ -286,11 +345,11 @@ export function createAiConfigService(deps: {
     return owned.map((row) => row.id).filter((id) => !excluded.has(id));
   };
 
-  const accountRow = async (ownerId: string) => {
+  const workspaceRow = async (workspaceId: string) => {
     const [row] = await db
       .select(storedFields)
       .from(aiConfigs)
-      .where(eq(aiConfigs.ownerId, ownerId))
+      .where(eq(aiConfigs.workspaceId, workspaceId))
       .limit(1);
     return (row as StoredConfig | undefined) ?? null;
   };
@@ -399,38 +458,45 @@ export function createAiConfigService(deps: {
   };
 
   return {
-    /** Account-level config for the settings form. Keys are masked. */
-    async getAccountConfig(headers: Headers): Promise<AiConfigView> {
+    /** Workspace-level config for the settings form. Keys are masked. */
+    async getWorkspaceConfig(headers: Headers): Promise<AiConfigView> {
       const session = await requireSession(headers);
-      return toView(await accountRow(session.user.id), encryptionSecret);
+      const workspaceId = await resolveActiveWorkspaceId(
+        db,
+        headers,
+        session.user.id,
+      );
+      if (!workspaceId) return toView(null, encryptionSecret);
+      return toView(await workspaceRow(workspaceId), encryptionSecret);
     },
 
-    async updateAccountConfig(input: UpdateAiConfigInput, headers: Headers) {
-      const session = await requireSession(headers);
+    async updateWorkspaceConfig(input: UpdateAiConfigInput, headers: Headers) {
+      const { session, workspaceId } = await requireWorkspace(headers, true);
       const body = parseInput(input);
-      const existing = await accountRow(session.user.id);
+      const existing = await workspaceRow(workspaceId);
 
       if (body.provider === "platform") {
         // Reverting to platform embeddings must re-embed the domains that were
-        // following the account before the row is cleared.
+        // following the workspace before the row is cleared.
         if (
           embeddingFingerprint(existing, platformEmbed.model) !==
           embeddingFingerprint(null, platformEmbed.model)
         ) {
           await reindexDomains(
-            await accountEmbeddingDomainIds(session.user.id),
+            await workspaceEmbeddingDomainIds(workspaceId),
             platformEmbed,
           );
         }
         await db
           .insert(aiConfigs)
           .values({
+            workspaceId,
             ownerId: session.user.id,
             provider: "platform",
             embeddingModel: null,
           })
           .onConflictDoUpdate({
-            target: [aiConfigs.ownerId],
+            target: [aiConfigs.workspaceId],
             set: {
               provider: "platform",
               model: null,
@@ -456,26 +522,31 @@ export function createAiConfigService(deps: {
         embeddingFingerprint(nextRow, platformEmbed.model)
       ) {
         await reindexDomains(
-          await accountEmbeddingDomainIds(session.user.id),
+          await workspaceEmbeddingDomainIds(workspaceId),
           embedConfigForRow(nextRow),
         );
       }
 
       await db
         .insert(aiConfigs)
-        .values({ ownerId: session.user.id, provider: body.provider, ...values })
+        .values({
+          workspaceId,
+          ownerId: session.user.id,
+          provider: body.provider,
+          ...values,
+        })
         .onConflictDoUpdate({
-          target: [aiConfigs.ownerId],
+          target: [aiConfigs.workspaceId],
           set: { provider: body.provider, ...values, updatedAt: new Date() },
         });
     },
 
-    /** The domain override, or null when the domain inherits the account. */
+    /** The domain override, or null when the domain inherits the workspace. */
     async getDomainOverride(
       domainId: string,
       headers: Headers,
     ): Promise<AiConfigView | null> {
-      await requireOwnedDomain(domainId, headers);
+      await requireDomainAccess(domainId, headers);
       const row = await overrideRow(domainId);
       return row ? toView(row, encryptionSecret) : null;
     },
@@ -485,18 +556,18 @@ export function createAiConfigService(deps: {
       domainId: string,
       headers: Headers,
     ) {
-      const session = await requireOwnedDomain(domainId, headers);
+      const { domain } = await requireDomainAccess(domainId, headers, true);
       const body = parseInput(input);
       if (body.provider === "platform") {
         throw new AiConfigServiceError(
           400,
           "INVALID_INPUT",
-          "Remove the override to use the account default",
+          "Remove the override to use the workspace default",
         );
       }
 
-      const [account, existing] = await Promise.all([
-        accountRow(session.user.id),
+      const [workspaceConfig, existing] = await Promise.all([
+        workspaceRow(domain.workspaceId),
         overrideRow(domainId),
       ]);
       const values = saveValues(body, existing);
@@ -508,8 +579,8 @@ export function createAiConfigService(deps: {
         apiKeyEncrypted: values.apiKeyEncrypted,
       };
 
-      const oldEmbedding = selectEmbeddingConfig(account, existing);
-      const newEmbedding = selectEmbeddingConfig(account, nextRow);
+      const oldEmbedding = selectEmbeddingConfig(workspaceConfig, existing);
+      const newEmbedding = selectEmbeddingConfig(workspaceConfig, nextRow);
       if (
         embeddingFingerprint(oldEmbedding, platformEmbed.model) !==
         embeddingFingerprint(newEmbedding, platformEmbed.model)
@@ -527,16 +598,16 @@ export function createAiConfigService(deps: {
     },
 
     async deleteDomainOverride(domainId: string, headers: Headers) {
-      const session = await requireOwnedDomain(domainId, headers);
-      const [account, existing] = await Promise.all([
-        accountRow(session.user.id),
+      const { domain } = await requireDomainAccess(domainId, headers, true);
+      const [workspaceConfig, existing] = await Promise.all([
+        workspaceRow(domain.workspaceId),
         overrideRow(domainId),
       ]);
 
-      // Removing an override may move the domain back to the account's (or the
-      // platform's) vector space, so re-embed before deleting the row.
-      const oldEmbedding = selectEmbeddingConfig(account, existing);
-      const newEmbedding = selectEmbeddingConfig(account, null);
+      // Removing an override may move the domain back to the workspace's (or
+      // the platform's) vector space, so re-embed before deleting the row.
+      const oldEmbedding = selectEmbeddingConfig(workspaceConfig, existing);
+      const newEmbedding = selectEmbeddingConfig(workspaceConfig, null);
       if (
         embeddingFingerprint(oldEmbedding, platformEmbed.model) !==
         embeddingFingerprint(newEmbedding, platformEmbed.model)
@@ -550,20 +621,20 @@ export function createAiConfigService(deps: {
     },
 
     /**
-     * Provider config for the chat runtime: domain override → account default
-     * → platform. Returns null for the platform (no custom client needed).
-     * Throws if a stored row cannot be used (missing key/secret) — the caller
-     * decides whether to fall back.
+     * Provider config for the chat runtime: domain override → workspace
+     * default → platform. Returns null for the platform (no custom client
+     * needed). Throws if a stored row cannot be used (missing key/secret) —
+     * the caller decides whether to fall back.
      */
     async resolveForDomain(
       domainId: string,
-      ownerId: string,
+      workspaceId: string,
     ): Promise<ResolvedAiProvider | null> {
-      const [account, override] = await Promise.all([
-        accountRow(ownerId),
+      const [workspaceConfig, override] = await Promise.all([
+        workspaceRow(workspaceId),
         overrideRow(domainId),
       ]);
-      const selected = selectEffectiveConfig(account, override);
+      const selected = selectEffectiveConfig(workspaceConfig, override);
       if (!selected || selected.provider === "platform") return null;
 
       const provider = isAiProvider(selected.provider)
@@ -595,13 +666,13 @@ export function createAiConfigService(deps: {
      */
     async resolveEmbeddingForDomain(
       domainId: string,
-      ownerId: string,
+      workspaceId: string,
     ): Promise<ResolvedEmbeddingProvider | null> {
-      const [account, override] = await Promise.all([
-        accountRow(ownerId),
+      const [workspaceConfig, override] = await Promise.all([
+        workspaceRow(workspaceId),
         overrideRow(domainId),
       ]);
-      const selected = selectEmbeddingConfig(account, override);
+      const selected = selectEmbeddingConfig(workspaceConfig, override);
       if (!selected) return null;
 
       const provider = isAiProvider(selected.provider)
@@ -632,27 +703,27 @@ export function createAiConfigService(deps: {
 
     /**
      * Sends a tiny prompt with the saved config. Tests the domain override when
-     * a domain is given, otherwise the account config. When the effective scope
-     * has a BYO embedding model, its embeddings endpoint is probed too.
+     * a domain is given, otherwise the workspace config. When the effective
+     * scope has a BYO embedding model, its embeddings endpoint is probed too.
      */
     async testConnection(
       headers: Headers,
       domainId?: string,
     ): Promise<{ ok: boolean; message: string }> {
       let row: StoredConfig | null;
-      let account: StoredConfig | null = null;
+      let workspaceConfig: StoredConfig | null = null;
       let override: StoredConfig | null = null;
       if (domainId) {
-        const session = await requireOwnedDomain(domainId, headers);
-        [account, override] = await Promise.all([
-          accountRow(session.user.id),
+        const { domain } = await requireDomainAccess(domainId, headers);
+        [workspaceConfig, override] = await Promise.all([
+          workspaceRow(domain.workspaceId),
           overrideRow(domainId),
         ]);
-        row = override ?? account;
+        row = override ?? workspaceConfig;
       } else {
-        const session = await requireSession(headers);
-        account = await accountRow(session.user.id);
-        row = account;
+        const { workspaceId } = await requireWorkspace(headers);
+        workspaceConfig = await workspaceRow(workspaceId);
+        row = workspaceConfig;
       }
 
       if (!row || row.provider === "platform") {
@@ -683,7 +754,7 @@ export function createAiConfigService(deps: {
           model: row.model,
         });
 
-        const embeddingRow = selectEmbeddingConfig(account, override);
+        const embeddingRow = selectEmbeddingConfig(workspaceConfig, override);
         if (embeddingRow) {
           const embeddingConfig = embedConfigForRow(embeddingRow);
           await createEmbedder(embeddingConfig).embed(["connection test"]);

@@ -25,15 +25,15 @@ export function OPTIONS() {
  * Builds the chat client for a domain that brought its own provider.
  * Null means "use the platform default".
  */
-async function resolveAiService(domain: { id: string; ownerId: string }) {
+async function resolveAiService(domain: { id: string; workspaceId: string }) {
   const provider = await aiConfigService.resolveForDomain(
     domain.id,
-    domain.ownerId,
+    domain.workspaceId,
   );
   if (!provider) return null;
   return createAiService({
     chat: provider,
-    // No platform fallback for a BYO provider: its owner pays for its calls.
+    // No platform fallback for a BYO provider: its workspace pays for its calls.
     fallback: null,
     embed: platformEmbedConfig,
   });

@@ -970,7 +970,7 @@ export async function handleChatPost(
      */
     resolveAiService?: (domain: {
       id: string;
-      ownerId: string;
+      workspaceId: string;
     }) => Promise<AiService | null>;
     portalService: PortalService;
     knowledgeService: ReadKnowledgeService;
