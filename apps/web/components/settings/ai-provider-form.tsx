@@ -21,22 +21,22 @@ import {
 } from "@/lib/actions/ai-config";
 
 /**
- * One form for both scopes: the account default (`mode="account"`) and a
+ * One form for both scopes: the workspace default (`mode="workspace"`) and a
  * per-domain override (`mode="domain"`). The only structural difference is
- * inheritance — a domain can revert to the account default.
+ * inheritance — a domain can revert to the workspace default.
  */
 export function AiProviderForm({
   mode,
   current,
   domainId,
-  accountLabel,
+  workspaceLabel,
   hasOverride,
 }: {
-  mode: "account" | "domain";
+  mode: "workspace" | "domain";
   current: AiConfigView;
   domainId?: string;
-  /** Human summary of the account default, shown when a domain inherits it. */
-  accountLabel?: string;
+  /** Human summary of the workspace default, shown when a domain inherits it. */
+  workspaceLabel?: string;
   /** Domain mode only: whether the domain currently has its own provider row. */
   hasOverride?: boolean;
 }) {
@@ -52,7 +52,7 @@ export function AiProviderForm({
   );
   const [model, setModel] = useState(current.model ?? "");
   const [embeddingModel, setEmbeddingModel] = useState(
-    // A domain without its own row inherits the account's model; showing it
+    // A domain without its own row inherits the workspace's model; showing it
     // here would copy it into a new override by accident.
     isDomain && !hasOverride ? "" : (current.embeddingModel ?? ""),
   );
@@ -117,7 +117,7 @@ export function AiProviderForm({
     }
   }
 
-  async function revertToAccount() {
+  async function revertToWorkspace() {
     if (!domainId) return;
     setPending(true);
     setError(null);
@@ -125,7 +125,7 @@ export function AiProviderForm({
     setPending(false);
     if (result.ok) {
       setEnabled(false);
-      setFeedback("Using the account default");
+      setFeedback("Using the workspace default");
       router.refresh();
     } else {
       setError(result.error);
@@ -154,7 +154,7 @@ export function AiProviderForm({
           </label>
           {!enabled ? (
             <p className="text-xs text-muted-foreground">
-              {`Inheriting the account default${accountLabel ? ` — ${accountLabel}` : ""}.`}
+              {`Inheriting the workspace default${workspaceLabel ? ` — ${workspaceLabel}` : ""}.`}
             </p>
           ) : null}
           {hasOverride ? (
@@ -162,10 +162,10 @@ export function AiProviderForm({
               type="button"
               variant="outline"
               size="sm"
-              onClick={revertToAccount}
+              onClick={revertToWorkspace}
               disabled={pending}
             >
-              Revert to account default
+              Revert to workspace default
             </Button>
           ) : null}
         </div>
@@ -256,15 +256,15 @@ export function AiProviderForm({
                   />
                   <p className="text-xs text-muted-foreground">
                     {isDomain
-                      ? "Leave blank to inherit the account embeddings (or the platform model when the account has none). Saving a model re-embeds this domain's knowledge base before the change takes effect."
-                      : "Leave blank to use the platform embeddings. Saving a model re-embeds the knowledge base of every domain that inherits your account setting before the change takes effect."}
+                      ? "Leave blank to inherit the workspace embeddings (or the platform model when the workspace has none). Saving a model re-embeds this domain's knowledge base before the change takes effect."
+                      : "Leave blank to use the platform embeddings. Saving a model re-embeds the knowledge base of every domain that inherits your workspace setting before the change takes effect."}
                   </p>
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
                   {providerEntry.label} has no embeddings endpoint, so{" "}
                   {isDomain
-                    ? "this domain keeps inheriting the account or platform embeddings."
+                    ? "this domain keeps inheriting the workspace or platform embeddings."
                     : "knowledge search keeps using the platform embeddings."}
                 </p>
               )}

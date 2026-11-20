@@ -32,7 +32,7 @@ export default async function SettingsPage() {
   }
 
   const settings = await settingsService.getSettings(requestHeaders);
-  const aiConfig = await aiConfigService.getAccountConfig(requestHeaders);
+  const aiConfig = await aiConfigService.getWorkspaceConfig(requestHeaders);
 
   return (
     <div className="space-y-6">
@@ -90,11 +90,12 @@ export default async function SettingsPage() {
           <CardTitle>AI provider</CardTitle>
           <CardDescription>
             Bring your own OpenAI-compatible provider instead of the platform
-            model. Keys are encrypted and never shown in full.
+            model for this workspace. Keys are encrypted, shared with its
+            members, and never shown in full.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <AiProviderForm mode="account" current={aiConfig} />
+          <AiProviderForm mode="workspace" current={aiConfig} />
         </CardContent>
       </Card>
 
