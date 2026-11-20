@@ -12,6 +12,7 @@ import { user } from "@repo/database/schema/auth";
 import { domains } from "@repo/database/schema/domains";
 import { products } from "@repo/database/schema/products";
 import { conversations } from "@repo/database/schema/index";
+import { workspaces } from "@repo/database/schema/workspaces";
 
 export const bookings = pgTable(
   "bookings",
@@ -94,9 +95,13 @@ export const stripeAccounts = pgTable(
   "stripe_accounts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    ownerId: text("owner_id")
+    workspaceId: uuid("workspace_id")
       .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    /** Who connected it. Not an access grant; the workspace owns the row. */
+    ownerId: text("owner_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     stripeAccountId: text("stripe_account_id").notNull(),
     status: text("status", {
       enum: ["pending", "onboarding", "complete"],
@@ -110,7 +115,9 @@ export const stripeAccounts = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [uniqueIndex("stripe_accounts_owner_id_idx").on(table.ownerId)],
+  (table) => [
+    uniqueIndex("stripe_accounts_workspace_id_idx").on(table.workspaceId),
+  ],
 );
 
 export const bookingSettings = pgTable(
