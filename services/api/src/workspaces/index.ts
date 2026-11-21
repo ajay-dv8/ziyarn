@@ -13,6 +13,13 @@ export type {
 } from "@repo/api/workspaces/roles";
 
 export {
+  findDomainAccess,
+  findWorkspaceRole,
+  roleCanEditDomainData,
+} from "@repo/api/workspaces/access";
+export type { DomainAccess } from "@repo/api/workspaces/access";
+
+export {
   createWorkspaceService,
   inviteUrl,
 } from "@repo/api/workspaces/server";

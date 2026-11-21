@@ -677,19 +677,9 @@ export function createWorkspaceService(deps: {
           );
       }
 
-      // Domains belong to the workspace, but the rest of the app still uses
-      // domains.ownerId for its data checks. Hand the ones this person created
-      // in this workspace to the workspace owner so the data stays reachable.
-      await db
-        .update(domains)
-        .set({ ownerId: workspace.ownerId, updatedAt: new Date() })
-        .where(
-          and(
-            eq(domains.workspaceId, workspaceId),
-            eq(domains.ownerId, member.userId),
-          ),
-        );
-
+      // Domains belong to the workspace, not to the person who created them.
+      // Removing a member leaves every domain in place; `domains.ownerId`
+      // stays as the creator for audit and no longer decides access.
       await db
         .delete(workspaceMembers)
         .where(eq(workspaceMembers.id, memberId));
@@ -718,25 +708,20 @@ export function createWorkspaceService(deps: {
     /** Gets the workspace that owns a domain. */
     getWorkspaceForDomain: async (domainId: string) => {
       const [domain] = await db
-        .select({ ownerId: domains.ownerId })
+        .select({ workspaceId: domains.workspaceId })
         .from(domains)
         .where(eq(domains.id, domainId))
         .limit(1);
 
       if (!domain) return null;
 
-      // Find workspace where the domain owner is a member
-      const [membership] = await db
-        .select({
-          workspaceId: workspaceMembers.workspaceId,
-          workspace: workspaces,
-        })
-        .from(workspaceMembers)
-        .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
-        .where(eq(workspaceMembers.userId, domain.ownerId))
+      const [workspace] = await db
+        .select()
+        .from(workspaces)
+        .where(eq(workspaces.id, domain.workspaceId))
         .limit(1);
 
-      return membership?.workspace ?? null;
+      return workspace ?? null;
     },
 
     /** Counts members in a workspace. */
