@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 
 import { listPaymentsSchema } from "@repo/api/portal";
+import { checkDomainAccess } from "@/lib/domain-access";
 import { portalService } from "@/services/portal-service";
 import { authService } from "@/services/auth-service";
 
@@ -26,6 +27,14 @@ export const ordersService = {
 
     const parsed = listPaymentsSchema.safeParse(input);
     if (!parsed.success) {
+      return {
+        orders: [],
+        counts: { all: 0, chat: 0, db: 0 },
+      };
+    }
+
+    const access = await checkDomainAccess(parsed.data.domainId, session.user.id);
+    if (!access.ok) {
       return {
         orders: [],
         counts: { all: 0, chat: 0, db: 0 },
