@@ -28,7 +28,7 @@ function errorResult(error: unknown): Extract<ActionResult, { ok: false }> {
   return { ok: false, error: "Something went wrong, please try again" };
 }
 
-async function requireOwner() {
+async function requireSessionUser() {
   const session = await authService.getSession(await headers());
   if (!session?.user) {
     throw new ConversationServiceError(401, "UNAUTHORIZED", "Not signed in");
@@ -60,7 +60,7 @@ export async function replyToConversationAction(input: {
   }
 
   try {
-    const user = await requireOwner();
+    const user = await requireSessionUser();
     const message = await chatService.appendOwnerMessage(
       parsed.data.conversationId,
       user.id,
@@ -91,7 +91,7 @@ export async function listConversationsAction(
   }
 
   try {
-    const user = await requireOwner();
+    const user = await requireSessionUser();
     const workspaceId = await resolveActiveWorkspaceId(db, await headers(), user.id);
     if (!workspaceId) return { ok: true, conversations: [] };
 
@@ -155,8 +155,8 @@ export async function setConversationStatusAction(input: {
   }
 
   try {
-    const user = await requireOwner();
-    await chatService.setConversationStatusForOwner(
+    const user = await requireSessionUser();
+    await chatService.setConversationStatusForMember(
       parsed.data.id,
       user.id,
       parsed.data.status,
@@ -172,7 +172,7 @@ export async function markConversationSeenAction(input: {
   conversationId: string;
 }): Promise<ActionResult> {
   try {
-    const user = await requireOwner();
+    const user = await requireSessionUser();
     await chatService.markConversationSeen(input.conversationId, user.id);
     revalidatePath(APP_ROUTES.DASHBOARD_CONVERSATIONS);
     return { ok: true };
@@ -193,8 +193,8 @@ export async function getConversationLeadAction(input: {
   conversationId: string;
 }): Promise<ActionResult & { lead?: LeadInfo | null }> {
   try {
-    const user = await requireOwner();
-    const conversation = await chatService.getConversationForOwner(
+    const user = await requireSessionUser();
+    const conversation = await chatService.getConversationForMember(
       input.conversationId,
       user.id,
     );
