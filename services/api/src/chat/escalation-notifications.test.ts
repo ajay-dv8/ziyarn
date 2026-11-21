@@ -56,6 +56,8 @@ function deps(status: "active" | "escalated" = "active") {
       },
     ],
     messages: [{ content: "Where is my order?" }],
+    workspace_members: [{ userId: OWNER_ID }],
+    workspaces: [{ ownerId: OWNER_ID }],
     user: [{ email: "owner@example.com" }],
   });
 

@@ -9,6 +9,8 @@ import {
   messages,
   products,
   bookingSettings,
+  workspaceMembers,
+  workspaces,
   user as authUser,
 } from "@repo/database/schema";
 import { isAiModelUnavailableError, type AgentToolName } from "@repo/ai";
@@ -43,6 +45,10 @@ import {
 import type { PortalService } from "@repo/api/portal/server";
 import type { ReadKnowledgeService } from "@repo/api/knowledge/read-server";
 import { isProductPageUrl } from "@repo/api/products/url";
+import {
+  findWorkspaceRole,
+  roleCanEditDomainData,
+} from "@repo/api/workspaces/access";
 import { createToolExecutor } from "@repo/api/chat/tool-executor";
 import {
   getBusinessTypeConfig,
@@ -71,6 +77,20 @@ const notFound = () =>
 
 const forbidden = () =>
   new ConversationServiceError(403, "FORBIDDEN", "Domain secret mismatch");
+
+const workspaceForbidden = () =>
+  new ConversationServiceError(
+    403,
+    "FORBIDDEN",
+    "You are not a member of this workspace",
+  );
+
+const forbiddenMutation = () =>
+  new ConversationServiceError(
+    403,
+    "FORBIDDEN",
+    "Viewers can only read conversations",
+  );
 
 export const CONTEXT_WINDOW_MESSAGES = 20;
 
@@ -266,19 +286,37 @@ export function createChatService(deps: { db: Database }) {
     return conversation;
   };
 
-  /** Ownership guard for owner-side operations. */
-  const requireOwnedConversation = async (id: string, ownerId: string) => {
+  /**
+   * Access guard for dashboard operations. A conversation is reachable when
+   * the caller is a member of the workspace that owns its domain; the role
+   * decides whether they may change it. The domain creator is not special.
+   */
+  const requireConversationAccess = async (
+    id: string,
+    userId: string,
+    mutate = false,
+  ) => {
     const [row] = await db
-      .select({ conversation: conversations })
+      .select({
+        conversation: conversations,
+        role: workspaceMembers.role,
+        domainId: domains.id,
+      })
       .from(conversations)
       .innerJoin(agents, eq(conversations.agentId, agents.id))
       .innerJoin(domains, eq(agents.domainId, domains.id))
-      .where(
-        and(eq(conversations.id, id), eq(domains.ownerId, ownerId)),
+      .innerJoin(
+        workspaceMembers,
+        and(
+          eq(workspaceMembers.workspaceId, domains.workspaceId),
+          eq(workspaceMembers.userId, userId),
+        ),
       )
+      .where(eq(conversations.id, id))
       .limit(1);
     if (!row) throw notFound();
-    return row.conversation;
+    if (mutate && !roleCanEditDomainData(row.role)) throw forbiddenMutation();
+    return { conversation: row.conversation, domainId: row.domainId };
   };
 
   return {
@@ -376,8 +414,8 @@ export function createChatService(deps: { db: Database }) {
       return row.conversation;
     },
 
-    /** A conversation only if it belongs to a domain owned by `ownerId`. */
-    getConversationForOwner: async (id: string, ownerId: string) => {
+    /** A conversation if the caller is a member of its domain's workspace. */
+    getConversationForMember: async (id: string, userId: string) => {
       const [row] = await db
         .select({
           conversation: conversations,
@@ -388,9 +426,14 @@ export function createChatService(deps: { db: Database }) {
         .from(conversations)
         .innerJoin(agents, eq(conversations.agentId, agents.id))
         .innerJoin(domains, eq(agents.domainId, domains.id))
-        .where(
-          and(eq(conversations.id, id), eq(domains.ownerId, ownerId)),
+        .innerJoin(
+          workspaceMembers,
+          and(
+            eq(workspaceMembers.workspaceId, domains.workspaceId),
+            eq(workspaceMembers.userId, userId),
+          ),
         )
+        .where(eq(conversations.id, id))
         .limit(1);
 
       if (!row) throw notFound();
@@ -402,14 +445,21 @@ export function createChatService(deps: { db: Database }) {
       };
     },
 
-    /** Resolve the domain behind a conversation, only for its owner. */
-    getConversationDomainForOwner: async (id: string, ownerId: string) => {
+    /** Resolve the domain behind a conversation for a workspace member. */
+    getConversationDomainForMember: async (id: string, userId: string) => {
       const [row] = await db
         .select({ domainId: domains.id })
         .from(conversations)
         .innerJoin(agents, eq(conversations.agentId, agents.id))
         .innerJoin(domains, eq(agents.domainId, domains.id))
-        .where(and(eq(conversations.id, id), eq(domains.ownerId, ownerId)))
+        .innerJoin(
+          workspaceMembers,
+          and(
+            eq(workspaceMembers.workspaceId, domains.workspaceId),
+            eq(workspaceMembers.userId, userId),
+          ),
+        )
+        .where(eq(conversations.id, id))
         .limit(1);
 
       return row?.domainId ?? null;
@@ -421,15 +471,15 @@ export function createChatService(deps: { db: Database }) {
      * explicitly labelled All domains view.
      */
     listConversationsForWorkspace: async (
-      ownerId: string,
+      userId: string,
       workspaceId: string,
       options: { domainId?: string; limit?: number } = {},
     ) => {
+      const role = await findWorkspaceRole(db, workspaceId, userId);
+      if (!role) throw workspaceForbidden();
+
       const { domainId, limit = 100 } = options;
-      const filters = [
-        eq(domains.ownerId, ownerId),
-        eq(domains.workspaceId, workspaceId),
-      ];
+      const filters = [eq(domains.workspaceId, workspaceId)];
       if (domainId) filters.push(eq(domains.id, domainId));
 
       const rows = await db
@@ -519,13 +569,17 @@ export function createChatService(deps: { db: Database }) {
       return rows;
     },
 
-    /** Owner replies to a conversation; rejects closed/resolved ones. */
+    /** A member replies to a conversation; rejects closed/resolved ones. */
     appendOwnerMessage: async (
       id: string,
-      ownerId: string,
+      userId: string,
       content: string,
     ) => {
-      const conversation = await requireOwnedConversation(id, ownerId);
+      const { conversation } = await requireConversationAccess(
+        id,
+        userId,
+        true,
+      );
       if (
         conversation.status === "resolved" ||
         conversation.status === "closed"
@@ -553,34 +607,34 @@ export function createChatService(deps: { db: Database }) {
         .update(conversations)
         .set({ updatedAt: new Date() })
         .where(eq(conversations.id, id));
-      await markNotificationsReadQuietly(db, ownerId, id);
+      await markNotificationsReadQuietly(db, userId, id);
       return created;
     },
 
-    /** Marks the conversation as seen by the owner (clears unread). */
-    markConversationSeen: async (id: string, ownerId: string) => {
-      await requireOwnedConversation(id, ownerId);
+    /** Marks the conversation as seen by an editor (clears unread). */
+    markConversationSeen: async (id: string, userId: string) => {
+      await requireConversationAccess(id, userId, true);
       await db
         .update(conversations)
         .set({ ownerSeenAt: new Date(), updatedAt: new Date() })
         .where(eq(conversations.id, id));
-      await markNotificationsReadQuietly(db, ownerId, id);
+      await markNotificationsReadQuietly(db, userId, id);
     },
 
-    /** Status change scoped to the owner (resolve/close/reopen/…). */
-    setConversationStatusForOwner: async (
+    /** Status change for a workspace member (resolve/close/reopen/…). */
+    setConversationStatusForMember: async (
       id: string,
-      ownerId: string,
+      userId: string,
       status: "active" | "escalated" | "resolved" | "closed",
     ) => {
-      await requireOwnedConversation(id, ownerId);
+      await requireConversationAccess(id, userId, true);
       const [updated] = await db
         .update(conversations)
         .set({ status, updatedAt: new Date() })
         .where(eq(conversations.id, id))
         .returning();
       if (status !== "escalated") {
-        await markNotificationsReadQuietly(db, ownerId, id);
+        await markNotificationsReadQuietly(db, userId, id);
       }
       return updated;
     },
@@ -806,9 +860,9 @@ export type EscalateConversationDeps = {
 };
 
 /**
- * Marks a conversation as escalated and notifies the owning human agent. Shared
- * by the LLM `escalate` tool and by the widget's manual "escalate to human agent"
- * handoff so both paths notify the human identically.
+ * Marks a conversation as escalated and notifies the workspace's editors.
+ * Shared by the LLM `escalate` tool and by the widget's manual "escalate to a
+ * human" handoff so both paths notify the same people.
  */
 export async function escalateConversationToHuman(deps: EscalateConversationDeps): Promise<void> {
   const { db, domain, conversationId, chatService, logger, reason } = deps;
@@ -828,7 +882,6 @@ export async function escalateConversationToHuman(deps: EscalateConversationDeps
   try {
     const [domainRow] = await db
       .select({
-        ownerId: domains.ownerId,
         workspaceId: domains.workspaceId,
         domainName: domains.name,
       })
@@ -856,21 +909,35 @@ export async function escalateConversationToHuman(deps: EscalateConversationDeps
       .orderBy(desc(messages.createdAt))
       .limit(1);
 
-    const notificationInput = {
-      userId: domainRow.ownerId,
-      workspaceId: domainRow.workspaceId,
-      domainId: domain.id,
-      conversationId,
-      domainName: domainRow.domainName,
-      message: visitorMessage?.content ?? null,
-      reason: typeof reason === "string" ? reason : null,
-    };
+    // Escalations belong to the workspace, not to the person who created the
+    // domain. Notify every member who can act on the inbox; viewers only see
+    // the shared badge and do not get a per-user notification.
+    const recipients = await db
+      .select({ userId: workspaceMembers.userId })
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.workspaceId, domainRow.workspaceId),
+          inArray(workspaceMembers.role, ["owner", "admin", "member"]),
+        ),
+      );
 
     try {
-      if (wasEscalated) {
-        await ensureConversationEscalationNotification(db, notificationInput);
-      } else {
-        await notifyConversationEscalated(db, notificationInput);
+      for (const recipient of recipients) {
+        const notificationInput = {
+          userId: recipient.userId,
+          workspaceId: domainRow.workspaceId,
+          domainId: domain.id,
+          conversationId,
+          domainName: domainRow.domainName,
+          message: visitorMessage?.content ?? null,
+          reason: typeof reason === "string" ? reason : null,
+        };
+        if (wasEscalated) {
+          await ensureConversationEscalationNotification(db, notificationInput);
+        } else {
+          await notifyConversationEscalated(db, notificationInput);
+        }
       }
     } catch (notificationError) {
       logger.error(
@@ -882,13 +949,20 @@ export async function escalateConversationToHuman(deps: EscalateConversationDeps
     if (wasEscalated) return;
 
     try {
-      // The legacy `users` table is empty; the authenticated recipient lives in
-      // the Better Auth `user` table that domains.ownerId already references.
-      const [ownerRow] = await db
-        .select({ email: authUser.email })
-        .from(authUser)
-        .where(eq(authUser.id, domainRow.ownerId))
+      // Email the workspace owner as the accountable recipient. Every editor
+      // already has the in-app notification and the shared sidebar badge.
+      const [workspaceRow] = await db
+        .select({ ownerId: workspaces.ownerId })
+        .from(workspaces)
+        .where(eq(workspaces.id, domainRow.workspaceId))
         .limit(1);
+      const [ownerRow] = workspaceRow
+        ? await db
+            .select({ email: authUser.email })
+            .from(authUser)
+            .where(eq(authUser.id, workspaceRow.ownerId))
+            .limit(1)
+        : [];
       if (ownerRow?.email) {
         const dashboardUrl = `${absoluteUrl(process.env.BETTER_AUTH_URL ?? "", APP_ROUTES.DASHBOARD_CONVERSATIONS)}?conversationId=${conversationId}`;
         const template = escalationNotificationTemplate({
@@ -1370,7 +1444,7 @@ export async function handleChatHistory(
       if (!session?.user) {
         return jsonError(401, "UNAUTHORIZED", "Sign in to view conversations");
       }
-      conversation = await chatService.getConversationForOwner(
+      conversation = await chatService.getConversationForMember(
         conversationId!,
         session.user.id,
       );
