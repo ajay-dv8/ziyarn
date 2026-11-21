@@ -251,7 +251,6 @@ export function createNotificationsService(deps: {
               .innerJoin(domains, eq(agents.domainId, domains.id))
               .where(
                 and(
-                  eq(domains.ownerId, user.id),
                   eq(domains.workspaceId, activeWorkspaceId),
                   eq(conversations.status, "escalated"),
                 ),
