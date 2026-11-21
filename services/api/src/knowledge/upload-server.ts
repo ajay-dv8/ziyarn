@@ -12,7 +12,7 @@ import {
   uploadFileSchema,
 } from "@repo/api/knowledge/schemas";
 import { KnowledgeServiceError } from "@repo/api/knowledge/errors";
-import { createOwnershipChecks } from "@repo/api/knowledge/read-server";
+import { createKnowledgeAccessChecks } from "@repo/api/knowledge/read-server";
 import { ingestContent } from "@repo/api/knowledge/ingest";
 
 /**
@@ -33,7 +33,7 @@ export function createUploadKnowledgeService(deps: {
   storage: KnowledgeFileStorage;
 }) {
   const { db, getSession, resolveEmbedder, storage } = deps;
-  const { requireOwnedAgent } = createOwnershipChecks({ db, getSession });
+  const { requireAgentAccess } = createKnowledgeAccessChecks({ db, getSession });
 
   /** Pastes text content as a knowledge document. */
   const uploadDocument = async (
@@ -46,7 +46,7 @@ export function createUploadKnowledgeService(deps: {
     headers: Headers,
   ) => {
     const body = createKnowledgeDocumentSchema.parse(input);
-    await requireOwnedAgent(body.domainId, body.agentId, headers);
+    await requireAgentAccess(body.domainId, body.agentId, headers, true);
     const embedder = await resolveEmbedder(body.agentId);
     return ingestContent({ db, embedder }, body.agentId, body.content, body.title);
   };
@@ -65,7 +65,7 @@ export function createUploadKnowledgeService(deps: {
     headers: Headers,
   ) => {
     const parsed = uploadFileSchema.parse(input);
-    await requireOwnedAgent(parsed.domainId, parsed.agentId, headers);
+    await requireAgentAccess(parsed.domainId, parsed.agentId, headers, true);
     const embedder = await resolveEmbedder(parsed.agentId);
 
     const type = detectFileType(parsed.fileName);

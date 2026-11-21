@@ -5,12 +5,15 @@ import {
   agents,
   crawlJobs,
   documentChunks,
-  domains,
   embeddings,
   knowledgeDocuments,
 } from "@repo/database/schema";
 
 import type { SessionWithUser } from "@repo/api/domains/server";
+import {
+  findDomainAccess,
+  roleCanEditDomainData,
+} from "@repo/api/workspaces/access";
 import type { KnowledgeFileStorage } from "@repo/api/knowledge/storage";
 import {
   type CrawlStatusInput,
@@ -32,7 +35,17 @@ import {
 const unauthorized = () =>
   new KnowledgeServiceError(401, "UNAUTHORIZED", "You must be signed in");
 const forbidden = () =>
-  new KnowledgeServiceError(403, "FORBIDDEN", "You do not own this domain");
+  new KnowledgeServiceError(
+    403,
+    "FORBIDDEN",
+    "You are not a member of this domain's workspace",
+  );
+const forbiddenMutation = () =>
+  new KnowledgeServiceError(
+    403,
+    "FORBIDDEN",
+    "Viewers can only read this domain",
+  );
 const domainNotFound = () =>
   new KnowledgeServiceError(404, "DOMAIN_NOT_FOUND", "Domain not found");
 const agentNotFound = () =>
@@ -50,41 +63,42 @@ const vectorLiteral = (values: number[]) =>
   sql`${`[${values.join(",")}]`}::vector`;
 
 /**
- * Creates ownership checks (requireOwnedDomain, requireOwnedAgent) used by
- * read, upload, and crawl services. Extracted separately so upload/crawl
- * services can reuse them without pulling in the full read service.
+ * Creates workspace access checks (requireDomainAccess, requireAgentAccess)
+ * used by read, upload, and crawl services. Access follows membership in the
+ * domain's workspace; the role gates writes. Extracted separately so
+ * upload/crawl services can reuse them without pulling in the read service.
  */
-export function createOwnershipChecks(deps: {
+export function createKnowledgeAccessChecks(deps: {
   db: Database;
   getSession: (headers: Headers) => Promise<SessionWithUser | null>;
 }) {
   const { db, getSession } = deps;
 
-  const requireOwnedDomain = async (
+  const requireDomainAccess = async (
     domainId: string,
     headers: Headers,
+    mutate = false,
   ): Promise<NonNullable<SessionWithUser>> => {
     const session = await getSession(headers);
     if (!session) throw unauthorized();
 
-    const [domain] = await db
-      .select({ id: domains.id, ownerId: domains.ownerId })
-      .from(domains)
-      .where(eq(domains.id, domainId))
-      .limit(1);
-
-    if (!domain) throw domainNotFound();
-    if (domain.ownerId !== session.user.id) throw forbidden();
+    const access = await findDomainAccess(db, domainId, session.user.id);
+    if (access.kind === "not_found") throw domainNotFound();
+    if (access.kind === "forbidden") throw forbidden();
+    if (mutate && !roleCanEditDomainData(access.role)) {
+      throw forbiddenMutation();
+    }
 
     return session;
   };
 
-  const requireOwnedAgent = async (
+  const requireAgentAccess = async (
     domainId: string,
     agentId: string,
     headers: Headers,
+    mutate = false,
   ): Promise<void> => {
-    await requireOwnedDomain(domainId, headers);
+    await requireDomainAccess(domainId, headers, mutate);
 
     const [agent] = await db
       .select({ id: agents.id })
@@ -95,7 +109,7 @@ export function createOwnershipChecks(deps: {
     if (!agent) throw agentNotFound();
   };
 
-  return { requireOwnedDomain, requireOwnedAgent };
+  return { requireDomainAccess, requireAgentAccess };
 }
 
 /**
@@ -116,18 +130,18 @@ export function createReadKnowledgeService(deps: {
   storage: KnowledgeFileStorage;
 }) {
   const { db, getSession, resolveEmbedder, storage } = deps;
-  const { requireOwnedDomain, requireOwnedAgent } = createOwnershipChecks({
+  const { requireDomainAccess, requireAgentAccess } = createKnowledgeAccessChecks({
     db,
     getSession,
   });
 
-  /** Returns the stored file of a document the session user owns. */
+  /** Returns the stored file of a document the session user can access. */
   const getFile = async (
     input: { domainId: string; documentId: string },
     headers: Headers,
   ) => {
     const parsed = getFileSchema.parse(input);
-    await requireOwnedDomain(parsed.domainId, headers);
+    await requireDomainAccess(parsed.domainId, headers);
 
     const [document] = await db
       .select({
@@ -156,13 +170,13 @@ export function createReadKnowledgeService(deps: {
     };
   };
 
-  /** Lists documents of an agent the session user owns. */
+  /** Lists documents of an agent the session user can access. */
   const listDocuments = async (
     input: ListKnowledgeDocumentsInput,
     headers: Headers,
   ) => {
     const body = listKnowledgeDocumentsSchema.parse(input);
-    await requireOwnedAgent(body.domainId, body.agentId, headers);
+    await requireAgentAccess(body.domainId, body.agentId, headers);
 
     return db
       .select()
@@ -177,7 +191,7 @@ export function createReadKnowledgeService(deps: {
     headers: Headers,
   ) => {
     const body = deleteKnowledgeDocumentSchema.parse(input);
-    await requireOwnedDomain(body.domainId, headers);
+    await requireDomainAccess(body.domainId, headers, true);
 
     const [document] = await db
       .select({ id: knowledgeDocuments.id, storageKey: knowledgeDocuments.storageKey })
@@ -203,7 +217,7 @@ export function createReadKnowledgeService(deps: {
   /** Returns the latest crawl job of an agent plus its document count. */
   const getCrawlStatus = async (input: CrawlStatusInput, headers: Headers) => {
     const body = crawlStatusSchema.parse(input);
-    await requireOwnedAgent(body.domainId, body.agentId, headers);
+    await requireAgentAccess(body.domainId, body.agentId, headers);
 
     const [job] = await db
       .select()

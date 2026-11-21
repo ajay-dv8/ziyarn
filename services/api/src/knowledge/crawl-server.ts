@@ -6,7 +6,7 @@ import { crawlJobs, knowledgeDocuments } from "@repo/database/schema";
 import { createDefaultFetchPage, crawlWebsite } from "@repo/api/knowledge/crawler";
 import { startCrawlSchema } from "@repo/api/knowledge/schemas";
 import { KnowledgeServiceError } from "@repo/api/knowledge/errors";
-import { createOwnershipChecks } from "@repo/api/knowledge/read-server";
+import { createKnowledgeAccessChecks } from "@repo/api/knowledge/read-server";
 import { ingestContent } from "@repo/api/knowledge/ingest";
 
 /**
@@ -26,7 +26,7 @@ export function createCrawlKnowledgeService(deps: {
   }>;
 }) {
   const { db, getSession, resolveEmbedder } = deps;
-  const { requireOwnedAgent } = createOwnershipChecks({ db, getSession });
+  const { requireAgentAccess } = createKnowledgeAccessChecks({ db, getSession });
 
   /** Creates a crawl job and returns it together with a `run` function. */
   const startCrawl = async (
@@ -41,7 +41,7 @@ export function createCrawlKnowledgeService(deps: {
     run: () => Promise<void>;
   }> => {
     const body = startCrawlSchema.parse(input);
-    await requireOwnedAgent(body.domainId, body.agentId, headers);
+    await requireAgentAccess(body.domainId, body.agentId, headers, true);
     const embedder = await resolveEmbedder(body.agentId);
 
     const [job] = await db
