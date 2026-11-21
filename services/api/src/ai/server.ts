@@ -4,6 +4,7 @@ import type { Database } from "@repo/database";
 import { aiConfigs, domainAiConfigs } from "@repo/database/schema";
 import { domains } from "@repo/database/schema/domains";
 import { workspaceMembers } from "@repo/database/schema/workspaces";
+import { findDomainAccess } from "@repo/api/workspaces/access";
 import { createEmbedder, testAiProvider } from "@repo/ai";
 import type { EmbedProviderConfig } from "@repo/ai";
 import type { SessionWithUser } from "@repo/api/domains/server";
@@ -223,27 +224,12 @@ export function createAiConfigService(deps: {
     mutate = false,
   ) => {
     const session = await requireSession(headers);
-    const [domain] = await db
-      .select({ id: domains.id, workspaceId: domains.workspaceId })
-      .from(domains)
-      .where(eq(domains.id, domainId))
-      .limit(1);
-    if (!domain) throw domainNotFound();
+    const access = await findDomainAccess(db, domainId, session.user.id);
+    if (access.kind === "not_found") throw domainNotFound();
+    if (access.kind === "forbidden") throw forbidden();
+    if (mutate && !canEditWorkspace(access.role)) throw forbidden();
 
-    const [membership] = await db
-      .select({ role: workspaceMembers.role })
-      .from(workspaceMembers)
-      .where(
-        and(
-          eq(workspaceMembers.workspaceId, domain.workspaceId),
-          eq(workspaceMembers.userId, session.user.id),
-        ),
-      )
-      .limit(1);
-    if (!membership) throw forbidden();
-    if (mutate && !canEditWorkspace(membership.role)) throw forbidden();
-
-    return { session, domain };
+    return { session, domain: access.domain };
   };
 
   const requireEncryption = () => {
