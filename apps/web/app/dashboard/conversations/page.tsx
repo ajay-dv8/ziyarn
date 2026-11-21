@@ -41,7 +41,7 @@ export default async function Conversations({
   const requestedDomain =
     domains.find((domain) => domain.id === params.domainId) ?? null;
   const deepLinkDomainId = conversationId
-    ? await chatService.getConversationDomainForOwner(
+    ? await chatService.getConversationDomainForMember(
         conversationId,
         session.user.id,
       )
@@ -68,6 +68,11 @@ export default async function Conversations({
   if (params.domainId && !requestedDomain) {
     redirect(APP_ROUTES.DASHBOARD_CONVERSATIONS);
   }
+
+  const activeWorkspace = workspaceId
+    ? await workspaceService.getWorkspace(workspaceId, requestHeaders)
+    : null;
+  const readOnly = activeWorkspace?.role === "viewer";
 
   const rows = workspaceId
     ? await chatService.listConversationsForWorkspace(
@@ -139,6 +144,7 @@ export default async function Conversations({
           domainId={effectiveDomain?.id ?? null}
           domainName={effectiveDomain?.name ?? null}
           showDomain={!effectiveDomain}
+          readOnly={readOnly}
         />
       </div>
     </div>

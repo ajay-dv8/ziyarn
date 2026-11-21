@@ -54,12 +54,15 @@ export function ConversationsPage({
   domainId = null,
   domainName = null,
   showDomain = true,
+  readOnly = false,
 }: {
   initial: ConversationRow[];
   initialConversationId?: string | null;
   domainId?: string | null;
   domainName?: string | null;
   showDomain?: boolean;
+  /** Viewers can read the shared inbox but cannot reply or change status. */
+  readOnly?: boolean;
 }) {
   const [conversations, setConversations] = useState(initial);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -207,17 +210,19 @@ export function ConversationsPage({
       setMessages([]);
       setLead(null);
       seenMessageIdsRef.current = new Set();
-      void markConversationSeenAction({ conversationId })
-        .then(() => refreshNotificationSummary())
-        .catch(() => {});
-      // Optimistically clear unread badge
-      setConversations((previous) =>
-        previous.map((conversation) =>
-          conversation.id === conversationId
-            ? { ...conversation, unread: 0 }
-            : conversation,
-        ),
-      );
+      // Seen state is shared by the team, so only editors may clear it.
+      if (!readOnly) {
+        void markConversationSeenAction({ conversationId })
+          .then(() => refreshNotificationSummary())
+          .catch(() => {});
+        setConversations((previous) =>
+          previous.map((conversation) =>
+            conversation.id === conversationId
+              ? { ...conversation, unread: 0 }
+              : conversation,
+          ),
+        );
+      }
 
       // Fetch full message history
       const res = await fetch(
@@ -247,7 +252,7 @@ export function ConversationsPage({
         setLead(leadRes.lead ?? null);
       }
     },
-    [connect, scrollToBottom],
+    [connect, scrollToBottom, readOnly],
   );
 
   // A notification or email can deep-link straight to one conversation.
@@ -433,8 +438,9 @@ export function ConversationsPage({
                   >
                     {STATUS_LABEL[selectedConversation.status]}
                   </Badge>
-                  {(selectedConversation.status === "active" ||
-                    selectedConversation.status === "escalated") && (
+                  {!readOnly &&
+                    (selectedConversation.status === "active" ||
+                      selectedConversation.status === "escalated") && (
                     <>
                       <Button
                         size="sm"
@@ -457,8 +463,9 @@ export function ConversationsPage({
                       </Button>
                     </>
                   )}
-                  {(selectedConversation.status === "resolved" ||
-                    selectedConversation.status === "closed") && (
+                  {!readOnly &&
+                    (selectedConversation.status === "resolved" ||
+                      selectedConversation.status === "closed") && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -524,25 +531,32 @@ export function ConversationsPage({
                 </div>
               </ScrollArea>
 
-              {/* Reply input */}
-              <div className="flex shrink-0 gap-2 border-t p-3">
-                <Input
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      sendReply();
-                    }
-                  }}
-                  placeholder="Reply as the business…"
-                  disabled={busy}
-                />
-                <Button onClick={sendReply} disabled={busy || !draft.trim()}>
-                  <Send />
-                  Send
-                </Button>
-              </div>
+              {/* Reply input — viewers see a read-only notice instead. */}
+              {readOnly ? (
+                <p className="shrink-0 border-t p-3 text-center text-xs text-muted-foreground">
+                  You have viewer access to this workspace. Ask an owner, admin,
+                  or member to reply or change the status.
+                </p>
+              ) : (
+                <div className="flex shrink-0 gap-2 border-t p-3">
+                  <Input
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        sendReply();
+                      }
+                    }}
+                    placeholder="Reply as the business…"
+                    disabled={busy}
+                  />
+                  <Button onClick={sendReply} disabled={busy || !draft.trim()}>
+                    <Send />
+                    Send
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
