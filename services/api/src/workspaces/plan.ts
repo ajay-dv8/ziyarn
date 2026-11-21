@@ -2,32 +2,90 @@ import { eq, inArray } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import { domains } from "@repo/database/schema/domains";
-import { workspaceMembers } from "@repo/database/schema/workspaces";
-import { highestPlan, type Plan } from "@repo/api/plans";
+import { subscriptions } from "@repo/database/schema/billing";
+import { workspaces } from "@repo/database/schema/workspaces";
+import { planSchema, type Plan } from "@repo/api/plans";
 
 /**
- * The plan a workspace's limits are read from: the highest plan among the
- * domains owned by anyone in it. A workspace with no domains yet is "free",
- * which is what an owner sees before their first domain exists.
+ * Statuses where the paid plan is still in force. `past_due` keeps the plan
+ * during the payment-retry window, matching the webhook behaviour; a canceled
+ * or incomplete subscription falls back to free.
+ */
+const PAID_SUBSCRIPTION_STATUSES = new Set([
+  "active",
+  "trialing",
+  "past_due",
+]);
+
+function planForSubscription(
+  subscription: { plan: string; status: string } | null,
+): Plan {
+  if (!subscription || !PAID_SUBSCRIPTION_STATUSES.has(subscription.status)) {
+    return "free";
+  }
+  return planSchema.parse(subscription.plan);
+}
+
+/**
+ * The plan a workspace's limits are read from: the active subscription of the
+ * workspace owner. A plan is account-level and covers every workspace that
+ * account owns; members' plans never raise another workspace's limits.
  */
 export async function resolveWorkspacePlan(
   db: Database,
   workspaceId: string,
 ): Promise<Plan> {
-  // Two queries rather than a sub-select: passing a drizzle sub-query to
-  // inArray() serialises as "[object Object]" on this driver.
-  const memberRows = await db
-    .select({ userId: workspaceMembers.userId })
-    .from(workspaceMembers)
-    .where(eq(workspaceMembers.workspaceId, workspaceId));
+  const [workspace] = await db
+    .select({ ownerId: workspaces.ownerId })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+  if (!workspace) return "free";
 
-  const memberUserIds = memberRows.map((row) => row.userId);
-  if (memberUserIds.length === 0) return "free";
+  const [subscription] = await db
+    .select({ plan: subscriptions.plan, status: subscriptions.status })
+    .from(subscriptions)
+    .where(eq(subscriptions.ownerId, workspace.ownerId))
+    .limit(1);
 
-  const ownedDomains = await db
-    .select({ plan: domains.plan })
-    .from(domains)
-    .where(inArray(domains.ownerId, memberUserIds));
+  return planForSubscription(subscription ?? null);
+}
 
-  return highestPlan(ownedDomains.map((row) => row.plan));
+/** The plan a user's own subscription grants, used for workspace limits. */
+export async function resolveUserPlan(
+  db: Database,
+  userId: string,
+): Promise<Plan> {
+  const [subscription] = await db
+    .select({ plan: subscriptions.plan, status: subscriptions.status })
+    .from(subscriptions)
+    .where(eq(subscriptions.ownerId, userId))
+    .limit(1);
+
+  return planForSubscription(subscription ?? null);
+}
+
+/**
+ * Applies a plan to every domain in the workspaces the subscriber owns,
+ * including domains created by invited members. Two queries because the
+ * neon-http driver serialises a drizzle sub-query passed to inArray() as
+ * "[object Object]".
+ */
+export async function applyPlanToOwnedWorkspaces(
+  db: Database,
+  ownerId: string,
+  plan: Plan,
+): Promise<void> {
+  const ownedWorkspaces = await db
+    .select({ id: workspaces.id })
+    .from(workspaces)
+    .where(eq(workspaces.ownerId, ownerId));
+
+  const workspaceIds = ownedWorkspaces.map((workspace) => workspace.id);
+  if (workspaceIds.length === 0) return;
+
+  await db
+    .update(domains)
+    .set({ plan, updatedAt: new Date() })
+    .where(inArray(domains.workspaceId, workspaceIds));
 }
