@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { checkDomainAccess } from "@/lib/domain-access";
 import { authService } from "@/services/auth-service";
 import { portalService } from "@/services/portal-service";
 
@@ -21,6 +22,13 @@ export async function GET(request: Request) {
       return NextResponse.json(
         { error: { code: "INVALID_INPUT", message: "domainId is required" } },
         { status: 400 },
+      );
+    }
+    const access = await checkDomainAccess(domainId, session.user.id);
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: { code: access.code, message: access.message } },
+        { status: access.status },
       );
     }
     const status = url.searchParams.get("status") as "pending" | "confirmed" | "cancelled" | null;

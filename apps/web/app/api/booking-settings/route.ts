@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { bookingSettingsSchema } from "@repo/api/portal/schemas";
 
+import { checkDomainAccess } from "@/lib/domain-access";
 import { authService } from "@/services/auth-service";
 import { portalService } from "@/services/portal-service";
 
@@ -23,6 +24,13 @@ export async function GET(request: Request) {
       return NextResponse.json(
         { error: { code: "INVALID_INPUT", message: "domainId is required" } },
         { status: 400 },
+      );
+    }
+    const access = await checkDomainAccess(domainId, session.user.id);
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: { code: access.code, message: access.message } },
+        { status: access.status },
       );
     }
     const settings = await portalService.getBookingSettingsForDomain(domainId);
@@ -58,6 +66,15 @@ export async function PUT(request: Request) {
       return NextResponse.json(
         { error: { code: "INVALID_INPUT", message: parsed.error.issues[0]?.message ?? "Invalid input" } },
         { status: 400 },
+      );
+    }
+    const access = await checkDomainAccess(domainId, session.user.id, {
+      mutate: true,
+    });
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: { code: access.code, message: access.message } },
+        { status: access.status },
       );
     }
     const settings = await portalService.upsertBookingSettings(domainId, parsed.data);

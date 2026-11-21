@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { updateBookingStatusSchema } from "@repo/api/portal/schemas";
 
+import { checkDomainAccess } from "@/lib/domain-access";
 import { authService } from "@/services/auth-service";
 import { portalService } from "@/services/portal-service";
 
@@ -22,6 +23,15 @@ export async function GET(
     }
     const { id } = await params;
     const booking = await portalService.getBooking(id);
+    const access = await checkDomainAccess(booking.domainId, session.user.id, {
+      hideForbidden: true,
+    });
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: { code: access.code, message: access.message } },
+        { status: access.status },
+      );
+    }
     return NextResponse.json({ booking });
   } catch (error) {
     const status = (error as { status?: number }).status ?? 500;
@@ -50,6 +60,18 @@ export async function PATCH(
       return NextResponse.json(
         { error: { code: "INVALID_INPUT", message: parsed.error.issues[0]?.message ?? "Invalid input" } },
         { status: 400 },
+      );
+    }
+    const existing = await portalService.getBooking(id);
+    const access = await checkDomainAccess(
+      existing.domainId,
+      session.user.id,
+      { mutate: true, hideForbidden: true },
+    );
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: { code: access.code, message: access.message } },
+        { status: access.status },
       );
     }
     const booking = await portalService.updateBookingStatus(id, parsed.data.status);
