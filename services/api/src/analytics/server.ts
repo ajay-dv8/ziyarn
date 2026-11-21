@@ -6,13 +6,13 @@ import {
   bookings,
   campaigns,
   conversations,
-  domains,
   leads,
   payments,
   products,
 } from "@repo/database/schema";
 
 import type { SessionWithUser } from "@repo/api/domains/server";
+import { findDomainAccess } from "@repo/api/workspaces/access";
 import {
   getAnalyticsSchema,
   type DayBucket,
@@ -37,7 +37,11 @@ const unauthorized = () =>
   new AnalyticsServiceError(401, "UNAUTHORIZED", "You must be signed in");
 
 const forbidden = () =>
-  new AnalyticsServiceError(403, "FORBIDDEN", "You do not own this domain");
+  new AnalyticsServiceError(
+    403,
+    "FORBIDDEN",
+    "You are not a member of this domain's workspace",
+  );
 
 const domainNotFound = () =>
   new AnalyticsServiceError(404, "DOMAIN_NOT_FOUND", "Domain not found");
@@ -71,8 +75,9 @@ function mergeCounts(
 }
 
 /**
- * Owner-scoped analytics: aggregate conversations / leads / bookings /
- * payments (per domain, over a range) plus owner-wide campaign summaries.
+ * Workspace-scoped analytics: aggregate conversations / leads / bookings /
+ * payments (per domain, over a range) plus the domain workspace's campaign
+ * summaries. Any member may read; viewers included.
  */
 export function createAnalyticsService(deps: {
   db: Database;
@@ -80,30 +85,28 @@ export function createAnalyticsService(deps: {
 }) {
   const { db, getSession } = deps;
 
-  const requireOwnedDomain = async (
+  const requireDomainAccess = async (
     domainId: string,
     headers: Headers,
-  ): Promise<NonNullable<SessionWithUser>> => {
+  ): Promise<{
+    session: NonNullable<SessionWithUser>;
+    workspaceId: string;
+  }> => {
     const session = await getSession(headers);
     if (!session) throw unauthorized();
 
-    const [domain] = await db
-      .select({ id: domains.id, ownerId: domains.ownerId })
-      .from(domains)
-      .where(eq(domains.id, domainId))
-      .limit(1);
+    const access = await findDomainAccess(db, domainId, session.user.id);
+    if (access.kind === "not_found") throw domainNotFound();
+    if (access.kind === "forbidden") throw forbidden();
 
-    if (!domain) throw domainNotFound();
-    if (domain.ownerId !== session.user.id) throw forbidden();
-
-    return session;
+    return { session, workspaceId: access.domain.workspaceId };
   };
 
   return {
     /** Full analytics snapshot for one owned domain over the given range. */
     getAnalytics: async (input: GetAnalyticsInput, headers: Headers): Promise<DomainAnalytics> => {
       const body = getAnalyticsSchema.parse(input);
-      const session = await requireOwnedDomain(body.domainId, headers);
+      const { workspaceId } = await requireDomainAccess(body.domainId, headers);
 
       const days = RANGE_DAYS[body.range];
       const from = new Date(Date.now() - days * 86_400_000);
@@ -315,7 +318,7 @@ export function createAnalyticsService(deps: {
         .from(campaigns)
         .where(
           and(
-            eq(campaigns.ownerId, session.user.id),
+            eq(campaigns.workspaceId, workspaceId),
             gte(campaigns.createdAt, from),
           ),
         )
