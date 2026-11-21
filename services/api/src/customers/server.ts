@@ -5,11 +5,14 @@ import {
   agents,
   conversations,
   customers,
-  domains,
   leads,
   unsubscribedEmails,
 } from "@repo/database/schema";
 import type { SessionWithUser } from "@repo/api/domains/server";
+import {
+  findDomainAccess,
+  roleCanEditDomainData,
+} from "@repo/api/workspaces/access";
 import {
   type CustomerSource,
   type ImportCustomersInput,
@@ -30,7 +33,17 @@ export class CustomersServiceError extends Error {
 const unauthorized = () =>
   new CustomersServiceError(401, "UNAUTHORIZED", "You must be signed in");
 const forbidden = () =>
-  new CustomersServiceError(403, "FORBIDDEN", "You do not own this domain");
+  new CustomersServiceError(
+    403,
+    "FORBIDDEN",
+    "You are not a member of this domain's workspace",
+  );
+const forbiddenMutation = () =>
+  new CustomersServiceError(
+    403,
+    "FORBIDDEN",
+    "Viewers can only read this domain",
+  );
 const domainNotFound = () =>
   new CustomersServiceError(404, "DOMAIN_NOT_FOUND", "Domain not found");
 
@@ -92,27 +105,28 @@ export function createCustomersService(deps: {
 }) {
   const { db, getSession } = deps;
 
-  const requireOwnedDomain = async (
+  const requireDomainAccess = async (
     domainId: string,
     headers: Headers,
+    mutate = false,
   ): Promise<NonNullable<SessionWithUser>> => {
     const session = await getSession(headers);
     if (!session) throw unauthorized();
 
-    const [domain] = await db
-      .select({ id: domains.id, ownerId: domains.ownerId })
-      .from(domains)
-      .where(eq(domains.id, domainId))
-      .limit(1);
-    if (!domain) throw domainNotFound();
-    if (domain.ownerId !== session.user.id) throw forbidden();
+    const access = await findDomainAccess(db, domainId, session.user.id);
+    if (access.kind === "not_found") throw domainNotFound();
+    if (access.kind === "forbidden") throw forbidden();
+    if (mutate && !roleCanEditDomainData(access.role)) {
+      throw forbiddenMutation();
+    }
+
     return session;
   };
 
   return {
     /** Lists a domain's customers with per-source counts. */
     list: async (input: ListCustomersInput, headers: Headers) => {
-      const session = await requireOwnedDomain(input.domainId, headers);
+      const session = await requireDomainAccess(input.domainId, headers);
 
       const conditions = [eq(customers.domainId, input.domainId)];
       if (input.source) conditions.push(eq(customers.source, input.source));
@@ -175,7 +189,7 @@ export function createCustomersService(deps: {
      * exported lists). Deduplicates against the domain's customers.
      */
     import: async (input: ImportCustomersInput, headers: Headers) => {
-      await requireOwnedDomain(input.domainId, headers);
+      await requireDomainAccess(input.domainId, headers, true);
       const inserted = await upsertCustomers(db, {
         domainId: input.domainId,
         source: "site",
@@ -190,7 +204,7 @@ export function createCustomersService(deps: {
       input: { domainId: string; ids: string[] },
       headers: Headers,
     ) => {
-      await requireOwnedDomain(input.domainId, headers);
+      await requireDomainAccess(input.domainId, headers, true);
       const deleted = await db
         .delete(customers)
         .where(
@@ -212,7 +226,7 @@ export function createCustomersService(deps: {
       input: { domainId: string; ids: string[] },
       headers: Headers,
     ) => {
-      const session = await requireOwnedDomain(input.domainId, headers);
+      const session = await requireDomainAccess(input.domainId, headers, true);
       const rows = await db
         .select({ emailLower: customers.emailLower })
         .from(customers)
@@ -242,7 +256,7 @@ export function createCustomersService(deps: {
       input: { domainId: string; ids: string[] },
       headers: Headers,
     ) => {
-      const session = await requireOwnedDomain(input.domainId, headers);
+      const session = await requireDomainAccess(input.domainId, headers, true);
       const rows = await db
         .select({ emailLower: customers.emailLower })
         .from(customers)
@@ -277,7 +291,7 @@ export function createCustomersService(deps: {
       input: { domainId: string },
       headers: Headers,
     ) => {
-      await requireOwnedDomain(input.domainId, headers);
+      await requireDomainAccess(input.domainId, headers, true);
 
       const leadRows = await db
         .select({

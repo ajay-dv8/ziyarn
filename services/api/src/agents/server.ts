@@ -1,9 +1,13 @@
 import { and, eq } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
-import { agents, domainAgentDefaults, domains } from "@repo/database/schema";
+import { agents, domainAgentDefaults } from "@repo/database/schema";
 
 import type { SessionWithUser } from "@repo/api/domains/server";
+import {
+  findDomainAccess,
+  roleCanEditDomainData,
+} from "@repo/api/workspaces/access";
 import {
   createAgentSchema,
   updateAgentSchema,
@@ -26,7 +30,18 @@ const unauthorized = () =>
   new AgentServiceError(401, "UNAUTHORIZED", "You must be signed in");
 
 const forbidden = () =>
-  new AgentServiceError(403, "FORBIDDEN", "You do not own this domain");
+  new AgentServiceError(
+    403,
+    "FORBIDDEN",
+    "You are not a member of this domain's workspace",
+  );
+
+const forbiddenMutation = () =>
+  new AgentServiceError(
+    403,
+    "FORBIDDEN",
+    "Viewers can only read this domain",
+  );
 
 const domainNotFound = () =>
   new AgentServiceError(404, "DOMAIN_NOT_FOUND", "Domain not found");
@@ -44,8 +59,9 @@ const agentNotFound = () =>
   new AgentServiceError(404, "AGENT_NOT_FOUND", "Agent not found");
 
 /**
- * Owner-scoped agent CRUD. Agents belong to a domain; every mutation verifies
- * the session user owns the domain before touching the agent.
+ * Workspace-scoped agent CRUD. Agents belong to a domain; access follows
+ * membership in the domain's workspace. Reads are open to every member,
+ * writes require owner/admin/member (viewers are read-only).
  */
 export function createAgentsService(deps: {
   db: Database;
@@ -53,31 +69,31 @@ export function createAgentsService(deps: {
 }) {
   const { db, getSession } = deps;
 
-  const requireOwnedDomain = async (
+  const requireDomainAccess = async (
     domainId: string,
     headers: Headers,
+    mutate = false,
   ): Promise<NonNullable<SessionWithUser>> => {
     const session = await getSession(headers);
     if (!session) throw unauthorized();
 
-    const [domain] = await db
-      .select({ id: domains.id, ownerId: domains.ownerId })
-      .from(domains)
-      .where(eq(domains.id, domainId))
-      .limit(1);
-
-    if (!domain) throw domainNotFound();
-    if (domain.ownerId !== session.user.id) throw forbidden();
+    const access = await findDomainAccess(db, domainId, session.user.id);
+    if (access.kind === "not_found") throw domainNotFound();
+    if (access.kind === "forbidden") throw forbidden();
+    if (mutate && !roleCanEditDomainData(access.role)) {
+      throw forbiddenMutation();
+    }
 
     return session;
   };
 
-  const requireOwnedAgent = async (
+  const requireAgentAccess = async (
     domainId: string,
     agentId: string,
     headers: Headers,
+    mutate = false,
   ): Promise<{ id: string }> => {
-    await requireOwnedDomain(domainId, headers);
+    await requireDomainAccess(domainId, headers, mutate);
 
     const [agent] = await db
       .select({ id: agents.id })
@@ -90,9 +106,9 @@ export function createAgentsService(deps: {
   };
 
   return {
-    /** Lists agents of a domain owned by the session user. */
+    /** Lists agents of a domain the session user can reach. */
     listAgents: async (domainId: string, headers: Headers) => {
-      await requireOwnedDomain(domainId, headers);
+      await requireDomainAccess(domainId, headers);
 
       return db
         .select()
@@ -101,9 +117,9 @@ export function createAgentsService(deps: {
         .orderBy(agents.createdAt);
     },
 
-    /** Returns a single agent if the session user owns its domain. */
+    /** Returns a single agent if the session user can reach its domain. */
     getAgent: async (domainId: string, agentId: string, headers: Headers) => {
-      const agent = await requireOwnedAgent(domainId, agentId, headers);
+      const agent = await requireAgentAccess(domainId, agentId, headers);
 
       const [row] = await db
         .select()
@@ -119,7 +135,7 @@ export function createAgentsService(deps: {
      * the oldest agent.
      */
     getDefaultAgentId: async (domainId: string, headers: Headers) => {
-      await requireOwnedDomain(domainId, headers);
+      await requireDomainAccess(domainId, headers);
 
       const [row] = await db
         .select({ agentId: domainAgentDefaults.agentId })
@@ -130,10 +146,10 @@ export function createAgentsService(deps: {
       return row?.agentId ?? null;
     },
 
-    /** Creates an agent inside a domain owned by the session user. */
+    /** Creates an agent inside a domain the session user can edit. */
     createAgent: async (input: CreateAgentInput, headers: Headers) => {
       const body = createAgentSchema.parse(input);
-      await requireOwnedDomain(body.domainId, headers);
+      await requireDomainAccess(body.domainId, headers, true);
 
       const [created] = await db
         .insert(agents)
@@ -152,7 +168,7 @@ export function createAgentsService(deps: {
       return created;
     },
 
-    /** Updates an agent owned by the session user. */
+    /** Updates an agent in a domain the session user can edit. */
     updateAgent: async (
       domainId: string,
       agentId: string,
@@ -160,7 +176,7 @@ export function createAgentsService(deps: {
       headers: Headers,
     ) => {
       const body = updateAgentSchema.parse(input);
-      const agent = await requireOwnedAgent(domainId, agentId, headers);
+      const agent = await requireAgentAccess(domainId, agentId, headers, true);
 
       const [updated] = await db
         .update(agents)
@@ -196,7 +212,7 @@ export function createAgentsService(deps: {
       agentId: string,
       headers: Headers,
     ) => {
-      const agent = await requireOwnedAgent(domainId, agentId, headers);
+      const agent = await requireAgentAccess(domainId, agentId, headers, true);
 
       await db
         .insert(domainAgentDefaults)
@@ -207,9 +223,9 @@ export function createAgentsService(deps: {
         });
     },
 
-    /** Deletes an agent owned by the session user. */
+    /** Deletes an agent in a domain the session user can edit. */
     deleteAgent: async (domainId: string, agentId: string, headers: Headers) => {
-      const agent = await requireOwnedAgent(domainId, agentId, headers);
+      const agent = await requireAgentAccess(domainId, agentId, headers, true);
 
       await db.delete(agents).where(eq(agents.id, agent.id));
     },

@@ -5,7 +5,6 @@ import {
   agents,
   dataSourceTables,
   dataSources,
-  domains,
   documentChunks,
   embeddings,
   knowledgeDocuments,
@@ -20,6 +19,10 @@ import {
   MAX_DOCUMENT_CHUNKS,
 } from "@repo/api/knowledge/schemas";
 import type { SessionWithUser } from "@repo/api/domains/server";
+import {
+  findDomainAccess,
+  roleCanEditDomainData,
+} from "@repo/api/workspaces/access";
 
 import { decryptJson, encryptJson } from "@repo/api/datasources/crypto";
 import { createDriver } from "@repo/api/datasources/drivers";
@@ -163,7 +166,17 @@ async function upsertSyncedOrders(
 const unauthorized = () =>
   new DataSourceServiceError(401, "UNAUTHORIZED", "You must be signed in");
 const forbidden = () =>
-  new DataSourceServiceError(403, "FORBIDDEN", "You do not own this domain");
+  new DataSourceServiceError(
+    403,
+    "FORBIDDEN",
+    "You are not a member of this domain's workspace",
+  );
+const forbiddenMutation = () =>
+  new DataSourceServiceError(
+    403,
+    "FORBIDDEN",
+    "Viewers can only read this domain",
+  );
 const domainNotFound = () =>
   new DataSourceServiceError(404, "DOMAIN_NOT_FOUND", "Domain not found");
 const agentNotFound = () =>
@@ -212,21 +225,21 @@ export function createDataSourcesService(deps: {
 }) {
   const { db, getSession, resolveEmbedder } = deps;
 
-  const requireOwnedAgent = async (
+  const requireAgentAccess = async (
     domainId: string,
     agentId: string | null,
     headers: Headers,
+    mutate = false,
   ): Promise<void> => {
     const session = await getSession(headers);
     if (!session) throw unauthorized();
 
-    const [domain] = await db
-      .select({ id: domains.id, ownerId: domains.ownerId })
-      .from(domains)
-      .where(eq(domains.id, domainId))
-      .limit(1);
-    if (!domain) throw domainNotFound();
-    if (domain.ownerId !== session.user.id) throw forbidden();
+    const access = await findDomainAccess(db, domainId, session.user.id);
+    if (access.kind === "not_found") throw domainNotFound();
+    if (access.kind === "forbidden") throw forbidden();
+    if (mutate && !roleCanEditDomainData(access.role)) {
+      throw forbiddenMutation();
+    }
 
     if (agentId !== null) {
       const [agent] = await db
@@ -238,12 +251,13 @@ export function createDataSourcesService(deps: {
     }
   };
 
-  const requireOwnedSource = async (
+  const requireSourceAccess = async (
     domainId: string,
     dataSourceId: string,
     headers: Headers,
+    mutate = true,
   ) => {
-    await requireOwnedAgent(domainId, null, headers);
+    await requireAgentAccess(domainId, null, headers, mutate);
     const [source] = await db
       .select()
       .from(dataSources)
@@ -354,7 +368,7 @@ export function createDataSourcesService(deps: {
   return {
     /** Tests the connection, introspects tables, and saves the data source. */
     connect: async (input: ConnectDataSourceInput, headers: Headers) => {
-      await requireOwnedAgent(input.domainId, input.agentId, headers);
+      await requireAgentAccess(input.domainId, input.agentId, headers, true);
 
       if (input.type === "convex") {
         const hostname = new URL(input.url).hostname;
@@ -432,7 +446,7 @@ export function createDataSourcesService(deps: {
 
     /** Lists the data sources of an agent with their table selections. */
     list: async (input: ListDataSourcesInput, headers: Headers) => {
-      await requireOwnedAgent(input.domainId, input.agentId, headers);
+      await requireAgentAccess(input.domainId, input.agentId, headers);
 
       const sources = await db
         .select()
@@ -474,7 +488,7 @@ export function createDataSourcesService(deps: {
       input: UpdateDataSourceTablesInput,
       headers: Headers,
     ) => {
-      const source = await requireOwnedSource(
+      const source = await requireSourceAccess(
         input.domainId,
         input.dataSourceId,
         headers,
@@ -514,7 +528,7 @@ export function createDataSourcesService(deps: {
      * answer_knowledge can use live catalog data.
      */
     sync: async (input: SyncDataSourceInput, headers: Headers) => {
-      const source = await requireOwnedSource(
+      const source = await requireSourceAccess(
         input.domainId,
         input.dataSourceId,
         headers,
@@ -663,7 +677,7 @@ export function createDataSourcesService(deps: {
      * customer list. No documents are re-embedded.
      */
     syncContacts: async (input: { domainId: string }, headers: Headers) => {
-      await requireOwnedAgent(input.domainId, null, headers);
+      await requireAgentAccess(input.domainId, null, headers, true);
 
       const sources = await db
         .select({
@@ -750,7 +764,7 @@ export function createDataSourcesService(deps: {
       input: { domainId: string; currency: "ghs" | "usd" | "eur" | "gbp" },
       headers: Headers,
     ) => {
-      await requireOwnedAgent(input.domainId, null, headers);
+      await requireAgentAccess(input.domainId, null, headers, true);
 
       const sources = await db
         .select({
@@ -956,7 +970,7 @@ export function createDataSourcesService(deps: {
       input: { domainId: string },
       headers: Headers,
     ) => {
-      await requireOwnedAgent(input.domainId, null, headers);
+      await requireAgentAccess(input.domainId, null, headers, true);
 
       const sources = await db
         .select({
@@ -1120,7 +1134,7 @@ export function createDataSourcesService(deps: {
 
     /** Removes a data source; its tables and derived documents cascade. */
     remove: async (input: DeleteDataSourceInput, headers: Headers) => {
-      const source = await requireOwnedSource(
+      const source = await requireSourceAccess(
         input.domainId,
         input.dataSourceId,
         headers,

@@ -1,11 +1,15 @@
 import { count, desc, eq } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
-import { domains } from "@repo/database/schema/domains";
+import type { Domain } from "@repo/database/schema/domains";
 import { products, type Product } from "@repo/database/schema/products";
 
 import { assertCanCreateProduct, getPlanLimits } from "@repo/api/plans";
 import type { SessionWithUser } from "@repo/api/domains";
+import {
+  findDomainAccess,
+  roleCanEditDomainData,
+} from "@repo/api/workspaces/access";
 import type {
   CreateProductInput,
   UpdateProductInput,
@@ -26,7 +30,20 @@ const unauthorized = () =>
   new ProductServiceError(401, "UNAUTHORIZED", "You must be signed in");
 
 const forbidden = () =>
-  new ProductServiceError(403, "FORBIDDEN", "You do not own this domain");
+  new ProductServiceError(
+    403,
+    "FORBIDDEN",
+    "You are not a member of this domain's workspace",
+  );
+const forbiddenMutation = () =>
+  new ProductServiceError(
+    403,
+    "FORBIDDEN",
+    "Viewers can only read this domain",
+  );
+
+const domainNotFound = () =>
+  new ProductServiceError(404, "DOMAIN_NOT_FOUND", "Domain not found");
 
 const notFound = () =>
   new ProductServiceError(404, "NOT_FOUND", "Product not found");
@@ -34,8 +51,9 @@ const notFound = () =>
 export type ProductsService = ReturnType<typeof createProductsService>;
 
 /**
- * Owner-scoped catalog service. Every read/write verifies the domain belongs
- * to the session user. Creating products is gated by the domain's plan.
+ * Workspace-scoped catalog service. Access follows membership in the domain's
+ * workspace; writes require owner/admin/member. Creating products is also
+ * gated by the domain's plan.
  */
 export function createProductsService(deps: {
   db: Database;
@@ -43,10 +61,32 @@ export function createProductsService(deps: {
 }) {
   const { db, getSession } = deps;
 
-  const requireOwnedProduct = async (
+  const requireDomainAccess = async (
+    domainId: string,
+    headers: Headers,
+    mutate = false,
+  ): Promise<{
+    session: NonNullable<SessionWithUser>;
+    domain: Domain;
+  }> => {
+    const session = await getSession(headers);
+    if (!session) throw unauthorized();
+
+    const access = await findDomainAccess(db, domainId, session.user.id);
+    if (access.kind === "not_found") throw domainNotFound();
+    if (access.kind === "forbidden") throw forbidden();
+    if (mutate && !roleCanEditDomainData(access.role)) {
+      throw forbiddenMutation();
+    }
+
+    return { session, domain: access.domain };
+  };
+
+  const requireProductAccess = async (
     productId: string,
     headers: Headers,
-  ): Promise<NonNullable<SessionWithUser> & { product: Product }> => {
+    mutate = false,
+  ): Promise<{ session: NonNullable<SessionWithUser>; product: Product }> => {
     const session = await getSession(headers);
     if (!session) throw unauthorized();
 
@@ -58,33 +98,24 @@ export function createProductsService(deps: {
 
     if (!product) throw notFound();
 
-    const [domain] = await db
-      .select()
-      .from(domains)
-      .where(eq(domains.id, product.domainId))
-      .limit(1);
+    // The product's domain is the access boundary, not the product row.
+    const access = await findDomainAccess(db, product.domainId, session.user.id);
+    if (access.kind === "not_found") throw notFound();
+    if (access.kind === "forbidden") throw forbidden();
+    if (mutate && !roleCanEditDomainData(access.role)) {
+      throw forbiddenMutation();
+    }
 
-    if (!domain || domain.ownerId !== session.user.id) throw forbidden();
-
-    return { ...session, product };
+    return { session, product };
   };
 
   return {
-    /** Lists products for a domain the session user owns, newest first. */
+    /** Lists products for a domain the session user can reach, newest first. */
     listProducts: async (
       input: { domainId: string },
       headers: Headers,
     ): Promise<Product[]> => {
-      const session = await getSession(headers);
-      if (!session) throw unauthorized();
-
-      const [domain] = await db
-        .select()
-        .from(domains)
-        .where(eq(domains.id, input.domainId))
-        .limit(1);
-      if (!domain) throw new ProductServiceError(404, "NOT_FOUND", "Domain not found");
-      if (domain.ownerId !== session.user.id) throw forbidden();
+      await requireDomainAccess(input.domainId, headers);
 
       return db
         .select()
@@ -93,21 +124,12 @@ export function createProductsService(deps: {
         .orderBy(desc(products.createdAt));
     },
 
-    /** Creates a product in a domain the session user owns (plan-gated). */
+    /** Creates a product in a domain the session user can edit (plan-gated). */
     async createProduct(
       input: CreateProductInput,
       headers: Headers,
     ): Promise<Product> {
-      const session = await getSession(headers);
-      if (!session) throw unauthorized();
-
-      const [domain] = await db
-        .select()
-        .from(domains)
-        .where(eq(domains.id, input.domainId))
-        .limit(1);
-      if (!domain) throw new ProductServiceError(404, "NOT_FOUND", "Domain not found");
-      if (domain.ownerId !== session.user.id) throw forbidden();
+      const { domain } = await requireDomainAccess(input.domainId, headers, true);
 
       const rows = await db
         .select({ value: count() })
@@ -135,12 +157,16 @@ export function createProductsService(deps: {
       return row;
     },
 
-    /** Updates a product the session user owns. */
+    /** Updates a product in a domain the session user can edit. */
     async update(
       input: UpdateProductInput & { productId: string },
       headers: Headers,
     ): Promise<Product> {
-      const { product } = await requireOwnedProduct(input.productId, headers);
+      const { product } = await requireProductAccess(
+        input.productId,
+        headers,
+        true,
+      );
 
       const [row] = await db
         .update(products)
@@ -164,9 +190,13 @@ export function createProductsService(deps: {
       return row;
     },
 
-    /** Deletes a product the session user owns. */
+    /** Deletes a product in a domain the session user can edit. */
     async deleteProduct(productId: string, headers: Headers): Promise<void> {
-      const { product } = await requireOwnedProduct(productId, headers);
+      const { product } = await requireProductAccess(
+        productId,
+        headers,
+        true,
+      );
       await db.delete(products).where(eq(products.id, product.id));
     },
   };
