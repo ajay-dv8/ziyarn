@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { and, count, eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import { domains } from "@repo/database/schema/domains";
@@ -34,7 +34,13 @@ import {
   parseDomainLocations,
   resolveDomainLocations,
 } from "@repo/api/domains/locations";
+import type { WorkspaceRole } from "@repo/api/workspaces/roles";
 import { resolveActiveWorkspaceId } from "@repo/api/workspaces/active";
+import {
+  findDomainAccess,
+  findWorkspaceRole,
+  roleCanEditDomainData,
+} from "@repo/api/workspaces/access";
 import { resolveWorkspacePlan } from "@repo/api/workspaces/plan";
 
 export type SessionWithUser = {
@@ -97,46 +103,26 @@ export function createDomainsService(deps: {
   ): Promise<
     NonNullable<SessionWithUser> & {
       domain: typeof domains.$inferSelect;
-      workspaceRole: string;
+      workspaceRole: WorkspaceRole;
     }
   > => {
     const session = await getSession(headers);
     if (!session) throw unauthorized();
 
-    const [domain] = await db
-      .select()
-      .from(domains)
-      .where(eq(domains.id, id))
-      .limit(1);
-    if (!domain) throw notFound();
-
-    const [membership] = await db
-      .select({ role: workspaceMembers.role })
-      .from(workspaceMembers)
-      .where(
-        and(
-          eq(workspaceMembers.workspaceId, domain.workspaceId),
-          eq(workspaceMembers.userId, session.user.id),
-        ),
-      )
-      .limit(1);
-    if (!membership) throw forbidden();
+    const access = await findDomainAccess(db, id, session.user.id);
+    if (access.kind === "not_found") throw notFound();
+    if (access.kind === "forbidden") throw forbidden();
 
     return {
       ...session,
-      domain,
-      workspaceRole: membership.role,
+      domain: access.domain,
+      workspaceRole: access.role,
     };
   };
 
   /** owner / admin / member can mutate; viewer cannot. */
-  const requireMutationAccess = (workspaceRole: string) => {
-    if (
-      workspaceRole === "owner" ||
-      workspaceRole === "admin" ||
-      workspaceRole === "member"
-    )
-      return;
+  const requireMutationAccess = (workspaceRole: WorkspaceRole) => {
+    if (roleCanEditDomainData(workspaceRole)) return;
     throw forbiddenMutation();
   };
 
@@ -199,7 +185,7 @@ export function createDomainsService(deps: {
       };
     },
 
-    /** Creates a domain owned by the session user (subject to plan limits). */
+    /** Creates a domain in the active workspace, created by the session user. */
     createDomain: async (input: CreateDomainInput, headers: Headers) => {
       const session = await getSession(headers);
       if (!session) throw unauthorized();
@@ -255,6 +241,14 @@ export function createDomainsService(deps: {
 
         workspaceId = createdWorkspace.id;
       }
+
+      const workspaceRole = await findWorkspaceRole(
+        db,
+        workspaceId,
+        session.user.id,
+      );
+      if (!workspaceRole) throw forbidden();
+      requireMutationAccess(workspaceRole);
 
       const plan = await resolveWorkspacePlan(db, workspaceId);
       const [domainCountRow] = await db
