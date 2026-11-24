@@ -16,9 +16,11 @@ import {
   assertCanAddMember,
   assertCanCreateWorkspace,
   getPlanLimits,
-  highestPlan,
 } from "@repo/api/plans";
-import { resolveWorkspacePlan } from "@repo/api/workspaces/plan";
+import {
+  resolveUserPlan,
+  resolveWorkspacePlan,
+} from "@repo/api/workspaces/plan";
 import { resolveActiveWorkspaceId } from "@repo/api/workspaces/active";
 import { APP_ROUTES, absoluteUrl } from "@repo/routes";
 import type { Plan } from "@repo/api/plans/schemas";
@@ -188,20 +190,6 @@ export function createWorkspaceService(deps: {
     return workspace;
   };
 
-  /**
-   * The plan that applies to a person: the highest plan among their domains.
-   * Used for the per-user workspace limit, which is not tied to any one
-   * workspace.
-   */
-  const resolveUserPlan = async (userId: string): Promise<Plan> => {
-    const ownedDomains = await db
-      .select({ plan: domains.plan })
-      .from(domains)
-      .where(eq(domains.ownerId, userId));
-
-    return highestPlan(ownedDomains.map((row) => row.plan));
-  };
-
   return {
     /** Lists workspaces the user belongs to. */
     listWorkspaces: async (headers: Headers) => {
@@ -268,7 +256,7 @@ export function createWorkspaceService(deps: {
           .from(workspaceMembers)
           .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
           .where(eq(workspaceMembers.userId, session.user.id)),
-        resolveUserPlan(session.user.id),
+        resolveUserPlan(db, session.user.id),
       ]);
 
       assertCanCreateWorkspace(getPlanLimits(plan), existingWorkspaces.length);
