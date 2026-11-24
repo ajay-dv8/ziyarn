@@ -15,13 +15,14 @@ export const domains = pgTable(
   "domains",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    ownerId: text("owner_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    // Creator/audit only: access is granted by workspace membership. Cleared,
+    // not cascaded, so deleting a member cannot delete the workspace's domains.
+    ownerId: text("owner_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     workspaceId: uuid("workspace_id")
       .notNull()
-      // no action (not restrict): deleting a user cascades both the workspace
-      // and its domains in one statement; restrict would fire mid-cascade.
+      // Workspace deletion is intentionally blocked while domains exist.
       .references(() => workspaces.id, { onDelete: "no action" }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),

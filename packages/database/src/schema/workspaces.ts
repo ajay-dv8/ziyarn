@@ -14,9 +14,11 @@ export const workspaces = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
+    // Block account deletion until ownership is transferred; cascading would
+    // silently delete every domain and conversation in the workspace.
     ownerId: text("owner_id")
       .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

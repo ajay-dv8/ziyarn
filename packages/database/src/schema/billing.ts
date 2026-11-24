@@ -54,9 +54,10 @@ export const campaigns = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    ownerId: text("owner_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    // Creator/audit only; campaign access follows workspace membership.
+    ownerId: text("owner_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     name: text("name").notNull(),
     subject: text("subject").notNull(),
     body: text("body").notNull(),
@@ -126,7 +127,7 @@ export const unsubscribedEmails = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     ownerId: text("owner_id").references(() => user.id, {
-      onDelete: "cascade",
+      onDelete: "set null",
     }),
     email: text("email").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
