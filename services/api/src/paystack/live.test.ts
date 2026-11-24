@@ -198,7 +198,7 @@ describe.skipIf(!live)("live Paystack test-mode matrix", () => {
     const target = candidates.find((candidate) =>
       candidate.email.endsWith("@example.com"),
     )
-    if (!target) {
+    if (!target?.ownerId) {
       throw new Error(
         "no @example.com owner in this database — refusing to run against a real account",
       )

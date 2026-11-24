@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 
 import { PaystackServiceError } from "@repo/api/paystack";
 
+import {
+  WORKSPACE_OWNER_ROLES,
+  getActiveWorkspaceAccess,
+} from "@/lib/workspace-access";
 import { authService } from "@/services/auth-service";
 import { paystackService } from "@/services/paystack-service";
 
@@ -10,11 +14,22 @@ export const runtime = "nodejs";
 
 export async function POST() {
   try {
-    const session = await authService.getSession(await headers());
+    const requestHeaders = await headers();
+    const session = await authService.getSession(requestHeaders);
     if (!session) {
       return NextResponse.json(
         { error: { code: "UNAUTHORIZED", message: "Sign in to manage your subscription" } },
         { status: 401 },
+      );
+    }
+    const access = await getActiveWorkspaceAccess(
+      requestHeaders,
+      WORKSPACE_OWNER_ROLES,
+    );
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: { code: access.code, message: access.message } },
+        { status: access.status },
       );
     }
     await paystackService.cancelSubscription(session.user.id);
