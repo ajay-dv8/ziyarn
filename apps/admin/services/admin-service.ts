@@ -207,11 +207,15 @@ export async function listDomains({
   // Enrich with owner name and conversation count
   const enriched = await Promise.all(
     domainList.map(async (domain) => {
-      const [owner] = await db
-        .select({ name: user.name, email: user.email })
-        .from(user)
-        .where(eq(user.id, domain.ownerId))
-        .limit(1);
+      const owner = domain.ownerId
+        ? (
+            await db
+              .select({ name: user.name, email: user.email })
+              .from(user)
+              .where(eq(user.id, domain.ownerId))
+              .limit(1)
+          )[0]
+        : undefined;
 
       const [convCount] = await db
         .select({ count: count() })
@@ -245,11 +249,15 @@ export async function getDomainDetail(domainId: string) {
 
   if (!domain) return null;
 
-  const [owner] = await db
-    .select({ name: user.name, email: user.email })
-    .from(user)
-    .where(eq(user.id, domain.ownerId))
-    .limit(1);
+  const owner = domain.ownerId
+    ? (
+        await db
+          .select({ name: user.name, email: user.email })
+          .from(user)
+          .where(eq(user.id, domain.ownerId))
+          .limit(1)
+      )[0]
+    : undefined;
 
   const domainAgents = await db
     .select()
@@ -329,7 +337,7 @@ export async function listWorkspaces({
       const workspaceDomainCount = await db
         .select({ count: count() })
         .from(domains)
-        .where(eq(domains.ownerId, workspace.ownerId));
+        .where(eq(domains.workspaceId, workspace.id));
 
       return {
         ...workspace,
