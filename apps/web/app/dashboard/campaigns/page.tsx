@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 
 import { getPlanLimits, PLAN_DISPLAY_NAMES } from "@repo/api/plans";
+import { canEditWorkspace } from "@repo/api/workspaces/roles";
 import { Badge } from "@repo/ui/components/badge";
 import {
   Card,
@@ -14,6 +15,7 @@ import {
 import { CreateCampaignButton } from "@/components/dashboard/create-campaign-button";
 import { ScheduleCampaignControl } from "@/components/dashboard/schedule-campaign-button";
 import { SendCampaignButton } from "@/components/dashboard/send-campaign-button";
+import { getActiveWorkspaceAccess } from "@/lib/workspace-access";
 import { authService } from "@/services/auth-service";
 import { emailService } from "@/services/email-service";
 import { workspaceService } from "@/services/workspace-service";
@@ -28,9 +30,9 @@ export default async function CampaignsPage() {
   if (!session) {
     return null;
   }
-  const workspaceId = await workspaceService.getActiveWorkspaceId(
-    requestHeaders,
-  );
+  const access = await getActiveWorkspaceAccess(requestHeaders);
+  const workspaceId = access.ok ? access.workspaceId : null;
+  const canEdit = access.ok && canEditWorkspace(access.role);
   const [campaigns, emailsThisMonth, plan] = await Promise.all([
     workspaceId ? emailService.listCampaigns(workspaceId) : [],
     workspaceId ? emailService.emailsSentThisMonth(workspaceId) : 0,
@@ -47,8 +49,14 @@ export default async function CampaignsPage() {
             Send marketing emails to the leads your agents capture.
           </p>
         </div>
-        <CreateCampaignButton />
+        {canEdit ? <CreateCampaignButton /> : null}
       </div>
+
+      {canEdit ? null : (
+        <p className="text-sm text-muted-foreground">
+          Viewers can read campaigns but cannot create, schedule, or send them.
+        </p>
+      )}
 
       <Card>
         <CardHeader>
@@ -113,7 +121,7 @@ export default async function CampaignsPage() {
                     {campaign.unsubscribedCount} unsubscribed
                   </span>
                 </div>
-                {campaign.status === "draft" ? (
+                {!canEdit ? null : campaign.status === "draft" ? (
                   <div className="space-y-3 border-t border-border pt-3">
                     <SendCampaignButton campaignId={campaign.id} />
                     <ScheduleCampaignControl

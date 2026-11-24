@@ -6,7 +6,10 @@ import { scheduleCampaignSchema } from "@repo/api/email/schemas";
 
 import { authService } from "@/services/auth-service";
 import { emailService } from "@/services/email-service";
-import { workspaceService } from "@/services/workspace-service";
+import {
+  WORKSPACE_EDITOR_ROLES,
+  getActiveWorkspaceAccess,
+} from "@/lib/workspace-access";
 
 export const runtime = "nodejs";
 
@@ -23,13 +26,14 @@ export async function POST(
         { status: 401 },
       );
     }
-    const workspaceId = await workspaceService.getActiveWorkspaceId(
+    const access = await getActiveWorkspaceAccess(
       requestHeaders,
+      WORKSPACE_EDITOR_ROLES,
     );
-    if (!workspaceId) {
+    if (!access.ok) {
       return NextResponse.json(
-        { error: { code: "NOT_FOUND", message: "Campaign not found" } },
-        { status: 404 },
+        { error: { code: access.code, message: access.message } },
+        { status: access.status },
       );
     }
     const body = scheduleCampaignSchema.safeParse(await request.json());
@@ -41,7 +45,7 @@ export async function POST(
     }
     const { id } = await params;
     const campaign = await emailService.scheduleCampaign(
-      workspaceId,
+      access.workspaceId,
       id,
       body.data,
     );

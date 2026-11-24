@@ -7,6 +7,10 @@ import { createCampaignSchema } from "@repo/api/email/schemas";
 import { authService } from "@/services/auth-service";
 import { emailService } from "@/services/email-service";
 import { workspaceService } from "@/services/workspace-service";
+import {
+  WORKSPACE_EDITOR_ROLES,
+  getActiveWorkspaceAccess,
+} from "@/lib/workspace-access";
 
 export const runtime = "nodejs";
 
@@ -54,20 +58,17 @@ export async function POST(request: Request) {
         { status: 401 },
       );
     }
-    const workspaceId = await workspaceService.getActiveWorkspaceId(
+    const access = await getActiveWorkspaceAccess(
       requestHeaders,
+      WORKSPACE_EDITOR_ROLES,
     );
-    if (!workspaceId) {
+    if (!access.ok) {
       return NextResponse.json(
-        {
-          error: {
-            code: "NO_WORKSPACE",
-            message: "Create a workspace before creating a campaign",
-          },
-        },
-        { status: 400 },
+        { error: { code: access.code, message: access.message } },
+        { status: access.status },
       );
     }
+    const workspaceId = access.workspaceId;
     const body = createCampaignSchema.safeParse(await request.json());
     if (!body.success) {
       return NextResponse.json(

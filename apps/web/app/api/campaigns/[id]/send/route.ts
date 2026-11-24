@@ -5,7 +5,10 @@ import { EmailServiceError } from "@repo/api/email";
 
 import { authService } from "@/services/auth-service";
 import { emailService } from "@/services/email-service";
-import { workspaceService } from "@/services/workspace-service";
+import {
+  WORKSPACE_EDITOR_ROLES,
+  getActiveWorkspaceAccess,
+} from "@/lib/workspace-access";
 
 export const runtime = "nodejs";
 
@@ -22,17 +25,21 @@ export async function POST(
         { status: 401 },
       );
     }
-    const workspaceId = await workspaceService.getActiveWorkspaceId(
+    const access = await getActiveWorkspaceAccess(
       requestHeaders,
+      WORKSPACE_EDITOR_ROLES,
     );
-    if (!workspaceId) {
+    if (!access.ok) {
       return NextResponse.json(
-        { error: { code: "NOT_FOUND", message: "Campaign not found" } },
-        { status: 404 },
+        { error: { code: access.code, message: access.message } },
+        { status: access.status },
       );
     }
     const { id } = await params;
-    const { recipients } = await emailService.sendCampaign(workspaceId, id);
+    const { recipients } = await emailService.sendCampaign(
+      access.workspaceId,
+      id,
+    );
     return NextResponse.json({ recipients });
   } catch (error) {
     if (error instanceof EmailServiceError) {
