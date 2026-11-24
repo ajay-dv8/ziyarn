@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 import type Stripe from "stripe";
 
@@ -7,10 +7,12 @@ import {
   domains,
   stripeAccounts,
   subscriptions,
+  workspaces,
   type Subscription,
 } from "@repo/database/schema";
 
 import { APP_ROUTES, absoluteUrl } from "@repo/routes";
+import { applyPlanToOwnedWorkspaces } from "@repo/api/workspaces/plan";
 
 import type { BillingPlan, CheckoutPlan } from "@repo/api/billing/schemas";
 
@@ -123,8 +125,8 @@ export function createBillingService(deps: { db: Database }) {
     /**
      * Handles Stripe subscription events (checkout.session.completed,
      * customer.subscription.updated/deleted). On activation the owner's plan
-     * is applied to every domain atomically; on cancel/delete it reverts to
-     * free.
+     * is applied to every domain in the workspaces they own; on cancel/delete
+     * it reverts them to free.
      */
     async handleStripeWebhook(rawBody: string, signature: string): Promise<{ handled: boolean }> {
       const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -179,6 +181,7 @@ export function createBillingService(deps: { db: Database }) {
             stripeCustomerId: session.customer,
             stripeSubscriptionId: session.subscription,
           });
+          await this.applyPlanToDomains(ownerId, plan);
           return { handled: true };
         }
         case "customer.subscription.updated":
@@ -217,10 +220,21 @@ export function createBillingService(deps: { db: Database }) {
                 updatedAt: new Date(),
               })
               .where(eq(subscriptions.id, current.id));
-            await tx
-              .update(domains)
-              .set({ plan: domainPlan, updatedAt: new Date() })
-              .where(eq(domains.ownerId, current.ownerId));
+            const ownedWorkspaces = await tx
+              .select({ id: workspaces.id })
+              .from(workspaces)
+              .where(eq(workspaces.ownerId, current.ownerId));
+            if (ownedWorkspaces.length > 0) {
+              await tx
+                .update(domains)
+                .set({ plan: domainPlan, updatedAt: new Date() })
+                .where(
+                  inArray(
+                    domains.workspaceId,
+                    ownedWorkspaces.map((workspace) => workspace.id),
+                  ),
+                );
+            }
           });
           return { handled: true };
         }
@@ -290,12 +304,9 @@ export function createBillingService(deps: { db: Database }) {
       return row ?? null;
     },
 
-    /** Applies a plan to every domain of an owner (used on activation). */
+    /** Applies a plan to every domain in the workspaces an owner owns. */
     async applyPlanToDomains(ownerId: string, plan: BillingPlan): Promise<void> {
-      await db
-        .update(domains)
-        .set({ plan, updatedAt: new Date() })
-        .where(and(eq(domains.ownerId, ownerId)));
+      await applyPlanToOwnedWorkspaces(db, ownerId, plan);
     },
   };
 }

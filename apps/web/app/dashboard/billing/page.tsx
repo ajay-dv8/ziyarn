@@ -1,30 +1,29 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
-import { getPlanLimits, PLAN_DISPLAY_NAMES, type Plan } from "@repo/api/plans";
+import { getPlanLimits, PLAN_DISPLAY_NAMES } from "@repo/api/plans";
 import { formatPlanPrice } from "@repo/api/paystack";
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo/ui/components/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@repo/ui/components/card";
 
 import { CancelSubscriptionButton } from "@/components/dashboard/cancel-subscription-button";
 import { ManageSubscriptionButton } from "@/components/dashboard/manage-subscription-button";
 import { PaystackReturnHandler } from "@/components/dashboard/paystack-return-handler";
 import { RestorePlanButton } from "@/components/dashboard/restore-plan-button";
 import { UpgradeButton } from "@/components/dashboard/upgrade-button";
+import { getActiveWorkspaceAccess } from "@/lib/workspace-access";
 import { authService } from "@/services/auth-service";
 import { billingService } from "@/services/billing-service";
-import { domainsService } from "@/services/domains-service";
+import { workspaceService } from "@/services/workspace-service";
 
 export const metadata: Metadata = {
   title: "Billing",
-};
-
-const PLAN_RANK: Record<Plan, number> = {
-  free: 0,
-  standard: 1,
-  pro: 2,
-  ultimate: 3,
-  custom: 4,
 };
 
 const PLANS: Array<{
@@ -48,22 +47,23 @@ export default async function BillingPage() {
   if (!session) {
     return null;
   }
-  const domains = await domainsService.listDomains(requestHeaders);
-  const plan = domains.reduce<Plan>(
-    (best, domain) => (PLAN_RANK[domain.plan] > PLAN_RANK[best] ? domain.plan : best),
-    "free",
-  );
+  const access = await getActiveWorkspaceAccess(requestHeaders);
+  const plan = await workspaceService.getActiveWorkspacePlan(requestHeaders);
   const limits = getPlanLimits(plan);
-  const subscription = await billingService.getSubscription(session.user.id);
+  const canManageBilling = access.ok && access.role === "owner";
+  const subscription = canManageBilling
+    ? await billingService.getSubscription(session.user.id)
+    : null;
 
   return (
     <div className="space-y-6">
-      <PaystackReturnHandler />
+      {canManageBilling ? <PaystackReturnHandler /> : null}
 
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
         <p className="text-sm text-muted-foreground">
-          Upgrade to lift your domain, conversation and email limits.
+          The workspace owner&apos;s plan sets the limits for every domain in
+          this workspace.
         </p>
       </div>
 
@@ -72,8 +72,8 @@ export default async function BillingPage() {
           <CardTitle>Current plan</CardTitle>
           <CardDescription>
             {plan === "free"
-              ? "You are on the free plan."
-              : `You are on the ${PLAN_DISPLAY_NAMES[plan]} plan — all your domains get its limits.`}
+              ? "This workspace is on the free plan."
+              : `This workspace is on the ${PLAN_DISPLAY_NAMES[plan]} plan — every domain in it gets these limits.`}
             {subscription?.status === "active"
               ? ` Subscription ${subscription.status}${
                   subscription.currentPeriodEnd
@@ -81,6 +81,9 @@ export default async function BillingPage() {
                     : ""
                 }.`
               : ""}
+            {canManageBilling
+              ? ""
+              : " Only the workspace owner can change billing."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -119,12 +122,18 @@ export default async function BillingPage() {
               </p>
             </CardHeader>
             <CardContent>
-              <UpgradeButton
-                plan={planOption.id}
-                label="Upgrade"
-                current={plan === planOption.id}
-                email={session.user.email}
-              />
+              {canManageBilling ? (
+                <UpgradeButton
+                  plan={planOption.id}
+                  label="Upgrade"
+                  current={plan === planOption.id}
+                  email={session.user.email}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Only the workspace owner can change the plan.
+                </p>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -149,7 +158,9 @@ export default async function BillingPage() {
         </CardContent>
       </Card>
 
-      {subscription?.customerSubscriptionCode && subscription.status !== "canceled" ? (
+      {canManageBilling &&
+      subscription?.customerSubscriptionCode &&
+      subscription.status !== "canceled" ? (
         <Card>
           <CardHeader>
             <CardTitle>Manage subscription</CardTitle>
@@ -162,7 +173,7 @@ export default async function BillingPage() {
             <CancelSubscriptionButton />
           </CardContent>
         </Card>
-      ) : subscription?.stripeCustomerId ? (
+      ) : canManageBilling && subscription?.stripeCustomerId ? (
         <Card>
           <CardHeader>
             <CardTitle>Manage subscription</CardTitle>
@@ -176,7 +187,9 @@ export default async function BillingPage() {
         </Card>
       ) : null}
 
-      {plan === "free" && subscription?.status !== "active" ? (
+      {canManageBilling &&
+      plan === "free" &&
+      subscription?.status !== "active" ? (
         <Card>
           <CardHeader>
             <CardTitle>Restore a payment</CardTitle>
