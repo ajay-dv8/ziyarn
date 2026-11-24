@@ -1,5 +1,10 @@
 # Bring Your Own API (BYOA) Plan
 
+> Scope update: the original v1 stored one provider per account. Migration
+> `0040_workspace_integrations.sql` moved it to the workspace, with `ownerId`
+> kept only as “who connected it”. The historical design below says “account”;
+> read that as the active workspace.
+
 Allow users to supply their own AI provider keys (OpenAI, Anthropic,
 Gemini, OpenRouter, or a custom OpenAI-compatible endpoint) instead of
 relying on the platform's default Gemini model.
@@ -8,20 +13,23 @@ relying on the platform's default Gemini model.
 
 Implemented:
 
-- Account-level provider (`ai_configs`) with an optional per-domain override
+- Workspace-level provider (`ai_configs`) with an optional per-domain override
   (`domain_ai_configs`). Migration `0033_ai_config.sql` is applied manually
-  because the drizzle journal is desynced from hand-applied migrations.
+  because the drizzle journal is desynced from hand-applied migrations;
+  migration `0040_workspace_integrations.sql` moved it from account to
+  workspace scope.
 - Providers: platform default, OpenAI, Google Gemini (OpenAI-compatible
   endpoint), OpenRouter, and any custom OpenAI-compatible URL. Anthropic is not
   supported yet.
 - API keys are AES-256-GCM encrypted with `AI_KEY_ENCRYPTION_SECRET` (scrypt
   key derivation, fresh IV per save). The dashboard only ever receives a masked
-  key, and only the domain owner can read or edit the configuration.
+  key; workspace members can edit it, viewers can only read.
 - Settings card and per-domain card with a "Test saved connection" probe.
-- Resolution order: domain override → account default → platform. BYO providers
-  get no platform fallback (the owner pays for their own calls). A stored
-  configuration that cannot be resolved (corrupt key, missing encryption secret)
-  is logged and falls back to the platform so visitors are not taken offline;
+- Resolution order: domain override → workspace default → platform. BYO
+  providers get no platform fallback (the workspace pays for its own calls). A
+  stored configuration that cannot be resolved (corrupt key, missing encryption
+  secret) is logged and falls back to the platform so visitors are not taken
+  offline;
   provider call failures surface as a normal chat error.
 - Chat streams through the resolved provider; embeddings resolve separately, so
   a domain can keep platform embeddings while using a BYO chat model (see

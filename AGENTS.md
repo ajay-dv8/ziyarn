@@ -9,6 +9,9 @@ See `plan/rebuild_divesai.md` for the roadmap and `plan/*.md` for architecture.
 - Dev server (apps/web): see "Dev server" below — do NOT use `pnpm dev` in background.
 - Typecheck: `pnpm --filter <pkg> check-types`
 - Lint: `pnpm --filter <pkg> lint`
+- Browser E2E: `E2E_DATABASE_URL=<disposable branch> pnpm test:e2e`
+  (starts its own dev server on port 3100; stop the port-3000 server first,
+  and the suite cleans up its fixtures).
 - Widget: `pnpm --filter web build:widget` (regenerates `public/widget.js` from
   `apps/web/widget/`; runs automatically before dev/build, and `lint` fails if
   the committed output is stale). Never hand-edit `public/widget.js`.
@@ -74,7 +77,9 @@ See `plan/rebuild_divesai.md` for the roadmap and `plan/*.md` for architecture.
   package's own exports map (self-reference), e.g.
   `import * as schema from "@repo/database/schema"`.
 - All service boundaries use zod validation; server actions/API routes must
-  verify ownership. No module-level mutable state.
+  verify workspace access (membership + role). `ownerId` is the creator/audit
+  column, never an access grant. Use `@repo/api/workspaces/access` instead of
+  re-implementing the check. No module-level mutable state.
 - **NEVER use single-character variable names.** Use descriptive names instead.
   Examples: `q` → `question`, `p` → `product`/`catalogItem`, `m` → `message`,
   `a` → `answerEntry`, `i` → `dayIndex`/`index`, `s` → `since`. The only

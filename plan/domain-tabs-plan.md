@@ -54,13 +54,14 @@ missed signatures wrapping across lines. The real picture:
 | domains, agents, knowledge | yes | tabbed |
 | **databases** | yes | tabbed |
 | **customers, orders, products, bookings, analytics, integrations** | **yes** | **available, not yet tabbed** |
-| conversations | no | agent-scoped, reachable — needs work |
+| conversations | yes | inbox with an explicit All domains filter |
 | campaigns | no | no scope key at all |
-| usage, settings, team | no | correctly account-level |
+| usage, settings, team | no | workspace/account-level, not domain-scoped |
 
-So **8 of the 12 dashboard pages already scope themselves by domain.** Most of
-the remaining work is navigation, not service-layer filtering. Only Conversations
-is a real build, and Campaigns additionally needs a migration.
+So **9 of the 12 dashboard pages already scope themselves by domain.** Most of
+the remaining work is navigation, not service-layer filtering. Campaigns still
+needs a migration. Conversations was the one real build and is covered by
+`plan/domain-conversations-plan.md`.
 
 ## What is implemented
 
@@ -79,16 +80,16 @@ Tab bar on the domain page, with every href carrying the selected `domainId`:
 
 The Integrations page was **split**: Databases moved to its own tab, because
 `data_sources.agentId` makes it agent-and-therefore-domain scoped. Stripe
-Connect stays account-level (one `stripe_accounts` row per user) and email
+Connect is workspace-level (one `stripe_accounts` row per workspace) and email
 delivery stays platform-level (one SMTP server for the deployment), so
-Integrations is now account-level only and lost its domain switcher entirely.
+Integrations is now workspace-level only and lost its domain switcher entirely.
 
 ## Still to come, when wanted
 
-`Conversations | Customers | [Bookings | Products | Orders] | Analytics`
+`Customers | [Bookings | Products | Orders] | Analytics`
 
-- Conversations is the one genuine build — it is agent-scoped but the page
-  does not filter by domain yet, so it mixes every domain's chats.
+- Conversations is done as a top-level inbox with a domain filter, not a tab:
+  see `plan/domain-conversations-plan.md`.
 - Customers, Orders, Products, Bookings and Analytics already scope themselves,
   so each is a tab plus a link change.
 - The commerce trio should be **conditional on business type**: a clinic should
