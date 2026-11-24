@@ -11,10 +11,10 @@
     "check-types": "turbo run check-types"
   },
   "devDependencies": {
-    "@neondatabase/serverless": "1.1.0",
-    "@playwright/test": "1.64.1",
-    "prettier": "^3.7.4",
-    "turbo": "^2.10.7",
+    "@neondatabase/serverless": "1.2.1",
+    "@playwright/test": "1.65.1",
+    "prettier": "^3.10.1",
+    "turbo": "^2.11.13",
     "typescript": "5.9.2"
   },
   "pnpm": {
@@ -28,6 +28,6 @@
     "node": ">=18"
   },
   "dependencies": {
-    "framer-motion": "^14.9.0"
+    "framer-motion": "^14.14.0"
   }
 }
