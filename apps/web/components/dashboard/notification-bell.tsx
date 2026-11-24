@@ -201,7 +201,10 @@ export function NotificationBell() {
                         <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">
                           {notification.body}
                         </span>
-                        <span className="mt-1 block text-[11px] text-muted-foreground">
+                        <span
+                          className="mt-1 block text-[11px] text-muted-foreground"
+                          suppressHydrationWarning
+                        >
                           {notification.workspaceName}
                           {notification.domainName
                             ? ` · ${notification.domainName}`
