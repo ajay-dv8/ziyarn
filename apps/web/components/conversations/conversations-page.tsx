@@ -379,7 +379,10 @@ export function ConversationsPage({
                             {conversation.unread} new
                           </span>
                         )}
-                        <span className="flex items-center gap-0.5">
+                        <span
+                          className="flex items-center gap-0.5"
+                          suppressHydrationWarning
+                        >
                           <Clock className="h-3 w-3" />
                           {formatRelativeTime(conversation.createdAt)}
                         </span>
