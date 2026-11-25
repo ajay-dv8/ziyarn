@@ -126,6 +126,10 @@ export const unsubscribedEmails = pgTable(
   "unsubscribed_emails",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    // Suppression is workspace-scoped. owner_id is creator/audit only.
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     ownerId: text("owner_id").references(() => user.id, {
       onDelete: "set null",
     }),
@@ -134,7 +138,12 @@ export const unsubscribedEmails = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [uniqueIndex("unsubscribed_emails_email_idx").on(table.email)],
+  (table) => [
+    uniqueIndex("unsubscribed_emails_workspace_email_idx").on(
+      table.workspaceId,
+      table.email,
+    ),
+  ],
 );
 
 export type Subscription = typeof subscriptions.$inferSelect;
