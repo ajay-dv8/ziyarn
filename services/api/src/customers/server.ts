@@ -9,6 +9,7 @@ import {
   unsubscribedEmails,
 } from "@repo/database/schema";
 import type { SessionWithUser } from "@repo/api/domains/server";
+import type { Domain } from "@repo/database/schema/domains";
 import {
   findDomainAccess,
   roleCanEditDomainData,
@@ -109,7 +110,7 @@ export function createCustomersService(deps: {
     domainId: string,
     headers: Headers,
     mutate = false,
-  ): Promise<NonNullable<SessionWithUser>> => {
+  ): Promise<{ session: NonNullable<SessionWithUser>; domain: Domain }> => {
     const session = await getSession(headers);
     if (!session) throw unauthorized();
 
@@ -120,13 +121,13 @@ export function createCustomersService(deps: {
       throw forbiddenMutation();
     }
 
-    return session;
+    return { session, domain: access.domain };
   };
 
   return {
     /** Lists a domain's customers with per-source counts. */
     list: async (input: ListCustomersInput, headers: Headers) => {
-      const session = await requireDomainAccess(input.domainId, headers);
+      const { domain } = await requireDomainAccess(input.domainId, headers);
 
       const conditions = [eq(customers.domainId, input.domainId)];
       if (input.source) conditions.push(eq(customers.source, input.source));
@@ -146,13 +147,13 @@ export function createCustomersService(deps: {
         .orderBy(desc(customers.createdAt))
         .limit(500);
 
-      // Blocked = on the owner's suppression list, so campaigns skip them.
+      // Blocked = on this workspace's suppression list, so campaigns skip them.
       const blockedEmails = new Set(
         (
           await db
             .select({ email: unsubscribedEmails.email })
             .from(unsubscribedEmails)
-            .where(eq(unsubscribedEmails.ownerId, session.user.id))
+            .where(eq(unsubscribedEmails.workspaceId, domain.workspaceId))
         ).map((row) => row.email.toLowerCase()),
       );
 
@@ -218,15 +219,19 @@ export function createCustomersService(deps: {
     },
 
     /**
-     * Blocks selected customers by adding their emails to the owner's
-     * suppression list — campaigns skip them everywhere. Rows stay listed
-     * so the block remains visible and reversible.
+     * Blocks selected customers by adding their emails to the workspace's
+     * suppression list — campaigns skip them in this workspace. Rows stay
+     * listed so the block remains visible and reversible.
      */
     blockMany: async (
       input: { domainId: string; ids: string[] },
       headers: Headers,
     ) => {
-      const session = await requireDomainAccess(input.domainId, headers, true);
+      const { session, domain } = await requireDomainAccess(
+        input.domainId,
+        headers,
+        true,
+      );
       const rows = await db
         .select({ emailLower: customers.emailLower })
         .from(customers)
@@ -242,6 +247,7 @@ export function createCustomersService(deps: {
         .insert(unsubscribedEmails)
         .values(
           rows.map((row) => ({
+            workspaceId: domain.workspaceId,
             ownerId: session.user.id,
             email: row.emailLower,
           })),
@@ -256,7 +262,11 @@ export function createCustomersService(deps: {
       input: { domainId: string; ids: string[] },
       headers: Headers,
     ) => {
-      const session = await requireDomainAccess(input.domainId, headers, true);
+      const { domain } = await requireDomainAccess(
+        input.domainId,
+        headers,
+        true,
+      );
       const rows = await db
         .select({ emailLower: customers.emailLower })
         .from(customers)
@@ -272,7 +282,7 @@ export function createCustomersService(deps: {
         .delete(unsubscribedEmails)
         .where(
           and(
-            eq(unsubscribedEmails.ownerId, session.user.id),
+            eq(unsubscribedEmails.workspaceId, domain.workspaceId),
             inArray(
               unsubscribedEmails.email,
               rows.map((row) => row.emailLower),

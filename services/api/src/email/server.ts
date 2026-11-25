@@ -568,43 +568,54 @@ export function createEmailService(deps: { db: Database }) {
       return { recipients: inserted.length };
     },
 
-    /** Marks an email as unsubscribed and suppresses it for all future sends. */
+    /** Marks an email as unsubscribed and suppresses it in the campaign's workspace. */
     async unsubscribe(token: string): Promise<void> {
       const [recipient] = await db
-        .select()
+        .select({
+          id: campaignRecipients.id,
+          email: campaignRecipients.email,
+          campaignId: campaignRecipients.campaignId,
+          workspaceId: campaigns.workspaceId,
+          ownerId: campaigns.ownerId,
+        })
         .from(campaignRecipients)
+        .innerJoin(campaigns, eq(campaigns.id, campaignRecipients.campaignId))
         .where(eq(campaignRecipients.unsubscribeToken, token))
         .limit(1);
       if (!recipient) {
         throw new EmailServiceError(404, "NOT_FOUND", "Unsubscribe link invalid");
       }
-      await db.transaction(async (tx) => {
-        await tx
-          .update(campaignRecipients)
-          .set({ status: "unsubscribed", updatedAt: new Date() })
-          .where(eq(campaignRecipients.id, recipient.id));
-        const [campaign] = await tx
-          .select({ ownerId: campaigns.ownerId })
-          .from(campaigns)
-          .where(eq(campaigns.id, recipient.campaignId))
-          .limit(1);
-        if (campaign) {
-          await tx
-            .update(campaigns)
-            .set({
-              unsubscribedCount: sql`${campaigns.unsubscribedCount} + 1`,
-              updatedAt: new Date(),
-            })
-            .where(eq(campaigns.id, recipient.campaignId));
-        }
-        await tx
-          .insert(unsubscribedEmails)
-          .values({
-            ownerId: campaign?.ownerId ?? null,
-            email: recipient.email.toLowerCase(),
-          })
-          .onConflictDoNothing();
-      });
+
+      // One statement because neon-http has no interactive transactions.
+      // Repeating the link is safe: the recipient update and count increment
+      // run only once, while the suppression insert is idempotent.
+      await db.execute(sql`
+        WITH updated AS (
+          UPDATE ${campaignRecipients}
+          SET "status" = 'unsubscribed', "updated_at" = now()
+          WHERE "id" = ${recipient.id}
+            AND "status" <> 'unsubscribed'
+          RETURNING "campaign_id"
+        ),
+        campaign_count AS (
+          UPDATE ${campaigns}
+          SET "unsubscribed_count" = "unsubscribed_count" + 1,
+              "updated_at" = now()
+          WHERE "id" = (SELECT "campaign_id" FROM updated)
+          RETURNING "id"
+        ),
+        suppression AS (
+          INSERT INTO ${unsubscribedEmails} ("workspace_id", "owner_id", "email")
+          VALUES (
+            ${recipient.workspaceId},
+            ${recipient.ownerId},
+            ${recipient.email.trim().toLowerCase()}
+          )
+          ON CONFLICT ("workspace_id", "email") DO NOTHING
+          RETURNING "id"
+        )
+        SELECT (SELECT count(*) FROM suppression)::int AS inserted
+      `);
     },
 
     /**
@@ -713,7 +724,8 @@ export function createEmailService(deps: { db: Database }) {
     /**
      * Recipients for a campaign, drawn from the unified customers table.
      * `audience` filters by provenance: chat-captured, database-synced,
-     * imported subscribers, or everyone. Unsubscribed emails are removed.
+     * imported subscribers, or everyone. This workspace's unsubscribed
+     * emails are removed.
      */
     async buildRecipientList(
       workspaceId: string,
@@ -744,7 +756,8 @@ export function createEmailService(deps: { db: Database }) {
       }
       const suppressed = await db
         .select({ email: unsubscribedEmails.email })
-        .from(unsubscribedEmails);
+        .from(unsubscribedEmails)
+        .where(eq(unsubscribedEmails.workspaceId, workspaceId));
       const suppressedSet = new Set(suppressed.map((entry) => entry.email.toLowerCase()));
       return [...byEmail.values()].filter(
         (recipient) => !suppressedSet.has(recipient.email.toLowerCase()),
