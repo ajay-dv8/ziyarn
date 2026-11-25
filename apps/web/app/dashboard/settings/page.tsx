@@ -12,12 +12,16 @@ import {
 
 import { ProfileForm } from "@/components/dashboard/profile-form";
 import { PasswordForm } from "@/components/dashboard/password-form";
+import { CancelSubscriptionButton } from "@/components/dashboard/cancel-subscription-button";
 import { DefaultCurrencyForm } from "@/components/dashboard/default-currency-form";
+import { DeleteAccountDialog } from "@/components/dashboard/delete-account-dialog";
+import { ManageSubscriptionButton } from "@/components/dashboard/manage-subscription-button";
 import { ThemeSettings } from "@/components/dashboard/theme-settings";
 import { AiProviderForm } from "@/components/settings/ai-provider-form";
 import { APP_ROUTES } from "@/constants/routes";
 import { aiConfigService } from "@/services/ai-config-service";
 import { authService } from "@/services/auth-service";
+import { billingService } from "@/services/billing-service";
 import { settingsService } from "@/services/settings-service";
 
 export const metadata: Metadata = {
@@ -33,6 +37,10 @@ export default async function SettingsPage() {
 
   const settings = await settingsService.getSettings(requestHeaders);
   const aiConfig = await aiConfigService.getWorkspaceConfig(requestHeaders);
+  const subscription = await billingService.getSubscription(session.user.id);
+  const subscriptionNeedsAction =
+    subscription !== null &&
+    ["active", "trialing", "past_due"].includes(subscription.status);
 
   return (
     <div className="space-y-6">
@@ -108,6 +116,43 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent>
           <ThemeSettings />
+        </CardContent>
+      </Card>
+
+      {subscription && subscriptionNeedsAction ? (
+        <Card className="max-w-lg">
+          <CardHeader>
+            <CardTitle>Subscription</CardTitle>
+            <CardDescription>
+              Your subscription follows your account and sets the plan for every
+              workspace you own. Cancel it before deleting your account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {subscription.customerSubscriptionCode ? (
+              <CancelSubscriptionButton />
+            ) : subscription.stripeCustomerId ? (
+              <ManageSubscriptionButton />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Contact support to cancel this subscription.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card className="max-w-lg border-destructive/40">
+        <CardHeader>
+          <CardTitle>Delete account</CardTitle>
+          <CardDescription>
+            Permanently remove your sign-in and personal settings. Workspaces
+            you own must be transferred first, and an active subscription must
+            be canceled.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DeleteAccountDialog />
         </CardContent>
       </Card>
     </div>
