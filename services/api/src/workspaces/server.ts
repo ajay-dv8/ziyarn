@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 
 import type { Database } from "@repo/database";
 import {
@@ -29,11 +29,13 @@ import {
   renameWorkspaceSchema,
   inviteMemberSchema,
   updateMemberRoleSchema,
+  transferWorkspaceOwnershipSchema,
   acceptInviteSchema,
   type CreateWorkspaceInput,
   type RenameWorkspaceInput,
   type InviteMemberInput,
   type UpdateMemberRoleInput,
+  type TransferWorkspaceOwnershipInput,
   type AcceptInviteInput,
 } from "@repo/api/workspaces/schemas";
 
@@ -103,6 +105,27 @@ const cannotChangeOwnerRole = () =>
     "Cannot change the owner's role",
   );
 
+const cannotTransferToSelf = () =>
+  new WorkspaceServiceError(
+    400,
+    "CANNOT_TRANSFER_TO_SELF",
+    "You already own this workspace",
+  );
+
+const transferTargetNotEligible = () =>
+  new WorkspaceServiceError(
+    400,
+    "TRANSFER_TARGET_NOT_ELIGIBLE",
+    "Promote this member to admin or member before transferring ownership",
+  );
+
+const ownerMismatch = () =>
+  new WorkspaceServiceError(
+    409,
+    "OWNER_MISMATCH",
+    "Workspace ownership is inconsistent. Contact support.",
+  );
+
 function generateInviteToken(): string {
   return randomBytes(32).toString("hex");
 }
@@ -170,10 +193,11 @@ export function createWorkspaceService(deps: {
   const requireWorkspaceOwner = async (
     workspaceId: string,
     userId: string,
+    action: string,
   ) => {
     const membership = await requireWorkspaceMembership(workspaceId, userId);
     if (membership.role !== "owner") {
-      throw ownerRequired("delete this workspace");
+      throw ownerRequired(action);
     }
     return membership;
   };
@@ -325,7 +349,11 @@ export function createWorkspaceService(deps: {
     deleteWorkspace: async (workspaceId: string, headers: Headers) => {
       const session = await getSession(headers);
       if (!session) throw unauthorized();
-      await requireWorkspaceOwner(workspaceId, session.user.id);
+      await requireWorkspaceOwner(
+        workspaceId,
+        session.user.id,
+        "delete this workspace",
+      );
 
       const [domainCountRow] = await db
         .select({ count: count() })
@@ -572,6 +600,153 @@ export function createWorkspaceService(deps: {
       return updated;
     },
 
+    /**
+     * Hands the workspace to another admin/member and demotes the current
+     * owner to admin. The workspace owner drives billing and account deletion,
+     * so both records and the cached domain plan move in one statement.
+     */
+    transferOwnership: async (
+      workspaceId: string,
+      input: TransferWorkspaceOwnershipInput,
+      headers: Headers,
+    ) => {
+      const session = await getSession(headers);
+      if (!session) throw unauthorized();
+      await requireWorkspaceOwner(
+        workspaceId,
+        session.user.id,
+        "transfer this workspace",
+      );
+
+      const body = transferWorkspaceOwnershipSchema.parse(input);
+      const workspace = await requireWorkspace(workspaceId);
+      if (workspace.ownerId !== session.user.id) throw ownerMismatch();
+
+      const [target] = await db
+        .select()
+        .from(workspaceMembers)
+        .where(
+          and(
+            eq(workspaceMembers.workspaceId, workspaceId),
+            eq(workspaceMembers.id, body.memberId),
+          ),
+        )
+        .limit(1);
+
+      if (!target) throw memberNotFound();
+      if (target.userId === session.user.id) throw cannotTransferToSelf();
+      if (target.role !== "admin" && target.role !== "member") {
+        throw transferTargetNotEligible();
+      }
+
+      const plan = await resolveUserPlan(db, target.userId);
+
+      // neon-http has no interactive transactions. One data-modifying CTE keeps
+      // the two memberships, the workspace owner, and cached domain plans in a
+      // single atomic statement; the guard rolls everything back if any
+      // precondition stopped matching between the reads above and this write.
+      try {
+        await db.execute(sql`
+          with target as (
+            update workspace_members
+            set role = 'owner'
+            where workspace_id = ${workspaceId}
+              and id = ${target.id}
+              and role in ('admin', 'member')
+              and exists (
+                select 1
+                from workspace_members owner_member
+                where owner_member.workspace_id = ${workspaceId}
+                  and owner_member.user_id = ${session.user.id}
+                  and owner_member.role = 'owner'
+              )
+              and exists (
+                select 1
+                from workspaces
+                where workspaces.id = ${workspaceId}
+                  and workspaces.owner_id = ${session.user.id}
+              )
+            returning user_id
+          ),
+          actor as (
+            update workspace_members
+            set role = 'admin'
+            where workspace_id = ${workspaceId}
+              and user_id = ${session.user.id}
+              and role = 'owner'
+              and exists (select 1 from target)
+            returning id
+          ),
+          workspace as (
+            update workspaces
+            set owner_id = (select user_id from target), updated_at = now()
+            where id = ${workspaceId}
+              and owner_id = ${session.user.id}
+              and exists (select 1 from target)
+              and exists (select 1 from actor)
+            returning id
+          ),
+          domain_update as (
+            update domains
+            set plan = ${plan}, updated_at = now()
+            where workspace_id = ${workspaceId}
+              and exists (select 1 from workspace)
+            returning id
+          )
+          select 1 / case
+            when (select count(*) from target) = 1
+              and (select count(*) from actor) = 1
+              and (select count(*) from workspace) = 1
+            then 1
+            else 0
+          end
+        `);
+      } catch (error) {
+        // A retried request can commit and then lose the response. Treat the
+        // already-completed state as success instead of reporting a failure.
+        const [[currentWorkspace], [currentTarget], [currentActor]] =
+          await Promise.all([
+            db
+              .select()
+              .from(workspaces)
+              .where(eq(workspaces.id, workspaceId))
+              .limit(1),
+            db
+              .select()
+              .from(workspaceMembers)
+              .where(
+                and(
+                  eq(workspaceMembers.workspaceId, workspaceId),
+                  eq(workspaceMembers.id, target.id),
+                ),
+              )
+              .limit(1),
+            db
+              .select()
+              .from(workspaceMembers)
+              .where(
+                and(
+                  eq(workspaceMembers.workspaceId, workspaceId),
+                  eq(workspaceMembers.userId, session.user.id),
+                ),
+              )
+              .limit(1),
+          ]);
+
+        if (
+          currentWorkspace?.ownerId === target.userId &&
+          currentTarget?.role === "owner" &&
+          currentActor?.role === "admin"
+        ) {
+          return { workspaceId, ownerId: target.userId };
+        }
+
+        throw error;
+      }
+
+      return { workspaceId, ownerId: target.userId };
+    },
+
     /** Removes a member from a workspace. */
     removeMember: async (
       workspaceId: string,
@@ -622,11 +797,6 @@ export function createWorkspaceService(deps: {
           );
 
         for (const ownedTeam of ownedTeams) {
-          await db
-            .update(teams)
-            .set({ ownerId: workspace.ownerId, updatedAt: new Date() })
-            .where(eq(teams.id, ownedTeam.id));
-
           const [ownerMembership] = await db
             .select()
             .from(teamMembers)
@@ -650,6 +820,13 @@ export function createWorkspaceService(deps: {
               role: "owner",
             });
           }
+
+          // Move ownership after the workspace owner has team access, so a
+          // failed insert cannot leave the team owned by a non-member.
+          await db
+            .update(teams)
+            .set({ ownerId: workspace.ownerId, updatedAt: new Date() })
+            .where(eq(teams.id, ownedTeam.id));
         }
 
         await db

@@ -17,7 +17,10 @@ import { createWorkspaceService, WorkspaceServiceError } from "@repo/api/workspa
  */
 type TableRows = unknown[] | unknown[][]
 
-function createFakeDb(results: Record<string, TableRows>) {
+function createFakeDb(
+  results: Record<string, TableRows>,
+  options: { executeError?: Error } = {},
+) {
   const cursors = new Map<string, number>()
 
   const rowsFor = (table: unknown): unknown[] => {
@@ -68,6 +71,10 @@ function createFakeDb(results: Record<string, TableRows>) {
     update: (table: unknown) => makeQuery(rowsFor(table)),
     delete: (table: unknown) => makeQuery(rowsFor(table)),
     transaction: async (fn: (tx: unknown) => unknown) => fn(api),
+    execute: async () => {
+      if (options.executeError) throw options.executeError
+      return { rows: [] }
+    },
   }
 
   return api
@@ -88,9 +95,10 @@ function membership(role: string, userId = OWNER_ID) {
 function serviceWith(
   results: Record<string, unknown[]>,
   session: { user: { id: string } } | null = { user: { id: OWNER_ID } },
+  fakeOptions: { executeError?: Error } = {},
 ) {
   return createWorkspaceService({
-    db: createFakeDb(results) as never,
+    db: createFakeDb(results, fakeOptions) as never,
     getSession: async () => session,
   })
 }
@@ -247,6 +255,157 @@ describe("workspace service permissions", () => {
     ).rejects.toThrow(
       expect.objectContaining({ status: 404, code: "NOT_FOUND" }),
     )
+  })
+
+  it("refuses an ownership transfer from an admin", async () => {
+    const service = serviceWith({
+      workspace_members: [[membership("admin")]],
+    })
+
+    await expect(
+      service.transferOwnership(
+        "ws-1",
+        { memberId: TARGET_MEMBER_ID },
+        new Headers(),
+      ),
+    ).rejects.toThrow(
+      expect.objectContaining({ status: 403, code: "OWNER_REQUIRED" }),
+    )
+  })
+
+  it("refuses to transfer ownership to a viewer", async () => {
+    const service = serviceWith({
+      workspace_members: [
+        [membership("owner")],
+        [
+          {
+            id: TARGET_MEMBER_ID,
+            workspaceId: "ws-1",
+            userId: ADMIN_ID,
+            role: "viewer",
+          },
+        ],
+      ],
+      workspaces: [[{ id: "ws-1", name: "Acme", ownerId: OWNER_ID }]],
+    })
+
+    await expect(
+      service.transferOwnership(
+        "ws-1",
+        { memberId: TARGET_MEMBER_ID },
+        new Headers(),
+      ),
+    ).rejects.toThrow(
+      expect.objectContaining({
+        status: 400,
+        code: "TRANSFER_TARGET_NOT_ELIGIBLE",
+      }),
+    )
+  })
+
+  it("refuses to transfer ownership to the current owner", async () => {
+    const service = serviceWith({
+      workspace_members: [
+        [membership("owner")],
+        [
+          {
+            id: TARGET_MEMBER_ID,
+            workspaceId: "ws-1",
+            userId: OWNER_ID,
+            role: "admin",
+          },
+        ],
+      ],
+      workspaces: [[{ id: "ws-1", name: "Acme", ownerId: OWNER_ID }]],
+    })
+
+    await expect(
+      service.transferOwnership(
+        "ws-1",
+        { memberId: TARGET_MEMBER_ID },
+        new Headers(),
+      ),
+    ).rejects.toThrow(
+      expect.objectContaining({
+        status: 400,
+        code: "CANNOT_TRANSFER_TO_SELF",
+      }),
+    )
+  })
+
+  it("transfers ownership and promotes the target", async () => {
+    const service = serviceWith({
+      workspace_members: [
+        [membership("owner")],
+        [
+          {
+            id: TARGET_MEMBER_ID,
+            workspaceId: "ws-1",
+            userId: ADMIN_ID,
+            role: "admin",
+          },
+        ],
+      ],
+      workspaces: [[{ id: "ws-1", name: "Acme", ownerId: OWNER_ID }]],
+      subscriptions: [[{ plan: "standard", status: "active" }]],
+    })
+
+    await expect(
+      service.transferOwnership(
+        "ws-1",
+        { memberId: TARGET_MEMBER_ID },
+        new Headers(),
+      ),
+    ).resolves.toEqual({ workspaceId: "ws-1", ownerId: ADMIN_ID })
+  })
+
+  it("treats a retried, already-completed transfer as success", async () => {
+    const service = serviceWith(
+      {
+        workspace_members: [
+          [membership("owner")],
+          [
+            {
+              id: TARGET_MEMBER_ID,
+              workspaceId: "ws-1",
+              userId: ADMIN_ID,
+              role: "admin",
+            },
+          ],
+          [
+            {
+              id: TARGET_MEMBER_ID,
+              workspaceId: "ws-1",
+              userId: ADMIN_ID,
+              role: "owner",
+            },
+          ],
+          [
+            {
+              id: "actor-membership",
+              workspaceId: "ws-1",
+              userId: OWNER_ID,
+              role: "admin",
+            },
+          ],
+        ],
+        workspaces: [
+          [{ id: "ws-1", name: "Acme", ownerId: OWNER_ID }],
+          [{ id: "ws-1", name: "Acme", ownerId: ADMIN_ID }],
+        ],
+        subscriptions: [[{ plan: "standard", status: "active" }]],
+      },
+      undefined,
+      { executeError: new Error("connection dropped after commit") },
+    )
+
+    await expect(
+      service.transferOwnership(
+        "ws-1",
+        { memberId: TARGET_MEMBER_ID },
+        new Headers(),
+      ),
+    ).resolves.toEqual({ workspaceId: "ws-1", ownerId: ADMIN_ID })
   })
 
   it("names the error type so callers can branch on it", () => {

@@ -41,6 +41,7 @@ export {
   renameWorkspaceSchema,
   updateMemberRoleSchema,
   updateTeamMemberRoleSchema,
+  transferWorkspaceOwnershipSchema,
 } from "@repo/api/workspaces/schemas";
 export type {
   AcceptInviteInput,
@@ -53,4 +54,5 @@ export type {
   RenameWorkspaceInput,
   UpdateMemberRoleInput,
   UpdateTeamMemberRoleInput,
+  TransferWorkspaceOwnershipInput,
 } from "@repo/api/workspaces/schemas";

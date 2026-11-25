@@ -38,6 +38,10 @@ export const updateMemberRoleSchema = z.object({
   role: assignableWorkspaceRoleSchema,
 });
 
+export const transferWorkspaceOwnershipSchema = z.object({
+  memberId: z.string().uuid("Invalid member id"),
+});
+
 export const acceptInviteSchema = z.object({
   token: z.string().min(1, "Invite token is required"),
 });
@@ -46,6 +50,9 @@ export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;
 export type RenameWorkspaceInput = z.infer<typeof renameWorkspaceSchema>;
 export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
 export type UpdateMemberRoleInput = z.infer<typeof updateMemberRoleSchema>;
+export type TransferWorkspaceOwnershipInput = z.infer<
+  typeof transferWorkspaceOwnershipSchema
+>;
 export type AcceptInviteInput = z.infer<typeof acceptInviteSchema>;
 
 export const teamNameSchema = z
