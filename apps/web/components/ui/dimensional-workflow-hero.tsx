@@ -290,7 +290,12 @@ function WorkflowPanel({ chapter }: { chapter: WorkflowChapter }) {
                       className={`port ${side}`}
                       hidden={
                         !diagram.edges.some(
-                          ({ from, to, out = "right", in: inputSide = "left" }) =>
+                          ({
+                            from,
+                            to,
+                            out = "right",
+                            in: inputSide = "left",
+                          }) =>
                             (from === nodeIndex && out === side) ||
                             (to === nodeIndex && inputSide === side),
                         )
@@ -362,11 +367,28 @@ function DevelopmentPanel({ chapter }: { chapter: BuildChapter }) {
             Page.tsx <span>TypeScript / React</span>
           </div>
           <pre>
+            {/* SNIPPET EXAM */}
             <code>{`const title = ${JSON.stringify(chapter.title.join(" "))};
-
-export default function Page() {
-  return <main><h1>{title}</h1></main>;
-}`}</code>
+              export default function RootLayout({ children }) {
+                return (
+                  <html
+                    lang="en"
+                    className=""
+                  >
+                    <body className="min-h-full flex flex-col">
+                        {children}
+                        <Footer />  
+                        <ZiyarnWidget
+                          slug="ACM"
+                          secret={process.env.ZIYARN_EMBED_SECRET!}
+                          variant="sleek"
+                          data-title="Chat with us"
+                        />
+                    </body>
+                  </html>
+                )
+              }`}
+            </code>
           </pre>
         </section>
         <section className="build-scene frontend-scene">
@@ -489,7 +511,11 @@ export default function DimensionalWorkflowHero({
   const rebuilding = useRef(false);
 
   const timeFor = (tl: gsap.core.Timeline, at: number) =>
-    at < 0 ? 0 : at >= count ? finaleAt + 0.85 : (tl.labels[`flow-${at}`] ?? tl.duration());
+    at < 0
+      ? 0
+      : at >= count
+        ? finaleAt + 0.85
+        : (tl.labels[`flow-${at}`] ?? tl.duration());
 
   const scrollToPosition = (at: number, behavior: ScrollBehavior) => {
     const tl = timeline.current,
@@ -636,7 +662,8 @@ export default function DimensionalWorkflowHero({
             gsap.set(panel, {
               x:
                 layout === "desktop"
-                  ? 60 + (panelIndex - mid) * (scene.clientWidth < 1100 ? 120 : 230)
+                  ? 60 +
+                    (panelIndex - mid) * (scene.clientWidth < 1100 ? 120 : 230)
                   : (panelIndex - mid) * Math.min(40, scene.clientWidth * 0.08),
               y:
                 layout === "desktop"
@@ -663,20 +690,23 @@ export default function DimensionalWorkflowHero({
             const lastPanel = panels[count - 1]!;
             const overflow =
               lastPanel.getBoundingClientRect().right -
-                viewport.getBoundingClientRect().right +
+              viewport.getBoundingClientRect().right +
               (layout === "desktop" ? 40 : 12);
             if (overflow <= 1) break;
             panels.forEach((panel, panelIndex) =>
-              gsap.set(panel, { x: `-=${(overflow * panelIndex) / (count - 1)}` }),
+              gsap.set(panel, {
+                x: `-=${(overflow * panelIndex) / (count - 1)}`,
+              }),
             );
           }
           gsap.set(copies, { autoAlpha: 0, y: 20 });
           gsap.set(".flow-finale", { autoAlpha: 0, y: 30 });
           chapters.forEach((chapter, chapterIndex) => {
             if (chapter.kind !== "build") return;
-            const scenes = panels[chapterIndex]!.querySelectorAll<HTMLElement>(
-              ".build-scene",
-            );
+            const scenes =
+              panels[chapterIndex]!.querySelectorAll<HTMLElement>(
+                ".build-scene",
+              );
             gsap.set(scenes, { autoAlpha: 0, x: 35 });
             gsap.set(scenes[0]!, { autoAlpha: 1, x: 0 });
           });
@@ -774,7 +804,11 @@ export default function DimensionalWorkflowHero({
               ),
             );
             const activeCopy = copies[chapterIndex]!;
-            tl.to(activeCopy, { autoAlpha: 1, y: 0, duration: 0.55 }, chapterStart);
+            tl.to(
+              activeCopy,
+              { autoAlpha: 1, y: 0, duration: 0.55 },
+              chapterStart,
+            );
             const items = activeCopy.querySelectorAll("li");
 
             if (chapter.kind === "build") {
@@ -819,9 +853,17 @@ export default function DimensionalWorkflowHero({
                   `.node[data-step="${stepIndex}"] .node-glow`,
                 );
                 if (!faces.length) return;
-                tl.to(faces, { z: 45, y: -8, scale: 1.04, duration: 0.28 }, stepAt)
+                tl.to(
+                  faces,
+                  { z: 45, y: -8, scale: 1.04, duration: 0.28 },
+                  stepAt,
+                )
                   .to(glows, { opacity: 1, duration: 0.28 }, stepAt)
-                  .to(faces, { z: 0, y: 0, scale: 1, duration: 0.25 }, stepAt + 0.45)
+                  .to(
+                    faces,
+                    { z: 0, y: 0, scale: 1, duration: 0.25 },
+                    stepAt + 0.45,
+                  )
                   .to(glows, { opacity: 0, duration: 0.25 }, stepAt + 0.45);
                 const item = items[stepIndex];
                 if (item) tl.to(item, { opacity: 1, duration: 0.25 }, stepAt);
@@ -847,8 +889,7 @@ export default function DimensionalWorkflowHero({
                   (panelIndex - mid) * Math.min(320, scene.clientWidth * 0.25),
                 y: panelIndex === midIndex ? 145 : -95,
                 z: -200,
-                scale: () =>
-                  layout === "desktop" ? 0.57 : panelFit * 0.8,
+                scale: () => (layout === "desktop" ? 0.57 : panelFit * 0.8),
                 rotationY: (panelIndex - mid) * -12,
                 rotationX: 5,
                 rotationZ: (panelIndex - mid) * 2,
@@ -858,10 +899,11 @@ export default function DimensionalWorkflowHero({
               finaleAt,
             ),
           );
-          tl.to(".flow-finale", { autoAlpha: 1, y: 0, duration: 0.85 }, finaleAt + 0.55).to(
-            {},
-            { duration: FINALE_HOLD },
-          );
+          tl.to(
+            ".flow-finale",
+            { autoAlpha: 1, y: 0, duration: 0.85 },
+            finaleAt + 0.55,
+          ).to({}, { duration: FINALE_HOLD });
 
           // Normal refreshes retain the cached playhead. Geometry changes rebuild
           // the complete timeline below, including its introductory fan poses.
@@ -955,7 +997,9 @@ export default function DimensionalWorkflowHero({
           const tl = timeline.current;
           const trigger = tl?.scrollTrigger;
           if (tl && trigger) {
-            trigger.scroll(trigger.start + progress * (trigger.end - trigger.start));
+            trigger.scroll(
+              trigger.start + progress * (trigger.end - trigger.start),
+            );
             tl.progress(progress);
             stableProgress.current = progress;
             stableActive.current = trigger.isActive;
@@ -1108,7 +1152,9 @@ export default function DimensionalWorkflowHero({
                         className={`flow-panel diagram-${chapterIndex}${chapter.kind === "build" ? " development-panel" : ""}`}
                       >
                         {chapter.kind === "build" ? (
-                          chapter.panel ?? <DevelopmentPanel chapter={chapter} />
+                          (chapter.panel ?? (
+                            <DevelopmentPanel chapter={chapter} />
+                          ))
                         ) : (
                           <WorkflowPanel chapter={chapter} />
                         )}
