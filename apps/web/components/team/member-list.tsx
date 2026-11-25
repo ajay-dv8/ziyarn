@@ -29,7 +29,10 @@ import {
 import { toast } from "sonner";
 
 import { RoleSelect } from "@/components/team/role-select";
-import { removeWorkspaceMemberAction } from "@/lib/actions/workspaces";
+import {
+  removeWorkspaceMemberAction,
+  transferWorkspaceOwnershipAction,
+} from "@/lib/actions/workspaces";
 
 export type TeamMember = {
   memberId: string;
@@ -100,6 +103,8 @@ function MemberRow({
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferPending, setTransferPending] = useState(false);
 
   const isSelf = isCurrentUser;
   // Admins can remove members and viewers; only the owner can remove an admin,
@@ -109,6 +114,11 @@ function MemberRow({
     member.role !== "owner" &&
     !isSelf &&
     (member.role !== "admin" || viewerIsOwner);
+  // Viewers are read-only, so they cannot receive ownership directly.
+  const canTransfer =
+    viewerIsOwner &&
+    !isSelf &&
+    (member.role === "admin" || member.role === "member");
 
   const displayName = member.name ?? member.email;
   const initials = displayName.trim().charAt(0).toUpperCase() || "?";
@@ -128,6 +138,24 @@ function MemberRow({
     }
 
     toast.success(`${displayName} removed from ${teamName}`);
+    router.refresh();
+  };
+
+  const transfer = async () => {
+    setTransferPending(true);
+    const result = await transferWorkspaceOwnershipAction({
+      workspaceId,
+      memberId: member.memberId,
+    });
+    setTransferPending(false);
+    setTransferOpen(false);
+
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+
+    toast.success(`${displayName} now owns ${teamName}`);
     router.refresh();
   };
 
@@ -158,6 +186,36 @@ function MemberRow({
           role={member.role}
           disabled={!canManage}
         />
+
+        {canTransfer && (
+          <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+            <DialogTrigger
+              render={
+                <Button variant="outline" size="sm">
+                  Make owner
+                </Button>
+              }
+            />
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Transfer ownership to {displayName}?</DialogTitle>
+                <DialogDescription>
+                  They will control billing and can delete {teamName}. You will
+                  become an admin. Your subscription stays with your account and
+                  the workspace plan follows the new owner.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setTransferOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={transfer} disabled={transferPending}>
+                  {transferPending ? "Transferring…" : "Transfer ownership"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {canRemove && (
           <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
