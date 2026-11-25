@@ -3,10 +3,6 @@ import { NextResponse } from "next/server";
 
 import { BillingServiceError } from "@repo/api/billing";
 
-import {
-  WORKSPACE_OWNER_ROLES,
-  getActiveWorkspaceAccess,
-} from "@/lib/workspace-access";
 import { authService } from "@/services/auth-service";
 import { billingService } from "@/services/billing-service";
 
@@ -20,16 +16,6 @@ export async function POST() {
       return NextResponse.json(
         { error: { code: "UNAUTHORIZED", message: "Sign in to manage your subscription" } },
         { status: 401 },
-      );
-    }
-    const access = await getActiveWorkspaceAccess(
-      requestHeaders,
-      WORKSPACE_OWNER_ROLES,
-    );
-    if (!access.ok) {
-      return NextResponse.json(
-        { error: { code: access.code, message: access.message } },
-        { status: access.status },
       );
     }
     const { url } = await billingService.createPortalSession(session.user.id);
