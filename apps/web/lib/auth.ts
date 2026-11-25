@@ -1,9 +1,14 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import type { Auth, BetterAuthOptions } from "better-auth";
+import { APIError } from "better-auth/api";
 import { betterAuth } from "better-auth/minimal";
 import { nextCookies } from "better-auth/next-js";
 
 import { db } from "@repo/database";
+import {
+  AccountDeletionBlockedError,
+  prepareAccountDeletion,
+} from "@repo/api/workspaces/account-deletion";
 
 import {
   AUTH_RATE_LIMIT,
@@ -51,6 +56,24 @@ const authConfig: BetterAuthOptions = {
   },
   rateLimit: AUTH_RATE_LIMIT,
   trustedOrigins: buildTrustedOrigins(),
+  user: {
+    deleteUser: {
+      enabled: true,
+      beforeDelete: async (deletingUser) => {
+        try {
+          await prepareAccountDeletion(db, deletingUser.id);
+        } catch (error) {
+          if (error instanceof AccountDeletionBlockedError) {
+            throw new APIError("CONFLICT", {
+              code: error.code,
+              message: error.message,
+            });
+          }
+          throw error;
+        }
+      },
+    },
+  },
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
