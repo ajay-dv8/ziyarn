@@ -371,13 +371,9 @@ function DevelopmentPanel({ chapter }: { chapter: BuildChapter }) {
             <code>{`const title = ${JSON.stringify(chapter.title.join(" "))};
               export default function RootLayout({ children }) {
                 return (
-                  <html
-                    lang="en"
-                    className=""
-                  >
+                  <html lang="en">
                     <body className="min-h-full flex flex-col">
                         {children}
-                        <Footer />  
                         <ZiyarnWidget
                           slug="ACM"
                           secret={process.env.ZIYARN_EMBED_SECRET!}
