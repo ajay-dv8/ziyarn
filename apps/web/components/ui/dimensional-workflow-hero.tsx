@@ -364,7 +364,7 @@ function DevelopmentPanel({ chapter }: { chapter: BuildChapter }) {
             APPLICATION <span>Illustrative React component</span>
           </div>
           <div className="code-tab">
-            Page.tsx <span>TypeScript / React</span>
+            layout.tsx <span>TypeScript / React</span>
           </div>
           <pre>
             {/* SNIPPET EXAM */}
