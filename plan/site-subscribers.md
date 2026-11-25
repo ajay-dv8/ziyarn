@@ -19,8 +19,8 @@ build pipeline (`apps/web/scripts/build-widget.mjs`,
 | Dedupe + upsert | `upsertCustomers()` in `services/api/src/customers/server.ts` (first provenance wins) | ✅ |
 | Dashboard list | Customers page tabs: All / From chat / From database / **Subscribers** (`source = "site"`) | ✅ |
 | CSV import | `customersService.import` → `source: "site"`, label "Imported list" | ✅ |
-| Campaigns | `buildRecipientList(ownerId, audience)` reads customers, drops suppressed emails | ✅ |
-| Unsubscribe + suppression | `unsubscribedEmails`, tokens in campaign mail, `/unsubscribe` route | ✅ |
+| Campaigns | `buildRecipientList(workspaceId, audience)` reads customers, drops that workspace's suppressed emails | ✅ |
+| Unsubscribe + suppression | `unsubscribedEmails` keyed by workspace, tokens in campaign mail, `/unsubscribe` route | ✅ |
 | Chat capture | agent `capture_email` tool → lead **and** customer `source: "chat"` | ✅ |
 | Widget auth | `x-embed-secret` header resolved to a domain (`resolveDomainBySecret`) | ✅ |
 | Public API pattern | `apps/web/app/api/public/*`, CORS headers in `@repo/api/chat` | ✅ |
@@ -55,8 +55,9 @@ Customers → Subscribers tab  ──►  Campaigns → send
 - **Available on every plan.** Capturing is free; sending stays gated by
   `PLAN_LIMITS.emailsPerMonth` (free = 0), so capture is the upsell.
 - **No auto-re-opt-in of unsubscribed emails.** If the address is on the
-  suppression list it still upserts as a customer row, but campaigns skip it.
-  This blocks "subscribe someone else's email" abuse until double opt-in ships.
+  workspace's suppression list it still upserts as a customer row, but that
+  workspace's campaigns skip it. This blocks "subscribe someone else's email"
+  abuse until double opt-in ships.
 - **First provenance wins** (existing behaviour): someone who first came via
   chat and later signs up stays `source: "chat"`, so they appear under "From
   chat", not "Subscribers". Accepted for v1.
@@ -170,7 +171,9 @@ Customers → Subscribers tab  ──►  Campaigns → send
   under "Subscribers" (first provenance wins). Documented, not fixed in v1.
 - **Build artifact**: `public/subscribe.js` must be committed and kept fresh —
   the lint `--check` enforces it, matching the widget.
-- **No migration** anywhere in this plan.
+- **No new tables** in this plan. A later consistency fix added
+  `unsubscribed_emails.workspace_id` (migration 0042), so suppression is
+  workspace-scoped instead of global.
 
 ## 6. Estimate
 

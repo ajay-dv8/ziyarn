@@ -105,9 +105,8 @@ passes, all API and web tests pass, and the production build passes under the
 
 Workspace-member access was completed on 2026-11-21: the inbox is scoped by
 workspace membership instead of `domains.ownerId`, and viewers are read-only.
-
-Still pending: a signed-in browser check with two domains and a non-owner
-workspace member.
+Browser verification with two domains and a non-owner workspace member now
+passes in `e2e/workspace-access.spec.ts`.
 
 ## Out of scope
 
