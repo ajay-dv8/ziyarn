@@ -17,6 +17,8 @@ type TestUser = { id: string; email: string };
 
 let sql: ReturnType<typeof neon>;
 let workspaceId: string | undefined;
+let adminTeamId: string;
+let ownerTeamId: string;
 let domainOneName: string;
 let domainTwoName: string;
 const userIds: string[] = [];
@@ -93,8 +95,40 @@ test.beforeAll(async ({ request }) => {
   }
 
   await sql`
-    insert into subscriptions (owner_id, plan, status)
-    values (${users.owner.id}, 'ultimate', 'active')
+    insert into subscriptions (
+      owner_id,
+      plan,
+      status,
+      customer_subscription_code
+    )
+    values (
+      ${users.owner.id},
+      'ultimate',
+      'active',
+      ${`SUB_e2e_${runId}`}
+    )
+  `;
+
+  const [adminTeam] = await sql`
+    insert into teams (workspace_id, name, owner_id)
+    values (${workspaceId}, ${`E2E admin team ${runId}`}, ${users.admin.id})
+    returning id
+  `;
+  adminTeamId = adminTeam.id as string;
+  await sql`
+    insert into team_members (team_id, user_id, role)
+    values (${adminTeamId}, ${users.admin.id}, 'owner')
+  `;
+
+  const [ownerTeam] = await sql`
+    insert into teams (workspace_id, name, owner_id)
+    values (${workspaceId}, ${`E2E owner team ${runId}`}, ${users.owner.id})
+    returning id
+  `;
+  ownerTeamId = ownerTeam.id as string;
+  await sql`
+    insert into team_members (team_id, user_id, role)
+    values (${ownerTeamId}, ${users.owner.id}, 'owner')
   `;
 
   domainOneName = `E2E One ${runId}`;
@@ -182,6 +216,18 @@ test("owner sees both domains, can reply, and can manage billing", async ({
     await expect(
       page.getByRole("button", { name: "Upgrade" }).first(),
     ).toBeVisible();
+
+    await page.goto(`${baseURL}/dashboard/settings`);
+    await page.getByRole("button", { name: "Delete my account" }).click();
+    const deleteDialog = page.getByRole("dialog");
+    await deleteDialog.getByLabel("Password", { exact: true }).fill(password);
+    await deleteDialog.getByLabel("Type DELETE to confirm").fill("DELETE");
+    await deleteDialog
+      .getByRole("button", { name: "Delete account" })
+      .click();
+    await expect(deleteDialog.getByRole("alert")).toContainText(
+      "Transfer ownership",
+    );
   } finally {
     await context.close();
   }
@@ -259,4 +305,112 @@ test("viewer reads both domains but cannot reply or create campaigns", async ({
   } finally {
     await context.close();
   }
+});
+
+test("owner transfers ownership and the workspace plan follows the new owner", async ({
+  browser,
+}) => {
+  const { context, page } = await signIn(browser, users.owner.email);
+  try {
+    await page.goto(`${baseURL}/dashboard/team?workspace=${workspaceId}`);
+    await expect(page.getByText("Members", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Make owner" }).click();
+    await page.getByRole("button", { name: "Transfer ownership" }).click();
+
+    await expect
+      .poll(async () => {
+        const [workspace] = await sql`
+          select owner_id from workspaces where id = ${workspaceId}
+        `;
+        return workspace?.owner_id;
+      })
+      .toBe(users.admin.id);
+
+    const members = await sql`
+      select user_id, role
+      from workspace_members
+      where workspace_id = ${workspaceId}
+    `;
+    expect(
+      members.find((member) => member.user_id === users.admin.id)?.role,
+    ).toBe("owner");
+    expect(
+      members.find((member) => member.user_id === users.owner.id)?.role,
+    ).toBe("admin");
+
+    const domains = await sql`
+      select plan from domains where workspace_id = ${workspaceId}
+    `;
+    expect(domains).toHaveLength(2);
+    expect(domains.every((domain) => domain.plan === "free")).toBe(true);
+  } finally {
+    await context.close();
+  }
+});
+
+test("account deletion is blocked by shared data, then reassigns owned teams", async ({
+  browser,
+}) => {
+  const newOwner = await signIn(browser, users.admin.email);
+  try {
+    const blocked = await newOwner.context.request.post(
+      `${baseURL}/api/auth/delete-user`,
+      { data: { password }, headers: { origin: baseURL } },
+    );
+    expect(blocked.status()).toBe(409);
+    const body = (await blocked.json()) as { message?: string };
+    expect(body.message).toContain("Transfer ownership");
+  } finally {
+    await newOwner.context.close();
+  }
+
+  const oldOwner = await signIn(browser, users.owner.email);
+  try {
+    // The subscription belongs to the account, so it stays manageable after
+    // the workspace is handed off to someone else.
+    await oldOwner.page.goto(`${baseURL}/dashboard/settings`);
+    await expect(
+      oldOwner.page.getByText("Subscription", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      oldOwner.page.getByRole("button", { name: "Cancel subscription" }),
+    ).toBeVisible();
+
+    await sql`
+      update subscriptions
+      set status = 'canceled'
+      where owner_id = ${users.owner.id}
+    `;
+
+    const deleted = await oldOwner.context.request.post(
+      `${baseURL}/api/auth/delete-user`,
+      { data: { password }, headers: { origin: baseURL } },
+    );
+    const deletedBody = await deleted.text();
+    expect(deleted.ok(), deletedBody).toBe(true);
+  } finally {
+    await oldOwner.context.close();
+  }
+
+  const [workspace] = await sql`
+    select owner_id from workspaces where id = ${workspaceId}
+  `;
+  expect(workspace.owner_id).toBe(users.admin.id);
+
+  const [team] = await sql`
+    select owner_id from teams where id = ${ownerTeamId}
+  `;
+  expect(team.owner_id).toBe(users.admin.id);
+
+  const [teamOwner] = await sql`
+    select role from team_members
+    where team_id = ${ownerTeamId} and user_id = ${users.admin.id}
+  `;
+  expect(teamOwner.role).toBe("owner");
+
+  const [deletedUser] = await sql`
+    select id from "user" where id = ${users.owner.id}
+  `;
+  expect(deletedUser).toBeUndefined();
 });
