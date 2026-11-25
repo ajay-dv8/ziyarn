@@ -10,6 +10,7 @@ import {
   inviteMemberSchema,
   renameWorkspaceSchema,
   updateMemberRoleSchema,
+  transferWorkspaceOwnershipSchema,
   type AssignableWorkspaceRole,
   type WorkspaceRole,
 } from "@repo/api/workspaces";
@@ -171,6 +172,32 @@ export async function updateWorkspaceMemberRoleAction(input: {
     );
     revalidateWorkspace();
     return { ok: true };
+  } catch (error) {
+    return errorResult(error);
+  }
+}
+
+/** Hands workspace ownership to another admin/member. */
+export async function transferWorkspaceOwnershipAction(input: {
+  workspaceId: string;
+  memberId: string;
+}): Promise<WorkspaceActionResult> {
+  const parsed = transferWorkspaceOwnershipSchema.safeParse({
+    memberId: input.memberId,
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "That member is not valid" };
+  }
+
+  try {
+    await workspaceService.transferOwnership(
+      input.workspaceId,
+      parsed.data,
+      await headers(),
+    );
+    revalidateWorkspace();
+    revalidatePath(APP_ROUTES.DASHBOARD_TEAM);
+    return { ok: true, workspaceId: input.workspaceId };
   } catch (error) {
     return errorResult(error);
   }
